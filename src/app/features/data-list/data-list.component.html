@@ -1,0 +1,152 @@
+<div class="p-4">
+  <div class="mb-4">
+    <button
+      class="bg-blue-500 text-white px-4 py-2 rounded mr-2"
+      (click)="createItem$.next($any('test'))"
+    >
+      Add Item
+    </button>
+    <button
+      class="bg-red-500 text-white px-4 py-2 rounded mr-2"
+      (click)="deleteItem$.next($any(store.allData())?.items[0].item)"
+    >
+      Delete first Item
+    </button>
+    <button
+      class="bg-yellow-500 text-white px-4 py-2 rounded mr-2"
+      (click)="updateItemTest(1)"
+    >
+      Update 1 Item
+    </button>
+    <button
+      class="bg-yellow-500 text-white px-4 py-2 rounded"
+      (click)="updateItemTest(2)"
+    >
+      Update 2 Item
+    </button>
+  </div>
+
+  <div *ngIf="store.allData()?.isLoading" class="text-center py-4">
+    Loading...
+  </div>
+
+  <div class="mb-4">
+    <span
+      *ngIf="store.allData()?.hasCreatingItem"
+      class="bg-blue-200 text-blue-800 px-2 py-1 rounded mr-2"
+      >Creating...</span
+    >
+    <span
+      *ngIf="store.allData()?.hasUpdatingItem"
+      class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded mr-2"
+      >Updating...</span
+    >
+    <span
+      *ngIf="store.allData()?.hasDeletingItem"
+      class="bg-red-200 text-red-800 px-2 py-1 rounded mr-2"
+      >Deleting...</span
+    >
+    <span
+      *ngIf="
+        store.allData()?.hasCreationError ||
+        store.allData()?.hasUpdateError ||
+        store.allData()?.hasDeleteError
+      "
+      class="bg-red-200 text-red-800 px-2 py-1 rounded"
+      >Error occurred</span
+    >
+  </div>
+
+  <div class="relative overflow-x-auto">
+    <table
+      *ngIf="store.allData()?.isLoaded"
+      class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400"
+    >
+      <thead
+        class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400"
+      >
+        <tr>
+          <th scope="col" class="px-6 py-3">ID</th>
+          <th scope="col" class="px-6 py-3">Name</th>
+          <th scope="col" class="px-6 py-3">Status</th>
+          <th scope="col" class="px-6 py-3">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let item of store.allData()?.items"
+          class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 border-gray-200"
+        >
+          <th
+            scope="row"
+            class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white"
+          >
+            {{ item.item.id }}
+          </th>
+          <td class="px-6 py-4">{{ item.item.name }}</td>
+          <td class="px-6 py-4">
+            <span
+              *ngIf="item.isCreating"
+              class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
+              >Creating</span
+            >
+            <span
+              *ngIf="item.isUpdating"
+              class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
+              >Updating</span
+            >
+            <span
+              *ngIf="item.isDeleting"
+              class="bg-red-200 text-red-800 px-2 py-1 rounded"
+              >Deleting</span
+            >
+            <span
+              *ngIf="item.isCreated"
+              class="bg-green-200 text-green-800 px-2 py-1 rounded"
+              >Created</span
+            >
+            <span
+              *ngIf="item.isUpdated"
+              class="bg-green-200 text-green-800 px-2 py-1 rounded"
+              >Updated</span
+            >
+            <span
+              *ngIf="item.isDeleted"
+              class="bg-green-200 text-green-800 px-2 py-1 rounded"
+              >Deleted</span
+            >
+            <span
+              *ngIf="item.hasCreationError"
+              class="bg-red-200 text-red-800 px-2 py-1 rounded"
+              >Creation Error</span
+            >
+            <span
+              *ngIf="item.hasUpdateError"
+              class="bg-red-200 text-red-800 px-2 py-1 rounded"
+              >Update Error</span
+            >
+            <span
+              *ngIf="item.hasDeleteError"
+              class="bg-red-200 text-red-800 px-2 py-1 rounded"
+              >Delete Error</span
+            >
+          </td>
+          <td class="px-6 py-4">
+            <button
+              (click)="updateItemTest(item.item.id)"
+              class="text-blue-500"
+            >
+              Edit
+            </button>
+            <button (click)="updateItemError(item.item.id)" class="text-red-500">
+              EditError
+            </button>
+            <button (click)="deleteItemTest(item.item.id)" class="text-red-500">
+              Delete
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
