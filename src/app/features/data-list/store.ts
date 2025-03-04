@@ -14,8 +14,14 @@ import {
   of,
   merge,
   startWith,
+  OperatorFunction,
+  tap,
 } from 'rxjs';
 import { statedStream } from '../../util/stated-stream/stated-stream';
+
+export type Operator = <T, R>(
+  fn: (value: T) => Observable<R>
+) => OperatorFunction<T, R>;
 
 type StatedCreation = {
   isCreating: boolean;
@@ -125,6 +131,7 @@ export const Store = new InjectionToken('Store', {
       update: {
         src: () => Observable<TData>;
         api: (item: TData) => Observable<Updated>;
+        operator: Operator;
       };
     }) => {
       const itemsData$ = data.getAll.src.pipe(
@@ -173,15 +180,13 @@ export const Store = new InjectionToken('Store', {
         }, {} as StatedCreation & { createItem: { [id: string | number | symbol]: StatedCreation & { item: TData } }; type: 'create' }),
         share()
       );
-      // todo refacto this pattern
-      // todo si l'utilisateur peut incrémenter un compteur rapidemenet ça ne va pas marcher comme on souhaite
       // todo voir si on garde un old item et on remet si ce n'est pas valide ?
+      // todo test memoryleak
       const updateItem$ = data.update.src().pipe(
         groupBy((item) => item.id),
         mergeMap((groupedItemById$) => {
           return groupedItemById$.pipe(
-            concatMap((item) => {
-              debugger;
+            data.update.operator((item) => {
               return statedStream(data.update.api(item), item).pipe(
                 map((updateItemState) => ({
                   [item.id]: {
@@ -445,12 +450,14 @@ export const Store = new InjectionToken('Store', {
                       (itemData) => itemData.item.id == id // todo improve
                     );
                     if (index === -1) {
-                      return;
+                      // todo improve if adding on the top
+                      acc.items = [...acc.items, item as StatedItem<TData>];
+                    } else {
+                      acc.items[index] = {
+                        ...acc.items[index],
+                        ...item,
+                      };
                     }
-                    acc.items[index] = {
-                      ...acc.items[index],
-                      ...item,
-                    };
                   });
                   return {
                     ...acc,

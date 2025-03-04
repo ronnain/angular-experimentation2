@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { DataItem, DataListService } from './data-list.service';
 import { CommonModule } from '@angular/common';
-import { BehaviorSubject, interval, Subject } from 'rxjs';
+import { BehaviorSubject, interval, Subject, switchMap } from 'rxjs';
 import { Store } from './store';
 
 @Component({
@@ -27,6 +27,7 @@ export class DataListComponent {
     update: {
       api: (item) => this.dataListService.updateItem(item),
       src: () => this.updateItem$,
+      operator: switchMap,
     },
     delete: {
       api: (item) => this.dataListService.deleteItem(item),
@@ -45,7 +46,9 @@ export class DataListComponent {
   updateItemTest(id: number) {
     this.updateItem$.next({
       id,
-      name: 'Item 1 TEST UPDATE' + Math.random(),
+      name:
+        'Item 1 TEST UPDATE' +
+        Math.floor(Math.random() * (1000 - 100 + 1) + 100),
     });
   }
   updateItemError(id: number) {
@@ -57,5 +60,12 @@ export class DataListComponent {
 
   deleteItemTest(id: number) {
     this.deleteItem$.next({ id, name: 'Item 1' });
+  }
+
+  createItemTest() {
+    this.createItem$.next({
+      id: Math.floor(Math.random() * (1000 - 100 + 1) + 100),
+      name: 'Created Item',
+    });
   }
 }
