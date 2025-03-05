@@ -1,11 +1,6 @@
 <div class="p-4">
   <div class="mb-4">
-    <button
-      class="bg-blue-500 text-white px-4 py-2 rounded mr-2"
-      (click)="createItemTest()"
-    >
-      Add Item
-    </button>
+    <button class="btn" (click)="createItemTest()">Add Item</button>
   </div>
 
   <div *ngIf="store.allData()?.isLoading" class="text-center py-4">
@@ -40,33 +35,22 @@
   </div>
 
   <div class="relative overflow-x-auto">
-    <table
-      *ngIf="store.allData()?.isLoaded"
-      class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400"
-    >
-      <thead
-        class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400"
-      >
+    <table *ngIf="store.allData()?.isLoaded" class="table">
+      <thead class="">
         <tr>
-          <th scope="col" class="px-6 py-3">ID</th>
-          <th scope="col" class="px-6 py-3">Name</th>
-          <th scope="col" class="px-6 py-3">Status</th>
-          <th scope="col" class="px-6 py-3">Actions</th>
+          <th scope="col" class="">ID</th>
+          <th scope="col" class="">Name</th>
+          <th scope="col" class="">Status</th>
+          <th scope="col" class="">Actions</th>
         </tr>
       </thead>
       <tbody>
-        <tr
-          *ngFor="let item of store.allData()?.items"
-          class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 border-gray-200"
-        >
-          <th
-            scope="row"
-            class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white"
-          >
+        <tr *ngFor="let item of store.allData()?.items" class="">
+          <th scope="row" class="">
             {{ item.item.id }}
           </th>
-          <td class="px-6 py-4">{{ item.item.name }}</td>
-          <td class="px-6 py-4">
+          <td class="">{{ item.item.name }}</td>
+          <td class="">
             <span
               *ngIf="item.isCreating"
               class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
@@ -113,7 +97,7 @@
               >Delete Error</span
             >
           </td>
-          <td class="px-6 py-4">
+          <td class="">
             <button
               (click)="updateItemTest(item.item.id)"
               class="text-blue-500"
