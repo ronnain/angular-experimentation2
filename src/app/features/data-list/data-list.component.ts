@@ -4,6 +4,7 @@ import { DataItem, DataListService } from './data-list.service';
 import { CommonModule } from '@angular/common';
 import { BehaviorSubject, interval, Subject, switchMap } from 'rxjs';
 import { Store } from './store';
+import { Store2 } from './storev2';
 
 @Component({
   selector: 'app-data-list',
@@ -40,6 +41,22 @@ export class DataListComponent {
       api: () => this.dataListService.getDataList$(),
       src: this.getAllData$,
       initialData: [],
+    },
+  });
+
+  protected readonly store2 = inject(Store2)({
+    getEntities: {
+      src: this.getAllData$,
+      api: () => this.dataListService.getDataList$(),
+      initialData: [],
+    },
+    entityIdSelector: (item) => item.id,
+    actionByEntity: {
+      update: {
+        src: () => this.updateItem$,
+        api: (item) => this.dataListService.updateItem(item),
+        operator: switchMap,
+      },
     },
   });
 

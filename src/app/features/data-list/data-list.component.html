@@ -1,6 +1,7 @@
 <div class="p-4">
   <div class="mb-4">
     <button class="btn" (click)="createItemTest()">Add Item</button>
+    <button class="btn" (click)="updateItemTest(1)">Update Item</button>
   </div>
 
   <div *ngIf="store.allData()?.isLoading" class="text-center py-4">
@@ -119,3 +120,5 @@
     </table>
   </div>
 </div>
+
+<pre>{{ store2.data | async | json }}</pre>

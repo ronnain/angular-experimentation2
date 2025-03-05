@@ -203,7 +203,6 @@ export const Store = new InjectionToken('Store', {
         }),
         scan((acc, curr) => {
           console.log('curr', curr);
-          debugger;
           const updateItem = {
             ...acc.updateItem,
             ...curr,
@@ -297,115 +296,6 @@ export const Store = new InjectionToken('Store', {
         }))
       );
 
-      // todo create event subject, and subscribe to the source and emit the event from the subscript from here
-      // const events$ = {
-      //   // todo add itemProcessing and itemProcessed
-      //   itemsLoading: itemsData$.pipe(filter((state) => state.isLoading)),
-      //   itemsLoaded: itemsData$.pipe(filter((state) => state.isLoaded)),
-      //   itemsError: itemsData$.pipe(filter((state) => state.hasError)),
-      //   itemCreation: createItem$.pipe(filter((state) => state.isLoading)),
-      //   itemCreated: createItem$.pipe(filter((state) => state.isLoaded)),
-      //   itemCreatedError: createItem$.pipe(filter((state) => state.hasError)),
-      //   itemUpdating: updateItem$.pipe(filter((state) => state.isLoading)),
-      //   itemUpdated: updateItem$.pipe(filter((state) => state.isLoaded)),
-      //   itemUpdatedError: updateItem$.pipe(filter((state) => state.hasError)),
-      //   itemDeleting: deleteItem$.pipe(filter((state) => state.isLoading)),
-      //   itemDeleted: deleteItem$.pipe(filter((state) => state.isLoaded)),
-      //   itemDeletedError: deleteItem$.pipe(filter((state) => state.hasError)),
-      //   itemProcessing: merge(
-      //     // todo check if we need to skipUntil isProcessing
-      //     createItem$.pipe(
-      //       map(({ isLoading }) => ({ isLoading, type: 'create' }))
-      //     ),
-      //     updateItem$.pipe(
-      //       map(({ isLoading }) => ({ isLoading, type: 'update' }))
-      //     ),
-      //     deleteItem$.pipe(
-      //       map(({ isLoading }) => ({ isLoading, type: 'delete' }))
-      //     )
-      //   ).pipe(
-      //     scan(
-      //       (acc, curr) => {
-      //         const processingType = {
-      //           ...acc.processingType,
-      //           [curr.type]: curr.isLoading,
-      //         };
-      //         return {
-      //           isProcessing: Object.values(processingType).some(
-      //             (isProcessing) => isProcessing
-      //           ),
-      //           processingType,
-      //         };
-      //       },
-      //       { isProcessing: false, processingType: {} } as {
-      //         isProcessing: boolean;
-      //         processingType: { [key: string]: boolean };
-      //       }
-      //     )
-      //   ),
-      //   itemProcessed: merge(
-      //     // todo check if we need to skipUntil isProcessed
-      //     createItem$.pipe(
-      //       map(({ isLoaded }) => ({ isLoaded, type: 'create' }))
-      //     ),
-      //     updateItem$.pipe(
-      //       map(({ isLoaded }) => ({ isLoaded, type: 'update' }))
-      //     ),
-      //     deleteItem$.pipe(
-      //       map(({ isLoaded }) => ({ isLoaded, type: 'delete' }))
-      //     )
-      //   ).pipe(
-      //     scan(
-      //       (acc, curr) => {
-      //         const processedType = {
-      //           ...acc.processedType,
-      //           [curr.type]: curr.isLoaded,
-      //         };
-      //         return {
-      //           isProcessed: Object.values(processedType).some(
-      //             (isProcessed) => isProcessed
-      //           ),
-      //           processedType,
-      //         };
-      //       },
-      //       { isProcessed: false, processedType: {} } as {
-      //         isProcessed: boolean;
-      //         processedType: { [key: string]: boolean };
-      //       }
-      //     )
-      //   ),
-      //   itemHasError: merge(
-      //     // todo check if we need to skipUntil isProcessed
-      //     createItem$.pipe(
-      //       map(({ hasError }) => ({ hasError, type: 'create' }))
-      //     ),
-      //     updateItem$.pipe(
-      //       map(({ hasError }) => ({ hasError, type: 'update' }))
-      //     ),
-      //     deleteItem$.pipe(
-      //       map(({ hasError }) => ({ hasError, type: 'delete' }))
-      //     )
-      //   ).pipe(
-      //     scan(
-      //       (acc, curr) => {
-      //         const processedType = {
-      //           ...acc.processedType,
-      //           [curr.type]: curr.hasError,
-      //         };
-      //         return {
-      //           hasProcessError: Object.values(processedType).some(
-      //             (isProcessed) => isProcessed
-      //           ),
-      //           processedType,
-      //         };
-      //       },
-      //       { hasProcessError: false, processedType: {} } as {
-      //         hasProcessError: boolean;
-      //         processedType: { [key: string]: boolean };
-      //       }
-      //     )
-      //   ),
-      // };
       // faire en sorte d'updat allData en fonction des events, 1 récupèrre all data puis switchMap avec tous à vide
       const allData$: Observable<StatedItems<TData>> = itemsData$.pipe(
         switchMap((itemsData) => {
@@ -441,7 +331,6 @@ export const Store = new InjectionToken('Store', {
             filterDeletedItems$
           ).pipe(
             scan((acc, curr) => {
-              debugger;
               switch (curr.type) {
                 case 'create': {
                   // todo avoid to mutate
@@ -557,3 +446,113 @@ export const Store = new InjectionToken('Store', {
     };
   },
 });
+
+// todo create event subject, and subscribe to the source and emit the event from the subscript from here
+// const events$ = {
+//   // todo add itemProcessing and itemProcessed
+//   itemsLoading: itemsData$.pipe(filter((state) => state.isLoading)),
+//   itemsLoaded: itemsData$.pipe(filter((state) => state.isLoaded)),
+//   itemsError: itemsData$.pipe(filter((state) => state.hasError)),
+//   itemCreation: createItem$.pipe(filter((state) => state.isLoading)),
+//   itemCreated: createItem$.pipe(filter((state) => state.isLoaded)),
+//   itemCreatedError: createItem$.pipe(filter((state) => state.hasError)),
+//   itemUpdating: updateItem$.pipe(filter((state) => state.isLoading)),
+//   itemUpdated: updateItem$.pipe(filter((state) => state.isLoaded)),
+//   itemUpdatedError: updateItem$.pipe(filter((state) => state.hasError)),
+//   itemDeleting: deleteItem$.pipe(filter((state) => state.isLoading)),
+//   itemDeleted: deleteItem$.pipe(filter((state) => state.isLoaded)),
+//   itemDeletedError: deleteItem$.pipe(filter((state) => state.hasError)),
+//   itemProcessing: merge(
+//     // todo check if we need to skipUntil isProcessing
+//     createItem$.pipe(
+//       map(({ isLoading }) => ({ isLoading, type: 'create' }))
+//     ),
+//     updateItem$.pipe(
+//       map(({ isLoading }) => ({ isLoading, type: 'update' }))
+//     ),
+//     deleteItem$.pipe(
+//       map(({ isLoading }) => ({ isLoading, type: 'delete' }))
+//     )
+//   ).pipe(
+//     scan(
+//       (acc, curr) => {
+//         const processingType = {
+//           ...acc.processingType,
+//           [curr.type]: curr.isLoading,
+//         };
+//         return {
+//           isProcessing: Object.values(processingType).some(
+//             (isProcessing) => isProcessing
+//           ),
+//           processingType,
+//         };
+//       },
+//       { isProcessing: false, processingType: {} } as {
+//         isProcessing: boolean;
+//         processingType: { [key: string]: boolean };
+//       }
+//     )
+//   ),
+//   itemProcessed: merge(
+//     // todo check if we need to skipUntil isProcessed
+//     createItem$.pipe(
+//       map(({ isLoaded }) => ({ isLoaded, type: 'create' }))
+//     ),
+//     updateItem$.pipe(
+//       map(({ isLoaded }) => ({ isLoaded, type: 'update' }))
+//     ),
+//     deleteItem$.pipe(
+//       map(({ isLoaded }) => ({ isLoaded, type: 'delete' }))
+//     )
+//   ).pipe(
+//     scan(
+//       (acc, curr) => {
+//         const processedType = {
+//           ...acc.processedType,
+//           [curr.type]: curr.isLoaded,
+//         };
+//         return {
+//           isProcessed: Object.values(processedType).some(
+//             (isProcessed) => isProcessed
+//           ),
+//           processedType,
+//         };
+//       },
+//       { isProcessed: false, processedType: {} } as {
+//         isProcessed: boolean;
+//         processedType: { [key: string]: boolean };
+//       }
+//     )
+//   ),
+//   itemHasError: merge(
+//     // todo check if we need to skipUntil isProcessed
+//     createItem$.pipe(
+//       map(({ hasError }) => ({ hasError, type: 'create' }))
+//     ),
+//     updateItem$.pipe(
+//       map(({ hasError }) => ({ hasError, type: 'update' }))
+//     ),
+//     deleteItem$.pipe(
+//       map(({ hasError }) => ({ hasError, type: 'delete' }))
+//     )
+//   ).pipe(
+//     scan(
+//       (acc, curr) => {
+//         const processedType = {
+//           ...acc.processedType,
+//           [curr.type]: curr.hasError,
+//         };
+//         return {
+//           hasProcessError: Object.values(processedType).some(
+//             (isProcessed) => isProcessed
+//           ),
+//           processedType,
+//         };
+//       },
+//       { hasProcessError: false, processedType: {} } as {
+//         hasProcessError: boolean;
+//         processedType: { [key: string]: boolean };
+//       }
+//     )
+//   ),
+// };
