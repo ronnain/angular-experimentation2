@@ -24,7 +24,7 @@ export class DataListService {
     // add a radom number and return a random number
     return of({
       id: Math.floor(Math.random() * 1000),
-      name: Math.floor(Math.random() * 20).toString(),
+      name: newItem.name,
     }).pipe(delay(2000));
     // this.dataListSubject.next([...currentDataList, newItem]);
   }

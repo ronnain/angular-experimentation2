@@ -51,11 +51,40 @@ export class DataListComponent {
       initialData: [],
     },
     entityIdSelector: (item) => item.id,
-    actionByEntity: {
+    entityLevelAction: {
       update: {
         src: () => this.updateItem$,
         api: (item) => this.dataListService.updateItem(item),
         operator: switchMap,
+      },
+      create: {
+        src: () => this.createItem$,
+        api: (item) => this.dataListService.addItem(item),
+        operator: switchMap,
+        customIdSelector: (item) => item.name,
+        reducer: {
+          onLoaded: (data) => {
+            return {
+              entities: data.entityWithStatus
+                ? [data.entityWithStatus, ...(data.entities ?? [])]
+                : undefined,
+              outOfContextEntities: data.outOfContextEntities?.filter(
+                (entityWithStatus) => {
+                  if (
+                    !entityWithStatus.entity ||
+                    !data.entityWithStatus?.entity
+                  ) {
+                    return true;
+                  }
+                  return (
+                    data.customIdSelector(entityWithStatus.entity) !==
+                    data.customIdSelector(data.entityWithStatus.entity)
+                  );
+                }
+              ),
+            };
+          },
+        },
       },
     },
   });
@@ -80,9 +109,10 @@ export class DataListComponent {
   }
 
   createItemTest() {
+    const newId = Math.floor(Math.random() * (1000 - 100 + 1) + 100);
     this.createItem$.next({
-      id: Math.floor(Math.random() * (1000 - 100 + 1) + 100),
-      name: 'Created Item',
+      id: newId,
+      name: 'Created Item ' + newId,
     });
   }
 }

@@ -28,10 +28,13 @@ export type Operator = <T, R>(
 
 type MethodName = string;
 
+type IdSelector<TData> = (entity: TData) => string | number;
+
 type ReducerParams<TData> = {
   id: string | number;
   status: EntityStatus;
-  entity: TData | undefined;
+  entityWithStatus: EntityWithStatus<TData> | undefined;
+  customIdSelector: IdSelector<TData>;
 } & ContextualEntities<TData>;
 
 type StatedData<T> = {
@@ -58,14 +61,17 @@ type EntityWithStatus<TData> = {
 };
 type MethodStatus = Record<MethodName, EntityStatus>;
 
+type EntityReducerConfig<TData> = {
+  entityStatedData: StatedData<TData>;
+  reducer: StatedDataReducer<TData> | undefined;
+  idSelector: IdSelector<TData>;
+};
+
 type EntityStateByMethodObservable<TData> = Observable<
   Record<
     MethodName,
     {
-      [x: string]: {
-        entityStatedData: StatedData<TData>;
-        reducer: StatedDataReducer<TData> | undefined;
-      };
+      [x: string]: EntityReducerConfig<TData>;
     }
   >
 >[];
@@ -77,7 +83,7 @@ type ContextualEntities<TData> = {
 
 type StatedEntities<TData> = StatedData<ContextualEntities<TData>>;
 
-// ! pour la méthode create, si pas de reducer, l'entity va reste dans le outOfContextEntities, sinon utilsier un reducer au success
+// todo create a plug function, that will ensure that mutation api call are not cancelled if the store is destroyed
 
 export const Store2 = new InjectionToken('Store', {
   providedIn: 'root',
@@ -88,21 +94,38 @@ export const Store2 = new InjectionToken('Store', {
         api: () => Observable<TData[]>;
         initialData: TData[] | undefined;
       };
-      entityIdSelector: (item: TData) => string | number; // used to know of to identify the entity
-      actionByEntity?: Record<
+      entityIdSelector: IdSelector<TData>; // used to know of to identify the entity
+      entityLevelAction?: Record<
         MethodName,
         {
           src: () => Observable<TData>;
-          api: (item: TData) => Observable<TData>;
+          api: (entity: TData) => Observable<TData>;
           operator: Operator; // Use switchMap as default
+          customIdSelector?: IdSelector<TData>; // used to know of to identify the entity, it is useful for creation, when the entity has no id yet
           // todo add status duration ?
           removedEntityOn?: {
-            filterCompare: (item: TData) => boolean; // filter function that is used to removed item when the notifier emit
-            notifier: (events: any) => Observable<unknown>; // if not provided, the item is not removed, otherwise it is removed after the duration emit
+            // todo it will be used to update the item later when it emit, for remove
+            filterCompare: (entity: TData) => boolean; // filter function that is used to removed entity when the notifier emit
+            notifier: (events: any) => Observable<unknown>; // if not provided, the entity is not removed, otherwise it is removed after the duration emit
           }[];
           reducer?: StatedDataReducer<TData>; // if not provided, it will update the entity in the list
         }
-      >; // action that will affect the targeted entity, they can be triggered parallelly
+      >; // action that will affect the targeted entity, they can be triggered concurrently
+      //   entitiesLevelAction?: Record<
+      //     MethodName,
+      //     {
+      //       src: () => Observable<TData>;
+      //       api: (entity: TData) => Observable<TData>;
+      //       operator: Operator; // Use switchMap as default (prefer switchMap, concatMap, or exhaustMap), you may want to avoid mergeMap because it can trigger multiple request in parallel, the response with the loading status will be merged (the status may alternate between loading and loaded)
+      //       // todo add status duration ?
+      //       removedEntityOn?: {
+      //         filterCompare: (entity: TData) => boolean; // filter function that is used to removed entity when the notifier emit
+      //         notifier: (events: any) => Observable<unknown>; // if not provided, the entity is not removed, otherwise it is removed after the duration emit
+      //       }[];
+      //       idSelector?: (entity: TData) => string | number; // used to know of to identify the entity, it is useful for creation, when the entity has no id yet
+      //       reducer?: StatedDataReducer<TData>; // if not provided, it will update the entity in the list
+      //     }
+      //   >;
     }) => {
       const entityIdSelector = data.entityIdSelector;
 
@@ -113,29 +136,28 @@ export const Store2 = new InjectionToken('Store', {
         share()
       );
 
-      const actionByEntityList$ = Object.entries(
-        data.actionByEntity ?? {}
+      const entityLevelActionList$ = Object.entries(
+        data.entityLevelAction ?? {}
       ).reduce((acc, [methodName, groupByData]) => {
         const src$ = groupByData.src();
         const operatorFn = groupByData.operator;
         const api = groupByData.api;
         const reducer = groupByData.reducer;
         const removedEntityOn$ = groupByData.removedEntityOn || []; // todo
+        const idSelector = groupByData.customIdSelector || entityIdSelector;
 
         const actionByEntity$ = src$.pipe(
-          groupBy((entity) => data.entityIdSelector(entity)),
-          mergeMap((groupedItemById$) => {
-            return groupedItemById$.pipe(
-              operatorFn((item) => {
-                return statedStream(api(item), item).pipe(
+          groupBy((entity) => idSelector(entity)),
+          mergeMap((groupedEntityById$) => {
+            return groupedEntityById$.pipe(
+              operatorFn((entity) => {
+                return statedStream(api(entity), entity).pipe(
                   map((entityStatedData) => ({
-                    [entityIdSelector(item)]: {
+                    [entityIdSelector(entity)]: {
                       entityStatedData,
                       reducer,
-                    } satisfies {
-                      entityStatedData: StatedData<TData>;
-                      reducer?: StatedDataReducer<TData>;
-                    },
+                      idSelector,
+                    } satisfies EntityReducerConfig<TData>,
                   }))
                 );
               })
@@ -146,14 +168,13 @@ export const Store2 = new InjectionToken('Store', {
         return [
           ...acc,
           actionByEntity$.pipe(
-            map((groupedItemById) => ({ [methodName]: groupedItemById }))
+            map((groupedEntityById) => ({ [methodName]: groupedEntityById }))
           ),
         ];
       }, [] as EntityStateByMethodObservable<TData>);
 
       const finalResult = entitiesData$.pipe(
         switchMap((entitiesData) => {
-          // todo find a way to preserve the
           const seed = {
             ...entitiesData,
             result: {
@@ -167,7 +188,7 @@ export const Store2 = new InjectionToken('Store', {
               outOfContextEntities: [] as EntityWithStatus<TData>[],
             },
           } satisfies StatedEntities<TData>;
-          return merge(...actionByEntityList$).pipe(
+          return merge(...entityLevelActionList$).pipe(
             //@ts-ignore
             scan((acc, actionByEntity) => {
               const methodName = Object.keys(actionByEntity)[0];
@@ -181,9 +202,41 @@ export const Store2 = new InjectionToken('Store', {
                   result,
                 },
                 reducer,
+                idSelector,
               } = actionByEntity[methodName][entityId];
 
               const incomingEntityValue = result;
+              const previousEntityWithStatus =
+                acc.result.entities?.find(
+                  (entityData) => idSelector(entityData.entity) == entityId
+                ) ??
+                acc.result.outOfContextEntities?.find(
+                  (entityData) =>
+                    entityData.entity &&
+                    idSelector(entityData.entity) == entityId
+                );
+              const updatedEntityValue: TData | undefined =
+                previousEntityWithStatus?.entity
+                  ? {
+                      ...previousEntityWithStatus.entity,
+                      ...incomingEntityValue,
+                    }
+                  : incomingEntityValue;
+
+              const updatedEntity: EntityWithStatus<TData> = {
+                ...previousEntityWithStatus,
+                id: entityId,
+                entity: updatedEntityValue,
+                status: {
+                  ...previousEntityWithStatus?.status,
+                  [methodName]: {
+                    isLoading,
+                    isLoaded,
+                    hasError,
+                    error,
+                  },
+                },
+              };
               const incomingStatus: EntityStatus = {
                 isLoading,
                 isLoaded,
@@ -198,80 +251,82 @@ export const Store2 = new InjectionToken('Store', {
                 : hasError
                 ? reducer?.onError
                 : undefined;
-
-              debugger;
-
+              // todo si géré si présent dans outOfContext et entities
+              // merger l'info et la mettre dans le entities
               if (!customReducer || !acc.result) {
-                const currentEntityInEntities = acc.result.entities?.find(
-                  (entityData) =>
-                    entityIdSelector(entityData.entity) == entityId
+                const isEntityInEntities = acc.result.entities?.some(
+                  (entityData) => idSelector(entityData.entity) == entityId
                 );
+                const isEntityInOutOfContextEntities =
+                  acc.result.outOfContextEntities?.some(
+                    (entityData) => entityData.id == entityId
+                  );
 
-                if (!currentEntityInEntities) {
-                  const updatedOutOfContextEntities =
-                    acc.result.outOfContextEntities?.map((entityData) => {
-                      if (entityData.id != entityId) {
-                        // todo check for !==
-                        return entityData;
-                      }
-
-                      return {
-                        id: entityId,
-                        entity: incomingEntityValue,
-                        status: {
-                          ...entityData.status,
-                          [methodName]: incomingStatus,
-                        } satisfies MethodStatus,
-                      } satisfies EntityWithStatus<TData>;
-                    });
-
+                if (!isEntityInEntities && !isEntityInOutOfContextEntities) {
                   return {
                     ...acc,
                     result: {
                       ...acc.result,
-                      outOfContextEntities: updatedOutOfContextEntities,
+                      outOfContextEntities: [
+                        ...acc.result.outOfContextEntities,
+                        updatedEntity,
+                      ],
                     },
                   } satisfies StatedEntities<TData>;
                 }
 
-                const updatedEntities = acc.result.entities?.map(
-                  (entityData) => {
-                    if (entityIdSelector(entityData.entity) != entityId) {
-                      return entityData;
-                    }
+                if (isEntityInEntities) {
+                  return {
+                    ...acc,
+                    result: {
+                      ...acc.result,
+                      entities: replaceEntityIn({
+                        entities: acc.result.entities,
+                        entityId,
+                        updatedEntity,
+                      }),
+                      outOfContextEntities: isEntityInOutOfContextEntities
+                        ? acc.result.outOfContextEntities.filter(
+                            (entity) =>
+                              entity.entity &&
+                              idSelector(entity.entity) !== entityId
+                          )
+                        : acc.result.outOfContextEntities,
+                    },
+                  } satisfies StatedEntities<TData>;
+                }
 
-                    return {
-                      id: entityId,
-                      entity: incomingEntityValue,
-                      status: {
-                        ...entityData.status,
-                        [methodName]: incomingStatus,
-                      } satisfies MethodStatus,
-                    } satisfies EntityWithStatus<TData>;
-                  }
-                );
                 return {
                   ...acc,
                   result: {
                     ...acc.result,
-                    entities: updatedEntities,
+                    outOfContextEntities: replaceEntityIn({
+                      entities: acc.result.outOfContextEntities,
+                      entityId,
+                      updatedEntity,
+                    }),
                   },
                 } satisfies StatedEntities<TData>;
               }
 
-              return {
-                ...acc,
-                result: customReducer({
-                  entities: acc.result.entities,
-                  outOfContextEntities: acc.result.outOfContextEntities,
-                  entity: incomingEntityValue,
-                  status: incomingStatus,
-                  id: entityId,
-                }),
-              } satisfies StatedEntities<TData>;
+              if (customReducer) {
+                return {
+                  ...acc,
+                  result: customReducer({
+                    entities: acc.result.entities,
+                    outOfContextEntities: acc.result.outOfContextEntities,
+                    entityWithStatus: updatedEntity,
+                    status: incomingStatus,
+                    customIdSelector: idSelector,
+                    id: entityId,
+                  }),
+                } satisfies StatedEntities<TData>;
+              }
+
+              return acc;
             }, seed),
             startWith(seed)
-            // todo add hasDeleteItem selectors...
+            // todo add hasDeleteEntity selectors...
           );
         })
       );
@@ -282,3 +337,20 @@ export const Store2 = new InjectionToken('Store', {
     };
   },
 });
+function replaceEntityIn<TData>({
+  entities,
+  entityId,
+  updatedEntity,
+}: {
+  entities: EntityWithStatus<TData>[] | undefined;
+  entityId: string;
+  updatedEntity: EntityWithStatus<TData>;
+}) {
+  return entities?.map((entityData) => {
+    if (entityData.id != entityId) {
+      return entityData;
+    }
+
+    return updatedEntity;
+  });
+}
