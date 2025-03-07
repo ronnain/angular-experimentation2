@@ -8,35 +8,9 @@
     Loading...
   </div>
 
-  <div class="mb-4">
-    <span
-      *ngIf="store.allData()?.hasCreatingItem"
-      class="bg-blue-200 text-blue-800 px-2 py-1 rounded mr-2"
-      >Creating...</span
-    >
-    <span
-      *ngIf="store.allData()?.hasUpdatingItem"
-      class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded mr-2"
-      >Updating...</span
-    >
-    <span
-      *ngIf="store.allData()?.hasDeletingItem"
-      class="bg-red-200 text-red-800 px-2 py-1 rounded mr-2"
-      >Deleting...</span
-    >
-    <span
-      *ngIf="
-        store.allData()?.hasCreationError ||
-        store.allData()?.hasUpdateError ||
-        store.allData()?.hasDeleteError
-      "
-      class="bg-red-200 text-red-800 px-2 py-1 rounded"
-      >Error occurred</span
-    >
-  </div>
-
+  <h2 class="">Entities</h2>
   <div class="relative overflow-x-auto">
-    <table *ngIf="store.allData()?.isLoaded" class="table">
+    <table *ngIf="store2.data | async as data" class="table">
       <thead class="">
         <tr>
           <th scope="col" class="">ID</th>
@@ -46,72 +20,167 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let item of store.allData()?.items" class="">
+        <tr *ngFor="let entityData of data.result.entities" class="">
           <th scope="row" class="">
-            {{ item.item.id }}
+            {{ entityData.entity.id }}
           </th>
-          <td class="">{{ item.item.name }}</td>
+          <td class="">{{ entityData.entity.name }}</td>
           <td class="">
             <span
-              *ngIf="item.isCreating"
+              *ngIf="$any(entityData.status).create?.isLoading"
               class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
               >Creating</span
             >
             <span
-              *ngIf="item.isUpdating"
+              *ngIf="$any(entityData.status).update?.isLoading"
               class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
               >Updating</span
             >
             <span
-              *ngIf="item.isDeleting"
+              *ngIf="$any(entityData.status).delete?.isLoading"
               class="bg-red-200 text-red-800 px-2 py-1 rounded"
               >Deleting</span
             >
             <span
-              *ngIf="item.isCreated"
+              *ngIf="$any(entityData.status).create?.isLoaded"
               class="bg-green-200 text-green-800 px-2 py-1 rounded"
               >Created</span
             >
             <span
-              *ngIf="item.isUpdated"
+              *ngIf="$any(entityData.status).update?.isLoaded"
               class="bg-green-200 text-green-800 px-2 py-1 rounded"
               >Updated</span
             >
             <span
-              *ngIf="item.isDeleted"
+              *ngIf="$any(entityData.status).delete?.isLoaded"
               class="bg-green-200 text-green-800 px-2 py-1 rounded"
               >Deleted</span
             >
             <span
-              *ngIf="item.hasCreationError"
+              *ngIf="$any(entityData.status).create?.hasError"
               class="bg-red-200 text-red-800 px-2 py-1 rounded"
               >Creation Error</span
             >
             <span
-              *ngIf="item.hasUpdateError"
+              *ngIf="$any(entityData.status).update?.hasError"
               class="bg-red-200 text-red-800 px-2 py-1 rounded"
               >Update Error</span
             >
             <span
-              *ngIf="item.hasDeleteError"
+              *ngIf="$any(entityData.status).delete?.hasError"
               class="bg-red-200 text-red-800 px-2 py-1 rounded"
               >Delete Error</span
             >
           </td>
           <td class="">
             <button
-              (click)="updateItemTest(item.item.id)"
+              (click)="updateItemTest(entityData.entity.id)"
               class="text-blue-500"
             >
               Edit
             </button>
             <button
-              (click)="updateItemError(item.item.id)"
+              (click)="updateItemError(entityData.entity.id)"
               class="text-red-500"
             >
               EditError
             </button>
-            <button (click)="deleteItemTest(item.item.id)" class="text-red-500">
+            <button
+              (click)="deleteItemTest(entityData.entity.id)"
+              class="text-red-500"
+            >
+              Delete
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="">Out Of context Entities</h2>
+  <div class="relative overflow-x-auto">
+    <table *ngIf="store2.data | async as data" class="table">
+      <thead class="">
+        <tr>
+          <th scope="col" class="">ID</th>
+          <th scope="col" class="">Name</th>
+          <th scope="col" class="">Status</th>
+          <th scope="col" class="">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let entityData of data.result.outOfContextEntities"
+          class=""
+        >
+          <th scope="row" class="">
+            {{ entityData.entity?.id }}
+          </th>
+          <td class="">{{ entityData.entity?.name }}</td>
+          <td class="">
+            <span
+              *ngIf="$any(entityData.status).create?.isLoading"
+              class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
+              >Creating</span
+            >
+            <span
+              *ngIf="$any(entityData.status).update?.isLoading"
+              class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
+              >Updating</span
+            >
+            <span
+              *ngIf="$any(entityData.status).delete?.isLoading"
+              class="bg-red-200 text-red-800 px-2 py-1 rounded"
+              >Deleting</span
+            >
+            <span
+              *ngIf="$any(entityData.status).create?.isLoaded"
+              class="bg-green-200 text-green-800 px-2 py-1 rounded"
+              >Created</span
+            >
+            <span
+              *ngIf="$any(entityData.status).update?.isLoaded"
+              class="bg-green-200 text-green-800 px-2 py-1 rounded"
+              >Updated</span
+            >
+            <span
+              *ngIf="$any(entityData.status).delete?.isLoaded"
+              class="bg-green-200 text-green-800 px-2 py-1 rounded"
+              >Deleted</span
+            >
+            <span
+              *ngIf="$any(entityData.status).create?.hasError"
+              class="bg-red-200 text-red-800 px-2 py-1 rounded"
+              >Creation Error</span
+            >
+            <span
+              *ngIf="$any(entityData.status).update?.hasError"
+              class="bg-red-200 text-red-800 px-2 py-1 rounded"
+              >Update Error</span
+            >
+            <span
+              *ngIf="$any(entityData.status).delete?.hasError"
+              class="bg-red-200 text-red-800 px-2 py-1 rounded"
+              >Delete Error</span
+            >
+          </td>
+          <td class="">
+            <button
+              (click)="updateItemTest(entityData.entity?.id ?? -1)"
+              class="text-blue-500"
+            >
+              Edit
+            </button>
+            <button
+              (click)="updateItemError(entityData.entity?.id ?? -1)"
+              class="text-red-500"
+            >
+              EditError
+            </button>
+            <button
+              (click)="deleteItemTest(entityData.entity?.id ?? -1)"
+              class="text-red-500"
+            >
               Delete
             </button>
           </td>

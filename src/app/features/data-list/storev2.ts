@@ -251,8 +251,7 @@ export const Store2 = new InjectionToken('Store', {
                 : hasError
                 ? reducer?.onError
                 : undefined;
-              // todo si géré si présent dans outOfContext et entities
-              // merger l'info et la mettre dans le entities
+              debugger;
               if (!customReducer || !acc.result) {
                 const isEntityInEntities = acc.result.entities?.some(
                   (entityData) => idSelector(entityData.entity) == entityId
