@@ -76,17 +76,7 @@ export class DataListComponent {
         operator: exhaustMap,
         delayedReducer: [
           {
-            notifier: () =>
-              timer(2000).pipe(
-                tap({
-                  next: (data) => console.log('[delayedDelete] data', data),
-                  error: (error) => console.log('[delayedDelete] error', error),
-                  complete: () => console.log('[delayedDelete] complete'),
-                  subscribe: () => console.log('[delayedDelete] subscribe'),
-                  unsubscribe: () => console.log('[delayedDelete] unsubscribe'),
-                  finalize: () => console.log('[delayedDelete] finalize'),
-                })
-              ),
+            notifier: () => timer(2000),
             reducer: {
               onLoaded: ({
                 entityWithStatus,
