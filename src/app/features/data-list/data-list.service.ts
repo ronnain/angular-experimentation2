@@ -25,8 +25,7 @@ export class DataListService {
     return of({
       id: Math.floor(Math.random() * 1000),
       name: newItem.name,
-    }).pipe(delay(20000));
-    // this.dataListSubject.next([...currentDataList, newItem]);
+    }).pipe(delay(5000));
   }
 
   deleteItem(item: DataItem) {

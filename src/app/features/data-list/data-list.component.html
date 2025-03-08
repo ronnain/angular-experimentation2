@@ -1,12 +1,20 @@
+@let data= store2.data | async;
+
 <div class="p-4">
   <div class="mb-4">
     <button class="btn" (click)="createItemTest()">Add Item</button>
     <button class="btn" (click)="updateItemTest(1)">Update Item</button>
   </div>
 
+  <!-- Display loading -->
+  @if(data?.isLoading) {
+  <div class="flex items-center justify-center">
+    <div class="spinner"></div>
+  </div>
+  } @if(data && data.isLoaded) {
   <h2 class="">Entities</h2>
   <div class="relative overflow-x-auto">
-    <table *ngIf="store2.data | async as data" class="table">
+    <table *ngIf="data?.isLoaded" class="table">
       <thead class="">
         <tr>
           <th scope="col" class="">ID</th>
@@ -16,7 +24,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let entityData of data.result.entities" class="">
+        <tr *ngFor="let entityData of data?.result?.entities" class="">
           <th scope="row" class="">
             {{ entityData.entity.id }}
           </th>
@@ -93,7 +101,7 @@
     </table>
   </div>
 
-  <!-- <h2 class="">Out Of context Entities</h2>
+  <h2 class="mt-4" class="">Out Of context Entities</h2>
   <div class="relative overflow-x-auto">
     <table *ngIf="store2.data | async as data" class="table">
       <thead class="">
@@ -183,7 +191,8 @@
         </tr>
       </tbody>
     </table>
-  </div> -->
+  </div>
+  }
 </div>
 
 <!-- <pre>{{ store2.data | async | json }}</pre> -->
