@@ -5,11 +5,14 @@ import {
   merge,
   mergeMap,
   Observable,
+  of,
   OperatorFunction,
   scan,
   share,
+  shareReplay,
   startWith,
   switchMap,
+  tap,
 } from 'rxjs';
 import { statedStream } from '../../util/stated-stream/stated-stream';
 
@@ -53,6 +56,11 @@ type StatedDataReducer<TData> = {
   onError?: Reducer<TData>;
 };
 
+type StatedDataReducerWithoutOnLoading<TData> = Omit<
+  StatedDataReducer<TData>,
+  'onLoading'
+>;
+
 type EntityStatus = Omit<StatedData<unknown>, 'result'>;
 type EntityWithStatus<TData> = {
   id: string | number;
@@ -83,6 +91,11 @@ type ContextualEntities<TData> = {
 
 type StatedEntities<TData> = StatedData<ContextualEntities<TData>>;
 
+type DelayedReducer<TData> = {
+  reducer: StatedDataReducerWithoutOnLoading<TData>;
+  notifier: (events: any) => Observable<unknown>; // if not provided, the entity is not removed, otherwise it is removed after the duration emit
+};
+
 // todo create a plug function, that will ensure that mutation api call are not cancelled if the store is destroyed
 
 export const Store2 = new InjectionToken('Store', {
@@ -103,11 +116,7 @@ export const Store2 = new InjectionToken('Store', {
           operator: Operator; // Use switchMap as default
           customIdSelector?: IdSelector<TData>; // used to know of to identify the entity, it is useful for creation, when the entity has no id yet
           // todo add status duration ?
-          removedEntityOn?: {
-            // todo it will be used to update the item later when it emit, for remove
-            filterCompare: (entity: TData) => boolean; // filter function that is used to removed entity when the notifier emit
-            notifier: (events: any) => Observable<unknown>; // if not provided, the entity is not removed, otherwise it is removed after the duration emit
-          }[];
+          delayedReducer?: DelayedReducer<TData>[];
           reducer?: StatedDataReducer<TData>; // if not provided, it will update the entity in the list
         }
       >; // action that will affect the targeted entity, they can be triggered concurrently
@@ -128,7 +137,7 @@ export const Store2 = new InjectionToken('Store', {
       //   >;
     }) => {
       const entityIdSelector = data.entityIdSelector;
-
+      const events = {}; // todo
       const entitiesData$ = data.getEntities.src.pipe(
         switchMap(() =>
           statedStream(data.getEntities.api(), data.getEntities.initialData)
@@ -136,42 +145,60 @@ export const Store2 = new InjectionToken('Store', {
         share()
       );
 
-      const entityLevelActionList$ = Object.entries(
-        data.entityLevelAction ?? {}
-      ).reduce((acc, [methodName, groupByData]) => {
-        const src$ = groupByData.src();
-        const operatorFn = groupByData.operator;
-        const api = groupByData.api;
-        const reducer = groupByData.reducer;
-        const removedEntityOn$ = groupByData.removedEntityOn || []; // todo
-        const idSelector = groupByData.customIdSelector || entityIdSelector;
+      const entityLevelActionList$: EntityStateByMethodObservable<TData> =
+        Object.entries(data.entityLevelAction ?? {}).reduce(
+          (acc, [methodName, groupByData]) => {
+            const src$ = groupByData.src();
+            const operatorFn = groupByData.operator;
+            const api = groupByData.api;
+            const reducer = groupByData.reducer;
+            const delayedReducer = groupByData.delayedReducer || [];
+            const idSelector = groupByData.customIdSelector || entityIdSelector;
 
-        const actionByEntity$ = src$.pipe(
-          groupBy((entity) => idSelector(entity)),
-          mergeMap((groupedEntityById$) => {
-            return groupedEntityById$.pipe(
-              operatorFn((entity) => {
-                return statedStream(api(entity), entity).pipe(
-                  map((entityStatedData) => ({
-                    [entityIdSelector(entity)]: {
-                      entityStatedData,
-                      reducer,
-                      idSelector,
-                    } satisfies EntityReducerConfig<TData>,
-                  }))
+            const actionByEntity$: Observable<{
+              [x: string]: {
+                entityStatedData: StatedData<TData>;
+                reducer: StatedDataReducer<TData> | undefined;
+                idSelector: IdSelector<TData>;
+              };
+            }> = src$.pipe(
+              groupBy((entity) => idSelector(entity)),
+              mergeMap((groupedEntityById$) => {
+                return groupedEntityById$.pipe(
+                  operatorFn((entity) => {
+                    return statedStream(api(entity), entity).pipe(
+                      map((entityStatedData) => ({
+                        [entityIdSelector(entity)]: {
+                          entityStatedData,
+                          reducer,
+                          idSelector,
+                        } satisfies EntityReducerConfig<TData>,
+                      })),
+                      switchMap((entityReducerConfigWithMethod) =>
+                        connectAssociatedDelayedReducer$({
+                          entityReducerConfigWithMethod,
+                          delayedReducer,
+                          events,
+                          idSelector,
+                        })
+                      )
+                    );
+                  })
                 );
               })
             );
-          })
-        );
 
-        return [
-          ...acc,
-          actionByEntity$.pipe(
-            map((groupedEntityById) => ({ [methodName]: groupedEntityById }))
-          ),
-        ];
-      }, [] as EntityStateByMethodObservable<TData>);
+            return [
+              ...acc,
+              actionByEntity$.pipe(
+                map((groupedEntityById) => ({
+                  [methodName]: groupedEntityById,
+                }))
+              ),
+            ];
+          },
+          [] as EntityStateByMethodObservable<TData>
+        );
 
       const finalResult = entitiesData$.pipe(
         switchMap((entitiesData) => {
@@ -251,7 +278,7 @@ export const Store2 = new InjectionToken('Store', {
                 : hasError
                 ? reducer?.onError
                 : undefined;
-              debugger;
+
               if (!customReducer || !acc.result) {
                 const isEntityInEntities = acc.result.entities?.some(
                   (entityData) => idSelector(entityData.entity) == entityId
@@ -327,7 +354,8 @@ export const Store2 = new InjectionToken('Store', {
             startWith(seed)
             // todo add hasDeleteEntity selectors...
           );
-        })
+        }),
+        shareReplay(1)
       );
 
       return {
@@ -352,4 +380,63 @@ function replaceEntityIn<TData>({
 
     return updatedEntity;
   });
+}
+
+function connectAssociatedDelayedReducer$<TData>({
+  entityReducerConfigWithMethod,
+  delayedReducer,
+  idSelector,
+  events,
+}: {
+  entityReducerConfigWithMethod: Record<
+    string | number,
+    EntityReducerConfig<TData>
+  >;
+  delayedReducer: DelayedReducer<TData>[] | undefined;
+  idSelector: IdSelector<TData>;
+  events: any;
+}) {
+  const id = Object.keys(entityReducerConfigWithMethod)[0];
+  const entityReducerConfig = entityReducerConfigWithMethod[id];
+  const { isLoading, isLoaded, hasError } =
+    entityReducerConfig.entityStatedData;
+  if (isLoading) {
+    return of(entityReducerConfigWithMethod);
+  }
+  if (isLoaded) {
+    const onLoadedDelayedReducer$ =
+      delayedReducer
+        ?.filter(({ reducer }) => reducer.onLoaded)
+        .map(({ reducer, notifier }) => {
+          return notifier(events).pipe(
+            map(() => ({
+              [id as string | number]: {
+                entityStatedData: entityReducerConfig.entityStatedData,
+                reducer,
+                idSelector,
+              } satisfies EntityReducerConfig<TData>,
+            }))
+          );
+        }) ?? [];
+    return merge(of(entityReducerConfigWithMethod), ...onLoadedDelayedReducer$);
+  }
+
+  if (hasError) {
+    const onErrorDelayedReducer$ =
+      delayedReducer
+        ?.filter(({ reducer }) => reducer.onError)
+        .map(({ reducer, notifier }) => {
+          return notifier(events).pipe(
+            map(() => ({
+              [id as string | number]: {
+                entityStatedData: entityReducerConfig.entityStatedData,
+                reducer,
+                idSelector,
+              } satisfies EntityReducerConfig<TData>,
+            }))
+          );
+        }) ?? [];
+    return merge(of(entityReducerConfigWithMethod), ...onErrorDelayedReducer$);
+  }
+  return of(entityReducerConfigWithMethod);
 }

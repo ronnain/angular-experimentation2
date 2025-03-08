@@ -2,7 +2,15 @@ import { Component, inject } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { DataItem, DataListService } from './data-list.service';
 import { CommonModule } from '@angular/common';
-import { BehaviorSubject, interval, Subject, switchMap } from 'rxjs';
+import {
+  BehaviorSubject,
+  exhaustMap,
+  interval,
+  Subject,
+  switchMap,
+  tap,
+  timer,
+} from 'rxjs';
 import { Store } from './store';
 import { Store2 } from './storev2';
 
@@ -19,30 +27,6 @@ export class DataListComponent {
   updateItem$ = new Subject<DataItem>();
   deleteItem$ = new Subject<DataItem>();
   getAllData$ = new BehaviorSubject<void>(undefined);
-
-  store = inject(Store)({
-    create: {
-      api: (item) => this.dataListService.addItem(item as DataItem),
-      src: () => this.createItem$,
-    },
-    update: {
-      api: (item) => this.dataListService.updateItem(item),
-      src: () => this.updateItem$,
-      operator: switchMap,
-    },
-    delete: {
-      api: (item) => this.dataListService.deleteItem(item),
-      src: () => this.deleteItem$,
-      duration: (events) => {
-        return interval(2000);
-      },
-    },
-    getAll: {
-      api: () => this.dataListService.getDataList$(),
-      src: this.getAllData$,
-      initialData: [],
-    },
-  });
 
   protected readonly store2 = inject(Store2)({
     getEntities: {
@@ -85,6 +69,49 @@ export class DataListComponent {
             };
           },
         },
+      },
+      delete: {
+        src: () => this.deleteItem$,
+        api: (item) => this.dataListService.deleteItem(item),
+        operator: exhaustMap,
+        delayedReducer: [
+          {
+            notifier: () =>
+              timer(2000).pipe(
+                tap({
+                  next: (data) => console.log('[delayedDelete] data', data),
+                  error: (error) => console.log('[delayedDelete] error', error),
+                  complete: () => console.log('[delayedDelete] complete'),
+                  subscribe: () => console.log('[delayedDelete] subscribe'),
+                  unsubscribe: () => console.log('[delayedDelete] unsubscribe'),
+                  finalize: () => console.log('[delayedDelete] finalize'),
+                })
+              ),
+            reducer: {
+              onLoaded: ({
+                entityWithStatus,
+                entities,
+                outOfContextEntities,
+                customIdSelector,
+              }) => {
+                return {
+                  entities: entities?.filter(
+                    (entityData) =>
+                      !entityData.entity ||
+                      customIdSelector(entityData.entity) !=
+                        entityWithStatus?.id
+                  ),
+                  outOfContextEntities: outOfContextEntities?.filter(
+                    (entityData) =>
+                      !entityData.entity ||
+                      customIdSelector(entityData.entity) !=
+                        entityWithStatus?.id
+                  ),
+                };
+              },
+            },
+          },
+        ],
       },
     },
   });

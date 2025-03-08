@@ -4,10 +4,6 @@
     <button class="btn" (click)="updateItemTest(1)">Update Item</button>
   </div>
 
-  <div *ngIf="store.allData()?.isLoading" class="text-center py-4">
-    Loading...
-  </div>
-
   <h2 class="">Entities</h2>
   <div class="relative overflow-x-auto">
     <table *ngIf="store2.data | async as data" class="table">
@@ -97,7 +93,7 @@
     </table>
   </div>
 
-  <h2 class="">Out Of context Entities</h2>
+  <!-- <h2 class="">Out Of context Entities</h2>
   <div class="relative overflow-x-auto">
     <table *ngIf="store2.data | async as data" class="table">
       <thead class="">
@@ -187,7 +183,7 @@
         </tr>
       </tbody>
     </table>
-  </div>
+  </div> -->
 </div>
 
-<pre>{{ store2.data | async | json }}</pre>
+<!-- <pre>{{ store2.data | async | json }}</pre> -->
