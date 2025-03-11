@@ -36,7 +36,7 @@ type IdSelector<TData> = (entity: TData) => string | number;
 type ReducerParams<TData> = {
   id: string | number;
   status: EntityStatus;
-  entityWithStatus: EntityWithStatus<TData> | undefined;
+  entityWithStatus: EntityWithStatus<TData>;
   customIdSelector: IdSelector<TData>;
 } & ContextualEntities<TData>;
 
@@ -45,7 +45,7 @@ type StatedData<T> = {
   readonly isLoaded: boolean;
   readonly hasError: boolean;
   readonly error: any;
-  readonly result: T | undefined;
+  readonly result: T;
 };
 
 type Reducer<TData> = (data: ReducerParams<TData>) => ContextualEntities<TData>;
@@ -64,7 +64,7 @@ type StatedDataReducerWithoutOnLoading<TData> = Omit<
 type EntityStatus = Omit<StatedData<unknown>, 'result'>;
 type EntityWithStatus<TData> = {
   id: string | number;
-  entity: TData | undefined;
+  entity: TData;
   status: MethodStatus;
 };
 type MethodStatus = Record<MethodName, EntityStatus>;
@@ -85,8 +85,8 @@ type EntityStateByMethodObservable<TData> = Observable<
 >[];
 
 type ContextualEntities<TData> = {
-  entities: EntityWithStatus<TData>[] | undefined;
-  outOfContextEntities: EntityWithStatus<TData>[] | undefined;
+  entities: EntityWithStatus<TData>[];
+  outOfContextEntities: EntityWithStatus<TData>[];
 };
 
 type StatedEntities<TData> = StatedData<ContextualEntities<TData>>;
@@ -97,6 +97,7 @@ type DelayedReducer<TData> = {
 };
 
 // todo create a plug function, that will ensure that mutation api call are not cancelled if the store is destroyed
+// todo improve the statedStream typing
 
 export const Store2 = new InjectionToken('Store', {
   providedIn: 'root',
@@ -205,12 +206,101 @@ export const Store2 = new InjectionToken('Store', {
         share()
       );
 
+      // todo
+      // https://stackblitz.com/edit/wc16ydy8?devtoolsheight=50&file=index.ts
+      //   const actions$ = of('a', 'b', 'c').pipe(
+      //     delayWhen((_, i) => timer(i * 3000)), // Délai croissant : 0s, 2s, 4s
+      //     map(data => ({type: 'liste', data}))
+      //   );
+      //   const src$ = of('list1', 'list2', 'l3', 'l4').pipe(
+      //     delayWhen((_, i) => timer(i * 2000)), // Délai croissant : 0s, 2s, 4s
+      //     map(data => ({type: 'action', data}))
+      //   );
+      //   const result = merge(actions$, src$)
+
+      // faire en sorte d'ajouter un type pour les actions et pour la list pour simplifier le scan
+      merge(
+        entitiesData$.pipe(
+          map((entitiesData) => ({
+            type: 'fetchedData' as const,
+            data: entitiesData,
+          }))
+        ),
+        ...entityLevelActionList$.map(
+          map((entityLevelActionList) => ({
+            type: 'action' as const,
+            data: entityLevelActionList,
+          }))
+        )
+      ).pipe(
+        scan(
+          (acc, action) => {
+            if (action.type === 'fetchedData') {
+              // retrieve the previous entity status if it exists
+              const updatedEntities = (action.data.result ?? []).map(
+                (entity) => {
+                  const previousEntity =
+                    acc.result.entities.find(
+                      (entityData) =>
+                        entityIdSelector(entityData.entity) ==
+                        entityIdSelector(entity)
+                    ) ??
+                    acc.result.outOfContextEntities.find(
+                      (entityData) =>
+                        entityIdSelector(entityData.entity) ==
+                        entityIdSelector(entity)
+                    );
+                  return {
+                    id: entityIdSelector(entity),
+                    entity,
+                    status: {
+                      ...previousEntity?.status,
+                    } as MethodStatus,
+                  };
+                }
+              );
+              return {
+                ...acc,
+                result: {
+                  entities: updatedEntities,
+                  outOfContextEntities: acc.result.outOfContextEntities.filter(
+                    // remove entities that are in the entities list
+                    (outOfContextEntity) =>
+                      updatedEntities.some(
+                        (updateEntity) =>
+                          entityIdSelector(updateEntity.entity) ==
+                          entityIdSelector(outOfContextEntity.entity)
+                      )
+                  ) as EntityWithStatus<TData>[],
+                },
+              };
+            }
+            if (action.type === 'action') {
+              return applyActionOnEntities(acc, action.data);
+            }
+            return acc;
+          },
+          {
+            error: undefined,
+            hasError: false,
+            isLoaded: false,
+            isLoading: true,
+            result: {
+              entities: [],
+              outOfContextEntities: [],
+            },
+          } satisfies StatedEntities<TData> as StatedEntities<TData> // satisfies apply an as const effect
+        )
+      );
+
+      // todo replace finalResult by the new method above
+
       const finalResult = entitiesData$.pipe(
         switchMap((entitiesData) => {
           const seed = {
             ...entitiesData,
             result: {
-              entities: entitiesData.result?.map((entity) => {
+              entities: entitiesData.result.map((entity) => {
                 return {
                   id: entityIdSelector(entity),
                   entity,
@@ -222,140 +312,7 @@ export const Store2 = new InjectionToken('Store', {
           } satisfies StatedEntities<TData>;
           return merge(...entityLevelActionList$).pipe(
             //@ts-ignore
-            scan((acc, actionByEntity) => {
-              const methodName = Object.keys(actionByEntity)[0];
-              const entityId = Object.keys(actionByEntity[methodName])[0];
-              const {
-                entityStatedData: {
-                  error,
-                  hasError,
-                  isLoaded,
-                  isLoading,
-                  result,
-                },
-                reducer,
-                idSelector,
-              } = actionByEntity[methodName][entityId];
-
-              const incomingEntityValue = result;
-              const previousEntityWithStatus =
-                acc.result.entities?.find(
-                  (entityData) => idSelector(entityData.entity) == entityId
-                ) ??
-                acc.result.outOfContextEntities?.find(
-                  (entityData) =>
-                    entityData.entity &&
-                    idSelector(entityData.entity) == entityId
-                );
-              const updatedEntityValue: TData | undefined =
-                previousEntityWithStatus?.entity
-                  ? {
-                      ...previousEntityWithStatus.entity,
-                      ...incomingEntityValue,
-                    }
-                  : incomingEntityValue;
-
-              const updatedEntity: EntityWithStatus<TData> = {
-                ...previousEntityWithStatus,
-                id: entityId,
-                entity: updatedEntityValue,
-                status: {
-                  ...previousEntityWithStatus?.status,
-                  [methodName]: {
-                    isLoading,
-                    isLoaded,
-                    hasError,
-                    error,
-                  },
-                },
-              };
-              const incomingMethodStatus: EntityStatus = {
-                isLoading,
-                isLoaded,
-                hasError,
-                error,
-              };
-
-              const customReducer = isLoading
-                ? reducer?.onLoading
-                : isLoaded
-                ? reducer?.onLoaded
-                : hasError
-                ? reducer?.onError
-                : undefined;
-
-              if (!customReducer || !acc.result) {
-                const isEntityInEntities = acc.result.entities?.some(
-                  (entityData) => idSelector(entityData.entity) == entityId
-                );
-                const isEntityInOutOfContextEntities =
-                  acc.result.outOfContextEntities?.some(
-                    (entityData) => entityData.id == entityId
-                  );
-
-                if (!isEntityInEntities && !isEntityInOutOfContextEntities) {
-                  return {
-                    ...acc,
-                    result: {
-                      ...acc.result,
-                      outOfContextEntities: [
-                        ...acc.result.outOfContextEntities,
-                        updatedEntity,
-                      ],
-                    },
-                  } satisfies StatedEntities<TData>;
-                }
-
-                if (isEntityInEntities) {
-                  return {
-                    ...acc,
-                    result: {
-                      ...acc.result,
-                      entities: replaceEntityIn({
-                        entities: acc.result.entities,
-                        entityId,
-                        updatedEntity,
-                      }),
-                      outOfContextEntities: isEntityInOutOfContextEntities
-                        ? acc.result.outOfContextEntities.filter(
-                            (entity) =>
-                              entity.entity &&
-                              idSelector(entity.entity) !== entityId
-                          )
-                        : acc.result.outOfContextEntities,
-                    },
-                  } satisfies StatedEntities<TData>;
-                }
-
-                return {
-                  ...acc,
-                  result: {
-                    ...acc.result,
-                    outOfContextEntities: replaceEntityIn({
-                      entities: acc.result.outOfContextEntities,
-                      entityId,
-                      updatedEntity,
-                    }),
-                  },
-                } satisfies StatedEntities<TData>;
-              }
-
-              if (customReducer) {
-                return {
-                  ...acc,
-                  result: customReducer({
-                    entities: acc.result.entities,
-                    outOfContextEntities: acc.result.outOfContextEntities,
-                    entityWithStatus: updatedEntity,
-                    status: incomingMethodStatus,
-                    customIdSelector: idSelector,
-                    id: entityId,
-                  }),
-                } satisfies StatedEntities<TData>;
-              }
-
-              return acc;
-            }, seed),
+            scan((acc, actionByEntity) => {}, seed),
             startWith(seed)
             // todo add hasDeleteEntity selectors...
           );
@@ -397,12 +354,146 @@ export const Store2 = new InjectionToken('Store', {
     };
   },
 });
+function applyActionOnEntities<TData>(
+  acc: StatedEntities<TData>,
+  actionByEntity: Record<
+    string,
+    {
+      [x: string]: EntityReducerConfig<TData>;
+    }
+  >
+): StatedEntities<TData> {
+  const methodName = Object.keys(actionByEntity)[0];
+  const entityId = Object.keys(actionByEntity[methodName])[0];
+  const {
+    entityStatedData: { error, hasError, isLoaded, isLoading, result },
+    reducer,
+    idSelector,
+  } = actionByEntity[methodName][entityId];
+
+  const incomingEntityValue = result;
+  const previousEntityWithStatus =
+    acc.result.entities?.find(
+      (entityData) => idSelector(entityData.entity) == entityId
+    ) ??
+    acc.result.outOfContextEntities?.find(
+      (entityData) =>
+        entityData.entity && idSelector(entityData.entity) == entityId
+    );
+  const updatedEntityValue: TData | undefined = previousEntityWithStatus?.entity
+    ? {
+        ...previousEntityWithStatus.entity,
+        ...incomingEntityValue,
+      }
+    : incomingEntityValue;
+
+  const updatedEntity: EntityWithStatus<TData> = {
+    ...previousEntityWithStatus,
+    id: entityId,
+    entity: updatedEntityValue,
+    status: {
+      ...previousEntityWithStatus?.status,
+      [methodName]: {
+        isLoading,
+        isLoaded,
+        hasError,
+        error,
+      },
+    },
+  };
+  const incomingMethodStatus: EntityStatus = {
+    isLoading,
+    isLoaded,
+    hasError,
+    error,
+  };
+
+  const customReducer = isLoading
+    ? reducer?.onLoading
+    : isLoaded
+    ? reducer?.onLoaded
+    : hasError
+    ? reducer?.onError
+    : undefined;
+
+  if (!customReducer || !acc.result) {
+    const isEntityInEntities = acc.result.entities?.some(
+      (entityData) => idSelector(entityData.entity) == entityId
+    );
+    const isEntityInOutOfContextEntities =
+      acc.result.outOfContextEntities?.some(
+        (entityData) => entityData.id == entityId
+      );
+
+    if (!isEntityInEntities && !isEntityInOutOfContextEntities) {
+      return {
+        ...acc,
+        result: {
+          ...acc.result,
+          outOfContextEntities: [
+            ...acc.result.outOfContextEntities,
+            updatedEntity,
+          ],
+        },
+      };
+    }
+
+    if (isEntityInEntities) {
+      return {
+        ...acc,
+        result: {
+          ...acc.result,
+          entities: replaceEntityIn({
+            entities: acc.result.entities,
+            entityId,
+            updatedEntity,
+          }),
+          outOfContextEntities: isEntityInOutOfContextEntities
+            ? acc.result.outOfContextEntities.filter(
+                (entity) =>
+                  entity.entity && idSelector(entity.entity) !== entityId
+              )
+            : acc.result.outOfContextEntities,
+        },
+      };
+    }
+
+    return {
+      ...acc,
+      result: {
+        ...acc.result,
+        outOfContextEntities: replaceEntityIn({
+          entities: acc.result.outOfContextEntities,
+          entityId,
+          updatedEntity,
+        }),
+      },
+    };
+  }
+
+  if (customReducer) {
+    return {
+      ...acc,
+      result: customReducer({
+        entities: acc.result.entities,
+        outOfContextEntities: acc.result.outOfContextEntities,
+        entityWithStatus: updatedEntity,
+        status: incomingMethodStatus,
+        customIdSelector: idSelector,
+        id: entityId,
+      }),
+    };
+  }
+
+  return acc;
+}
+
 function replaceEntityIn<TData>({
   entities,
   entityId,
   updatedEntity,
 }: {
-  entities: EntityWithStatus<TData>[] | undefined;
+  entities: EntityWithStatus<TData>[];
   entityId: string;
   updatedEntity: EntityWithStatus<TData>;
 }) {

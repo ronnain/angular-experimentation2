@@ -5,7 +5,7 @@ type SatedStreamResult<T> = {
   isLoaded: boolean;
   hasError: boolean;
   error: unknown;
-  result: T | undefined;
+  result: T;
 };
 
 export type LoadingStateData<T> = {
@@ -39,8 +39,8 @@ export type StatedData<T> =
 
 export function statedStream<T>(
   toCall: Observable<T>,
-  initialValue?: T
-): Observable<StatedData<T>> {
+  initialValue: T
+): Observable<SatedStreamResult<T>> {
   return toCall.pipe(
     map(
       (result) =>
@@ -50,7 +50,7 @@ export function statedStream<T>(
           hasError: false,
           error: undefined,
           result,
-        } as const satisfies SatedStreamResult<T>)
+        } satisfies SatedStreamResult<T>)
     ),
     startWith({
       isLoading: true,
@@ -58,15 +58,15 @@ export function statedStream<T>(
       hasError: false,
       error: undefined,
       result: initialValue,
-    } as const),
+    }),
     catchError((error) =>
       of({
         isLoading: false,
         isLoaded: false,
         hasError: true,
         error,
-        result: undefined,
-      } as const)
+        result: initialValue,
+      })
     )
   );
 }
