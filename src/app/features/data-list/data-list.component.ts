@@ -26,13 +26,20 @@ export class DataListComponent {
   createItem$ = new Subject<DataItem>();
   updateItem$ = new Subject<DataItem>();
   deleteItem$ = new Subject<DataItem>();
-  getAllData$ = new BehaviorSubject<void>(undefined);
+  getAllData$ = new BehaviorSubject<{
+    page: number;
+    pageSize: number;
+  }>({
+    page: 1,
+    pageSize: 3,
+  });
 
   protected readonly store2 = inject(Store2)({
     getEntities: {
-      src: this.getAllData$,
-      api: () => this.dataListService.getDataList$(),
+      srcContext: this.getAllData$,
+      api: (srcContext) => this.dataListService.getDataList$(srcContext),
       initialData: [],
+      preservePreviousEntitiesWhenSrcContextEmit: true,
     },
     entityIdSelector: (item) => item.id,
     entityLevelAction: {
@@ -105,6 +112,24 @@ export class DataListComponent {
       },
     },
   });
+
+  previousPage() {
+    const currentPage = this.getAllData$.value.page;
+    if (currentPage > 1) {
+      this.getAllData$.next({
+        ...this.getAllData$.value,
+        page: currentPage - 1,
+      });
+    }
+  }
+
+  nextPage() {
+    const currentPage = this.getAllData$.value.page;
+    this.getAllData$.next({
+      ...this.getAllData$.value,
+      page: currentPage + 1,
+    });
+  }
 
   updateItemTest(id: number) {
     this.updateItem$.next({

@@ -10,14 +10,29 @@ export interface DataItem {
   providedIn: 'root',
 })
 export class DataListService {
-  private dataListSubject = new BehaviorSubject<DataItem[]>([
+  private dataList = [
     { id: 1, name: 'Item 1' },
     { id: 2, name: 'Item 2' },
     { id: 3, name: 'Item 3' },
-  ]);
+    { id: 4, name: 'Item 4' },
+    { id: 5, name: 'Item 5' },
+    { id: 6, name: 'Item 6' },
+    { id: 7, name: 'Item 7' },
+    { id: 8, name: 'Item 8' },
+    { id: 9, name: 'Item 9' },
+    { id: 10, name: 'Item 10' },
+  ].reverse();
 
-  getDataList$(): Observable<DataItem[]> {
-    return this.dataListSubject.asObservable().pipe(delay(2000));
+  getDataList$(data: {
+    page: number;
+    pageSize: number;
+  }): Observable<DataItem[]> {
+    return of(
+      this.dataList.slice(
+        (data.page - 1) * data.pageSize,
+        data.page * data.pageSize
+      )
+    ).pipe(delay(2000));
   }
 
   addItem(newItem: Omit<DataItem, 'id'>) {

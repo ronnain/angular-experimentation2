@@ -101,11 +101,12 @@ type DelayedReducer<TData> = {
 export const Store2 = new InjectionToken('Store', {
   providedIn: 'root',
   factory: () => {
-    return <TData>(data: {
+    return <TData, SrcContext>(data: {
       getEntities: {
-        src: Observable<unknown>;
-        api: () => Observable<TData[]>;
+        srcContext: Observable<SrcContext>;
+        api: (srcContext: SrcContext) => Observable<TData[]>;
         initialData: TData[] | undefined;
+        preservePreviousEntitiesWhenSrcContextEmit?: boolean;
       };
       entityIdSelector: IdSelector<TData>; // used to know of to identify the entity
       entityLevelAction?: Record<
@@ -138,12 +139,6 @@ export const Store2 = new InjectionToken('Store', {
     }) => {
       const entityIdSelector = data.entityIdSelector;
       const events = {}; // todo
-      const entitiesData$ = data.getEntities.src.pipe(
-        switchMap(() =>
-          statedStream(data.getEntities.api(), data.getEntities.initialData)
-        ),
-        share()
-      );
 
       const entityLevelActionList$: EntityStateByMethodObservable<TData> =
         Object.entries(data.entityLevelAction ?? {}).reduce(
@@ -199,6 +194,16 @@ export const Store2 = new InjectionToken('Store', {
           },
           [] as EntityStateByMethodObservable<TData>
         );
+
+      const entitiesData$ = data.getEntities.srcContext.pipe(
+        switchMap((srcContextValue) =>
+          statedStream(
+            data.getEntities.api(srcContextValue),
+            data.getEntities.initialData
+          )
+        ),
+        share()
+      );
 
       const finalResult = entitiesData$.pipe(
         switchMap((entitiesData) => {
@@ -264,7 +269,7 @@ export const Store2 = new InjectionToken('Store', {
                   },
                 },
               };
-              const incomingStatus: EntityStatus = {
+              const incomingMethodStatus: EntityStatus = {
                 isLoading,
                 isLoaded,
                 hasError,
@@ -342,7 +347,7 @@ export const Store2 = new InjectionToken('Store', {
                     entities: acc.result.entities,
                     outOfContextEntities: acc.result.outOfContextEntities,
                     entityWithStatus: updatedEntity,
-                    status: incomingStatus,
+                    status: incomingMethodStatus,
                     customIdSelector: idSelector,
                     id: entityId,
                   }),
@@ -354,6 +359,34 @@ export const Store2 = new InjectionToken('Store', {
             startWith(seed)
             // todo add hasDeleteEntity selectors...
           );
+        }),
+        scan((acc, finalEntities) => {
+          // todo preserve outOfContexte in anyCase
+          if (!data.getEntities.preservePreviousEntitiesWhenSrcContextEmit) {
+            return finalEntities;
+          }
+          const hasPreviousData = acc.isLoaded;
+          if (!hasPreviousData) {
+            return finalEntities;
+          }
+          if (finalEntities.isLoading) {
+            return {
+              ...finalEntities,
+              result: {
+                entities: acc.result.entities,
+                outOfContextEntities: acc.result.outOfContextEntities,
+              },
+            };
+          }
+          return finalEntities;
+        }),
+        tap({
+          next: (data) => console.log('[final] data', data),
+          error: (error) => console.log('[final] error', error),
+          complete: () => console.log('[final] complete'),
+          subscribe: () => console.log('[final] subscribe'),
+          unsubscribe: () => console.log('[final] unsubscribe'),
+          finalize: () => console.log('[final] finalize'),
         }),
         shareReplay(1)
       );

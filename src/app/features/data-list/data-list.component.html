@@ -7,14 +7,17 @@
   </div>
 
   <!-- Display loading -->
-  @if(data?.isLoading) {
-  <div class="flex items-center justify-center">
-    <div class="spinner"></div>
+
+  <div
+    class="flex items-center justify-center"
+    [class.invisible]="!data?.isLoading"
+  >
+    Chargement <span class="loading loading-spinner loading-sm"></span>
   </div>
-  } @if(data && data.isLoaded) {
+  @if(data && data.result.entities && data.result.entities.length > 0) {
   <h2 class="">Entities</h2>
   <div class="relative overflow-x-auto">
-    <table *ngIf="data?.isLoaded" class="table">
+    <table class="table">
       <thead class="">
         <tr>
           <th scope="col" class="">ID</th>
@@ -99,6 +102,11 @@
         </tr>
       </tbody>
     </table>
+  </div>
+  <!-- Pagination buttons -->
+  <div class="flex justify-between mt-4">
+    <button class="btn" (click)="previousPage()">Previous</button>
+    <button class="btn" (click)="nextPage()">Next</button>
   </div>
 
   <h2 class="mt-4" class="">Out Of context Entities</h2>
