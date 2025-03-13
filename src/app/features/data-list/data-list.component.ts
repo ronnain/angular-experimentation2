@@ -54,20 +54,35 @@ export class DataListComponent {
         operator: switchMap,
         customIdSelector: (item) => item.name,
         reducer: {
-          onLoaded: (data) => {
+          onLoaded: ({
+            context,
+            entityWithStatus,
+            entities,
+            outOfContextEntities,
+            customIdSelector,
+          }) => {
+            // todo create helper function
+            // todo improve
+            // @ts-ignore
+            if (context.page !== 1) {
+              return {
+                entities: entities,
+                outOfContextEntities: [
+                  entityWithStatus,
+                  ...outOfContextEntities,
+                ],
+              };
+            }
             return {
-              entities: [data.entityWithStatus, ...data.entities],
-              outOfContextEntities: data.outOfContextEntities.filter(
+              entities: [entityWithStatus, ...entities],
+              outOfContextEntities: outOfContextEntities.filter(
                 (entityWithStatus) => {
-                  if (
-                    !entityWithStatus.entity ||
-                    !data.entityWithStatus?.entity
-                  ) {
+                  if (!entityWithStatus.entity || !entityWithStatus?.entity) {
                     return true;
                   }
                   return (
-                    data.customIdSelector(entityWithStatus.entity) !==
-                    data.customIdSelector(data.entityWithStatus.entity)
+                    customIdSelector(entityWithStatus.entity) !==
+                    customIdSelector(entityWithStatus.entity)
                   );
                 }
               ),
@@ -149,10 +164,11 @@ export class DataListComponent {
   }
 
   createItemTest() {
-    const newId = Math.floor(Math.random() * (1000 - 100 + 1) + 100);
-    this.createItem$.next({
-      id: newId,
-      name: 'Created Item ' + newId,
-    });
+    const id = Math.floor(Math.random() * 1000);
+    const newItemWithId = {
+      id,
+      name: 'Created Item ' + ' - ' + id,
+    };
+    this.createItem$.next(newItemWithId);
   }
 }

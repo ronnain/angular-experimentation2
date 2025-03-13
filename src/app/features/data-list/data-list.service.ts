@@ -25,6 +25,10 @@ export class DataListService {
     ].reverse()
   );
 
+  constructor() {
+    this.dataList$.subscribe((dataList) => console.log(dataList));
+  }
+
   getDataList$(data: {
     page: number;
     pageSize: number;
@@ -41,14 +45,11 @@ export class DataListService {
     );
   }
 
-  addItem(newItem: Omit<DataItem, 'id'>) {
+  addItem(newItem: DataItem) {
     // add a radom number and return a random number
-    const newItemWithId = {
-      id: Math.floor(Math.random() * 1000),
-      name: newItem.name,
-    };
-    this.dataList$.next([newItemWithId, ...this.dataList$.value]);
-    return of(newItemWithId).pipe(delay(5000));
+
+    this.dataList$.next([newItem, ...this.dataList$.value]);
+    return of(newItem).pipe(delay(5000));
   }
 
   deleteItem(item: DataItem) {

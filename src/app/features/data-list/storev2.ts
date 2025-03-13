@@ -13,6 +13,7 @@ import {
   startWith,
   switchMap,
   tap,
+  withLatestFrom,
 } from 'rxjs';
 import { statedStream } from '../../util/stated-stream/stated-stream';
 
@@ -24,6 +25,8 @@ import { statedStream } from '../../util/stated-stream/stated-stream';
 //     UnionToTuple<keyof TRootContract[key]>
 //   >;
 // };
+
+type SrcContext = unknown;
 
 export type Operator = <T, R>(
   fn: (value: T) => Observable<R>
@@ -38,6 +41,7 @@ type ReducerParams<TData> = {
   status: EntityStatus;
   entityWithStatus: EntityWithStatus<TData>;
   customIdSelector: IdSelector<TData>;
+  context: SrcContext;
 } & ContextualEntities<TData>;
 
 type StatedData<T> = {
@@ -98,6 +102,8 @@ type DelayedReducer<TData> = {
 
 // todo create a plug function, that will ensure that mutation api call are not cancelled if the store is destroyed
 // todo improve the statedStream typing
+// todo improve typing (src, srcContext)
+// todo fix multiples entities creation make some duplication
 
 export const Store2 = new InjectionToken('Store', {
   providedIn: 'root',
@@ -206,18 +212,6 @@ export const Store2 = new InjectionToken('Store', {
         share()
       );
 
-      // todo
-      // https://stackblitz.com/edit/wc16ydy8?devtoolsheight=50&file=index.ts
-      //   const actions$ = of('a', 'b', 'c').pipe(
-      //     delayWhen((_, i) => timer(i * 3000)), // Délai croissant : 0s, 2s, 4s
-      //     map(data => ({type: 'liste', data}))
-      //   );
-      //   const src$ = of('list1', 'list2', 'l3', 'l4').pipe(
-      //     delayWhen((_, i) => timer(i * 2000)), // Délai croissant : 0s, 2s, 4s
-      //     map(data => ({type: 'action', data}))
-      //   );
-      //   const result = merge(actions$, src$)
-
       // I choose to merge the entitiesData$ and the entityLevelActionList$, that's enable to add some items even if entities are not loaded yet
       const finalResult = merge(
         entitiesData$.pipe(
@@ -233,8 +227,9 @@ export const Store2 = new InjectionToken('Store', {
           }))
         )
       ).pipe(
+        withLatestFrom(data.getEntities.srcContext),
         scan(
-          (acc, action) => {
+          (acc, [action, context]) => {
             if (action.type === 'fetchedData') {
               const areIncomingEntitiesLoaded = action.data.isLoaded;
 
@@ -291,7 +286,11 @@ export const Store2 = new InjectionToken('Store', {
               };
             }
             if (action.type === 'action') {
-              return applyActionOnEntities(acc, action.data);
+              return applyActionOnEntities({
+                acc,
+                actionByEntity: action.data,
+                context,
+              });
             }
             return acc;
           },
@@ -370,15 +369,20 @@ export const Store2 = new InjectionToken('Store', {
     };
   },
 });
-function applyActionOnEntities<TData>(
-  acc: StatedEntities<TData>,
+function applyActionOnEntities<TData>({
+  acc,
+  actionByEntity,
+  context,
+}: {
+  acc: StatedEntities<TData>;
   actionByEntity: Record<
     string,
     {
       [x: string]: EntityReducerConfig<TData>;
     }
-  >
-): StatedEntities<TData> {
+  >;
+  context: SrcContext;
+}): StatedEntities<TData> {
   const methodName = Object.keys(actionByEntity)[0];
   const entityId = Object.keys(actionByEntity[methodName])[0];
   const {
@@ -497,6 +501,7 @@ function applyActionOnEntities<TData>(
         status: incomingMethodStatus,
         customIdSelector: idSelector,
         id: entityId,
+        context,
       }),
     };
   }
