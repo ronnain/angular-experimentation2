@@ -2,16 +2,7 @@ import { Component, inject } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { DataItem, DataListService } from './data-list.service';
 import { CommonModule } from '@angular/common';
-import {
-  BehaviorSubject,
-  exhaustMap,
-  interval,
-  Subject,
-  switchMap,
-  tap,
-  timer,
-} from 'rxjs';
-import { Store } from './store';
+import { BehaviorSubject, exhaustMap, Subject, switchMap, timer } from 'rxjs';
 import { Store2 } from './storev2';
 
 @Component({
@@ -61,9 +52,6 @@ export class DataListComponent {
             outOfContextEntities,
             customIdSelector,
           }) => {
-            // todo create helper function
-            // todo improve
-            // @ts-ignore
             if (context.page !== 1) {
               return {
                 entities: entities,
