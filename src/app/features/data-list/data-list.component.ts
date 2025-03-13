@@ -56,10 +56,8 @@ export class DataListComponent {
         reducer: {
           onLoaded: (data) => {
             return {
-              entities: data.entityWithStatus
-                ? [data.entityWithStatus, ...(data.entities ?? [])]
-                : undefined,
-              outOfContextEntities: data.outOfContextEntities?.filter(
+              entities: [data.entityWithStatus, ...data.entities],
+              outOfContextEntities: data.outOfContextEntities.filter(
                 (entityWithStatus) => {
                   if (
                     !entityWithStatus.entity ||

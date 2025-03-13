@@ -6,13 +6,11 @@
     <button class="btn" (click)="updateItemTest(1)">Update Item</button>
   </div>
 
-  <!-- Display loading -->
-
   <div
     class="flex items-center justify-center"
     [class.invisible]="!data?.isLoading"
   >
-    Chargement <span class="loading loading-spinner loading-sm"></span>
+    loading <span class="loading loading-spinner loading-sm"></span>
   </div>
   @if(data && data.result.entities && data.result.entities.length > 0) {
   <h2 class="">Entities</h2>

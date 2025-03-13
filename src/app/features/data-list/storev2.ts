@@ -218,8 +218,8 @@ export const Store2 = new InjectionToken('Store', {
       //   );
       //   const result = merge(actions$, src$)
 
-      // faire en sorte d'ajouter un type pour les actions et pour la list pour simplifier le scan
-      merge(
+      // I choose to merge the entitiesData$ and the entityLevelActionList$, that's enable to add some items even if entities are not loaded yet
+      const finalResult = merge(
         entitiesData$.pipe(
           map((entitiesData) => ({
             type: 'fetchedData' as const,
@@ -236,8 +236,9 @@ export const Store2 = new InjectionToken('Store', {
         scan(
           (acc, action) => {
             if (action.type === 'fetchedData') {
-              // retrieve the previous entity status if it exists
-              const updatedEntities = (action.data.result ?? []).map(
+              const areIncomingEntitiesLoaded = action.data.isLoaded;
+
+              const incomingEntities = (action.data.result ?? []).map(
                 (entity) => {
                   const previousEntity =
                     acc.result.entities.find(
@@ -259,19 +260,33 @@ export const Store2 = new InjectionToken('Store', {
                   };
                 }
               );
+              const incomingEntitiesWithMergedStatus = incomingEntities.length
+                ? incomingEntities
+                : acc.result.entities;
+
+              const previousEntitiesWithStatus = areIncomingEntitiesLoaded
+                ? acc.result.entities.filter(
+                    (entity) => Object.keys(entity.status).length > 0
+                  )
+                : [];
+
+              const outOfContextEntities = [
+                ...previousEntitiesWithStatus,
+                ...acc.result.outOfContextEntities,
+              ].filter((outOfContextEntity) => {
+                return !incomingEntitiesWithMergedStatus.some(
+                  (incomingEntity) =>
+                    entityIdSelector(incomingEntity.entity) ==
+                    entityIdSelector(outOfContextEntity.entity)
+                );
+              });
+
               return {
                 ...acc,
+                ...action.data,
                 result: {
-                  entities: updatedEntities,
-                  outOfContextEntities: acc.result.outOfContextEntities.filter(
-                    // remove entities that are in the entities list
-                    (outOfContextEntity) =>
-                      updatedEntities.some(
-                        (updateEntity) =>
-                          entityIdSelector(updateEntity.entity) ==
-                          entityIdSelector(outOfContextEntity.entity)
-                      )
-                  ) as EntityWithStatus<TData>[],
+                  entities: incomingEntitiesWithMergedStatus,
+                  outOfContextEntities,
                 },
               };
             }
@@ -290,63 +305,64 @@ export const Store2 = new InjectionToken('Store', {
               outOfContextEntities: [],
             },
           } satisfies StatedEntities<TData> as StatedEntities<TData> // satisfies apply an as const effect
-        )
+        ),
+        shareReplay(1)
       );
 
       // todo replace finalResult by the new method above
 
-      const finalResult = entitiesData$.pipe(
-        switchMap((entitiesData) => {
-          const seed = {
-            ...entitiesData,
-            result: {
-              entities: entitiesData.result.map((entity) => {
-                return {
-                  id: entityIdSelector(entity),
-                  entity,
-                  status: {} as MethodStatus,
-                };
-              }),
-              outOfContextEntities: [] as EntityWithStatus<TData>[],
-            },
-          } satisfies StatedEntities<TData>;
-          return merge(...entityLevelActionList$).pipe(
-            //@ts-ignore
-            scan((acc, actionByEntity) => {}, seed),
-            startWith(seed)
-            // todo add hasDeleteEntity selectors...
-          );
-        }),
-        scan((acc, finalEntities) => {
-          // todo preserve outOfContexte in anyCase
-          if (!data.getEntities.preservePreviousEntitiesWhenSrcContextEmit) {
-            return finalEntities;
-          }
-          const hasPreviousData = acc.isLoaded;
-          if (!hasPreviousData) {
-            return finalEntities;
-          }
-          if (finalEntities.isLoading) {
-            return {
-              ...finalEntities,
-              result: {
-                entities: acc.result.entities,
-                outOfContextEntities: acc.result.outOfContextEntities,
-              },
-            };
-          }
-          return finalEntities;
-        }),
-        tap({
-          next: (data) => console.log('[final] data', data),
-          error: (error) => console.log('[final] error', error),
-          complete: () => console.log('[final] complete'),
-          subscribe: () => console.log('[final] subscribe'),
-          unsubscribe: () => console.log('[final] unsubscribe'),
-          finalize: () => console.log('[final] finalize'),
-        }),
-        shareReplay(1)
-      );
+      //   const finalResult = entitiesData$.pipe(
+      //     switchMap((entitiesData) => {
+      //       const seed = {
+      //         ...entitiesData,
+      //         result: {
+      //           entities: entitiesData.result.map((entity) => {
+      //             return {
+      //               id: entityIdSelector(entity),
+      //               entity,
+      //               status: {} as MethodStatus,
+      //             };
+      //           }),
+      //           outOfContextEntities: [] as EntityWithStatus<TData>[],
+      //         },
+      //       } satisfies StatedEntities<TData>;
+      //       return merge(...entityLevelActionList$).pipe(
+      //         //@ts-ignore
+      //         scan((acc, actionByEntity) => {}, seed),
+      //         startWith(seed)
+      //         // todo add hasDeleteEntity selectors...
+      //       );
+      //     }),
+      //     scan((acc, finalEntities) => {
+      //       // todo preserve outOfContexte in anyCase
+      //       if (!data.getEntities.preservePreviousEntitiesWhenSrcContextEmit) {
+      //         return finalEntities;
+      //       }
+      //       const hasPreviousData = acc.isLoaded;
+      //       if (!hasPreviousData) {
+      //         return finalEntities;
+      //       }
+      //       if (finalEntities.isLoading) {
+      //         return {
+      //           ...finalEntities,
+      //           result: {
+      //             entities: acc.result.entities,
+      //             outOfContextEntities: acc.result.outOfContextEntities,
+      //           },
+      //         };
+      //       }
+      //       return finalEntities;
+      //     }),
+      //     tap({
+      //       next: (data) => console.log('[final] data', data),
+      //       error: (error) => console.log('[final] error', error),
+      //       complete: () => console.log('[final] complete'),
+      //       subscribe: () => console.log('[final] subscribe'),
+      //       unsubscribe: () => console.log('[final] unsubscribe'),
+      //       finalize: () => console.log('[final] finalize'),
+      //     }),
+      //     shareReplay(1)
+      //   );
 
       return {
         data: finalResult,
