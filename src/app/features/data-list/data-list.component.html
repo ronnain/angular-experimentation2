@@ -10,7 +10,7 @@
     class="flex items-center justify-center"
     [class.invisible]="!data?.isLoading"
   >
-    loading <span class="loading loading-spinner loading-sm"></span>
+    loading <span class="ml-3 loading loading-spinner loading-sm"></span>
   </div>
   @if(data && data.result.entities && data.result.entities.length > 0) {
   <h2 class="">Entities</h2>
@@ -107,7 +107,9 @@
     <button class="btn" (click)="nextPage()">Next</button>
   </div>
 
-  <h2 class="mt-4" class="">Out Of context Entities</h2>
+  <hr class="my-8" />
+
+  <h2 class="">Out Of context Entities</h2>
   <div class="relative overflow-x-auto">
     <table *ngIf="store2.data | async as data" class="table">
       <thead class="">
