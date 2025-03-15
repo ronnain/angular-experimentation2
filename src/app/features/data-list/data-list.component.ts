@@ -2,8 +2,28 @@ import { Component, inject } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { DataItem, DataListService } from './data-list.service';
 import { CommonModule } from '@angular/common';
-import { BehaviorSubject, exhaustMap, Subject, switchMap, timer } from 'rxjs';
-import { Store2 } from './storev2';
+import {
+  BehaviorSubject,
+  exhaustMap,
+  Observable,
+  of,
+  Subject,
+  switchMap,
+  timer,
+} from 'rxjs';
+import {
+  createMyFunctionValue,
+  entityLevelAction,
+  entityLevelAction,
+  Reducer,
+  ReducerParams,
+  Store2,
+} from './storev2';
+
+type Pagination = {
+  page: number;
+  pageSize: number;
+};
 
 @Component({
   selector: 'app-data-list',
@@ -15,15 +35,23 @@ export class DataListComponent {
   private dataListService = inject(DataListService);
 
   createItem$ = new Subject<DataItem>();
-  updateItem$ = new Subject<DataItem>();
+  updateItem$ = new Subject<DataItem & { idTest: number }>();
   deleteItem$ = new Subject<DataItem>();
-  getAllData$ = new BehaviorSubject<{
-    page: number;
-    pageSize: number;
-  }>({
+  getAllData$ = new BehaviorSubject<Pagination>({
     page: 1,
     pageSize: 3,
   });
+
+  private a = {
+    test: createMyFunctionValue({
+      src: () => of({ id: 1 }),
+      api: (params) => {
+        const test = params.data; // Now correctly inferred as number
+        return new Observable<string>();
+      },
+      operator: switchMap,
+    }),
+  };
 
   protected readonly store2 = inject(Store2)({
     getEntities: {
@@ -34,16 +62,19 @@ export class DataListComponent {
     },
     entityIdSelector: (item) => item.id,
     entityLevelAction: {
-      update: {
+      update: entityLevelAction<Pagination>()({
         src: () => this.updateItem$,
-        api: (item) => this.dataListService.updateItem(item),
+        api: ({ data }) => {
+          return this.dataListService.updateItem(data);
+        },
         operator: switchMap,
-      },
-      create: {
+      }),
+      create: entityLevelAction<Pagination>()({
         src: () => this.createItem$,
-        api: (item) => this.dataListService.addItem(item),
+        api: ({ data }: { data: DataItem }) =>
+          this.dataListService.addItem(data),
         operator: switchMap,
-        customIdSelector: (item) => item.name,
+        customIdSelector: (item: DataItem) => item.name,
         reducer: {
           onLoaded: ({
             context,
@@ -77,41 +108,42 @@ export class DataListComponent {
             };
           },
         },
-      },
-      delete: {
+      }),
+      delete: entityLevelAction<Pagination>()({
         src: () => this.deleteItem$,
-        api: (item) => this.dataListService.deleteItem(item),
+        api: ({ data }: { data: DataItem }) =>
+          this.dataListService.deleteItem(data),
         operator: exhaustMap,
         delayedReducer: [
           {
             notifier: () => timer(2000),
             reducer: {
-              onLoaded: ({
-                entityWithStatus,
-                entities,
-                outOfContextEntities,
-                customIdSelector,
-              }) => {
-                return {
-                  entities: entities?.filter(
-                    (entityData) =>
-                      !entityData.entity ||
-                      customIdSelector(entityData.entity) !=
-                        entityWithStatus?.id
-                  ),
-                  outOfContextEntities: outOfContextEntities?.filter(
-                    (entityData) =>
-                      !entityData.entity ||
-                      customIdSelector(entityData.entity) !=
-                        entityWithStatus?.id
-                  ),
-                };
-              },
+              // onLoaded: ({
+              //   entityWithStatus,
+              //   entities,
+              //   outOfContextEntities,
+              //   customIdSelector,
+              // }: ReducerParams<DataItem, Pagination>) => {
+              //   return {
+              //     entities: entities?.filter(
+              //       (entityData) =>
+              //         !entityData.entity ||
+              //         customIdSelector(entityData.entity) !=
+              //           entityWithStatus?.id
+              //     ),
+              //     outOfContextEntities: outOfContextEntities?.filter(
+              //       (entityData) =>
+              //         !entityData.entity ||
+              //         customIdSelector(entityData.entity) !=
+              //           entityWithStatus?.id
+              //     ),
+              //   };
+              // },
             },
           },
         ],
-      },
-    },
+      }),
+    } as const,
   });
 
   previousPage() {

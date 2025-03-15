@@ -17,17 +17,6 @@ import {
 } from 'rxjs';
 import { statedStream } from '../../util/stated-stream/stated-stream';
 
-// type FindAllRoutesThatAuthorizeTheResourceOwner<
-//   TRootContract extends Record<string, any>
-// > = {
-//   [key in keyof TRootContract]: FindRoutesThatAuthorizeTheResourceOwner<
-//     TRootContract[key],
-//     UnionToTuple<keyof TRootContract[key]>
-//   >;
-// };
-
-type SrcContext = unknown;
-
 export type Operator = <T, R>(
   fn: (value: T) => Observable<R>
 ) => OperatorFunction<T, R>;
@@ -36,7 +25,7 @@ type MethodName = string;
 
 type IdSelector<TData> = (entity: TData) => string | number;
 
-type ReducerParams<TData, TContext> = {
+export type ReducerParams<TData, TContext> = {
   id: string | number;
   status: EntityStatus;
   entityWithStatus: EntityWithStatus<TData>;
@@ -52,7 +41,7 @@ type StatedData<T> = {
   readonly result: T;
 };
 
-type Reducer<TData, TContext> = (
+export type Reducer<TData, TContext> = (
   data: ReducerParams<TData, TContext>
 ) => ContextualEntities<TData>;
 
@@ -102,6 +91,22 @@ type DelayedReducer<TData, TContext> = {
   notifier: (events: any) => Observable<unknown>; // if not provided, the entity is not removed, otherwise it is removed after the duration emit
 };
 
+export function entityLevelAction<TSrcGetAllContext>() {
+  return <TSrc, TData>(
+    config: EntityLevelActionConfig<TSrcGetAllContext, TSrc, TData>
+  ): EntityLevelActionConfig<TSrcGetAllContext, TSrc, TData> => config;
+}
+
+type EntityLevelActionConfig<TSrcGetAllContext, TSrc, TData> = {
+  src: () => Observable<TSrc>;
+  api: (params: { data: TSrc }) => Observable<TData>;
+  operator: Operator; // Use switchMap as default
+  customIdSelector?: IdSelector<NoInfer<TData>>; // used to know of to identify the entity, it is useful for creation, when the entity has no id yet
+  // todo add status duration ?
+  delayedReducer?: DelayedReducer<NoInfer<TData>, TSrcGetAllContext>[];
+  reducer?: StatedDataReducer<NoInfer<TData>, TSrcGetAllContext>; // if not provided, it will update the entity in the list
+};
+
 // todo create a plug function, that will ensure that mutation api call are not cancelled if the store is destroyed
 // todo improve the statedStream typing
 // todo improve typing (src)
@@ -112,7 +117,7 @@ type DelayedReducer<TData, TContext> = {
 export const Store2 = new InjectionToken('Store', {
   providedIn: 'root',
   factory: () => {
-    return <TData, SrcContext>(data: {
+    return <TData, SrcContext, TEntityLevelActions>(data: {
       getEntities: {
         srcContext: Observable<SrcContext>;
         api: (srcContext: SrcContext) => Observable<TData[]>;
@@ -120,18 +125,7 @@ export const Store2 = new InjectionToken('Store', {
         preservePreviousEntitiesWhenSrcContextEmit?: boolean;
       };
       entityIdSelector: IdSelector<TData>; // used to know of to identify the entity
-      entityLevelAction?: Record<
-        MethodName,
-        {
-          src: () => Observable<TData>;
-          api: (entity: TData) => Observable<TData>;
-          operator: Operator; // Use switchMap as default
-          customIdSelector?: IdSelector<TData>; // used to know of to identify the entity, it is useful for creation, when the entity has no id yet
-          // todo add status duration ?
-          delayedReducer?: DelayedReducer<TData, SrcContext>[];
-          reducer?: StatedDataReducer<TData, SrcContext>; // if not provided, it will update the entity in the list
-        }
-      >; // action that will affect the targeted entity, they can be triggered concurrently
+      entityLevelAction?: TEntityLevelActions; // todo // action that will affect the targeted entity, they can be triggered concurrently
       //   entitiesLevelAction?: Record<
       //     MethodName,
       //     {
