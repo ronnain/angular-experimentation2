@@ -2,23 +2,8 @@ import { Component, inject } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { DataItem, DataListService } from './data-list.service';
 import { CommonModule } from '@angular/common';
-import {
-  BehaviorSubject,
-  exhaustMap,
-  Observable,
-  of,
-  Subject,
-  switchMap,
-  timer,
-} from 'rxjs';
-import {
-  createMyFunctionValue,
-  entityLevelAction,
-  entityLevelAction,
-  Reducer,
-  ReducerParams,
-  Store2,
-} from './storev2';
+import { BehaviorSubject, exhaustMap, Subject, switchMap, timer } from 'rxjs';
+import { entityLevelAction, ReducerParams, Store2 } from './storev2';
 
 type Pagination = {
   page: number;
@@ -35,23 +20,12 @@ export class DataListComponent {
   private dataListService = inject(DataListService);
 
   createItem$ = new Subject<DataItem>();
-  updateItem$ = new Subject<DataItem & { idTest: number }>();
+  updateItem$ = new Subject<DataItem>();
   deleteItem$ = new Subject<DataItem>();
   getAllData$ = new BehaviorSubject<Pagination>({
     page: 1,
     pageSize: 3,
   });
-
-  private a = {
-    test: createMyFunctionValue({
-      src: () => of({ id: 1 }),
-      api: (params) => {
-        const test = params.data; // Now correctly inferred as number
-        return new Observable<string>();
-      },
-      operator: switchMap,
-    }),
-  };
 
   protected readonly store2 = inject(Store2)({
     getEntities: {
@@ -83,6 +57,7 @@ export class DataListComponent {
             outOfContextEntities,
             customIdSelector,
           }) => {
+            // todo find a way to get the status method
             if (context.page !== 1) {
               return {
                 entities: entities,
@@ -118,27 +93,28 @@ export class DataListComponent {
           {
             notifier: () => timer(2000),
             reducer: {
-              // onLoaded: ({
-              //   entityWithStatus,
-              //   entities,
-              //   outOfContextEntities,
-              //   customIdSelector,
-              // }: ReducerParams<DataItem, Pagination>) => {
-              //   return {
-              //     entities: entities?.filter(
-              //       (entityData) =>
-              //         !entityData.entity ||
-              //         customIdSelector(entityData.entity) !=
-              //           entityWithStatus?.id
-              //     ),
-              //     outOfContextEntities: outOfContextEntities?.filter(
-              //       (entityData) =>
-              //         !entityData.entity ||
-              //         customIdSelector(entityData.entity) !=
-              //           entityWithStatus?.id
-              //     ),
-              //   };
-              // },
+              onLoaded: ({
+                entityWithStatus,
+                entities,
+                outOfContextEntities,
+                customIdSelector,
+              }) => {
+                // todo try to remove the type
+                return {
+                  entities: entities?.filter(
+                    (entityData) =>
+                      !entityData.entity ||
+                      customIdSelector(entityData.entity) !=
+                        entityWithStatus?.id
+                  ),
+                  outOfContextEntities: outOfContextEntities?.filter(
+                    (entityData) =>
+                      !entityData.entity ||
+                      customIdSelector(entityData.entity) !=
+                        entityWithStatus?.id
+                  ),
+                };
+              },
             },
           },
         ],

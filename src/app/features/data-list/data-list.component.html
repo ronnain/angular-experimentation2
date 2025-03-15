@@ -32,47 +32,47 @@
           <td class="">{{ entityData.entity.name }}</td>
           <td class="">
             <span
-              *ngIf="$any(entityData.status).create?.isLoading"
+              *ngIf="entityData.status.create?.isLoading"
               class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
               >Creating</span
             >
             <span
-              *ngIf="$any(entityData.status).update?.isLoading"
+              *ngIf="entityData.status.update?.isLoading"
               class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
               >Updating</span
             >
             <span
-              *ngIf="$any(entityData.status).delete?.isLoading"
+              *ngIf="entityData.status.delete?.isLoading"
               class="bg-red-200 text-red-800 px-2 py-1 rounded"
               >Deleting</span
             >
             <span
-              *ngIf="$any(entityData.status).create?.isLoaded"
+              *ngIf="entityData.status.create?.isLoaded"
               class="bg-green-200 text-green-800 px-2 py-1 rounded"
               >Created</span
             >
             <span
-              *ngIf="$any(entityData.status).update?.isLoaded"
+              *ngIf="entityData.status.update?.isLoaded"
               class="bg-green-200 text-green-800 px-2 py-1 rounded"
               >Updated</span
             >
             <span
-              *ngIf="$any(entityData.status).delete?.isLoaded"
+              *ngIf="entityData.status.delete?.isLoaded"
               class="bg-green-200 text-green-800 px-2 py-1 rounded"
               >Deleted</span
             >
             <span
-              *ngIf="$any(entityData.status).create?.hasError"
+              *ngIf="entityData.status.create?.hasError"
               class="bg-red-200 text-red-800 px-2 py-1 rounded"
               >Creation Error</span
             >
             <span
-              *ngIf="$any(entityData.status).update?.hasError"
+              *ngIf="entityData.status.update?.hasError"
               class="bg-red-200 text-red-800 px-2 py-1 rounded"
               >Update Error</span
             >
             <span
-              *ngIf="$any(entityData.status).delete?.hasError"
+              *ngIf="entityData.status.delete?.hasError"
               class="bg-red-200 text-red-800 px-2 py-1 rounded"
               >Delete Error</span
             >
@@ -131,47 +131,47 @@
           <td class="">{{ entityData.entity?.name }}</td>
           <td class="">
             <span
-              *ngIf="$any(entityData.status).create?.isLoading"
+              *ngIf="entityData.status.create?.isLoading"
               class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
               >Creating</span
             >
             <span
-              *ngIf="$any(entityData.status).update?.isLoading"
+              *ngIf="entityData.status.update?.isLoading"
               class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
               >Updating</span
             >
             <span
-              *ngIf="$any(entityData.status).delete?.isLoading"
+              *ngIf="entityData.status.delete?.isLoading"
               class="bg-red-200 text-red-800 px-2 py-1 rounded"
               >Deleting</span
             >
             <span
-              *ngIf="$any(entityData.status).create?.isLoaded"
+              *ngIf="entityData.status.create?.isLoaded"
               class="bg-green-200 text-green-800 px-2 py-1 rounded"
               >Created</span
             >
             <span
-              *ngIf="$any(entityData.status).update?.isLoaded"
+              *ngIf="entityData.status.update?.isLoaded"
               class="bg-green-200 text-green-800 px-2 py-1 rounded"
               >Updated</span
             >
             <span
-              *ngIf="$any(entityData.status).delete?.isLoaded"
+              *ngIf="entityData.status.delete?.isLoaded"
               class="bg-green-200 text-green-800 px-2 py-1 rounded"
               >Deleted</span
             >
             <span
-              *ngIf="$any(entityData.status).create?.hasError"
+              *ngIf="entityData.status.create?.hasError"
               class="bg-red-200 text-red-800 px-2 py-1 rounded"
               >Creation Error</span
             >
             <span
-              *ngIf="$any(entityData.status).update?.hasError"
+              *ngIf="entityData.status.update?.hasError"
               class="bg-red-200 text-red-800 px-2 py-1 rounded"
               >Update Error</span
             >
             <span
-              *ngIf="$any(entityData.status).delete?.hasError"
+              *ngIf="entityData.status.delete?.hasError"
               class="bg-red-200 text-red-800 px-2 py-1 rounded"
               >Delete Error</span
             >
