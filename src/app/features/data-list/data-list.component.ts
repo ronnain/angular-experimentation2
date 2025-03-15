@@ -57,7 +57,6 @@ export class DataListComponent {
             outOfContextEntities,
             customIdSelector,
           }) => {
-            // todo find a way to get the status method
             if (context.page !== 1) {
               return {
                 entities: entities,
