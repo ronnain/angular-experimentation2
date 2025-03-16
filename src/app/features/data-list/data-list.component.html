@@ -12,6 +12,15 @@
   >
     loading <span class="ml-3 loading loading-spinner loading-sm"></span>
   </div>
+  <div
+    class="flex items-center justify-center"
+    [class.invisible]="!data?.result?.selectors?.['hasProcessingItem']"
+  >
+    <span class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
+      >hasProcessingItem</span
+    >
+    <span class="ml-3 loading loading-spinner loading-sm"></span>
+  </div>
   @if(data && data.result.entities && data.result.entities.length > 0) {
   <h2 class="">Entities</h2>
   <div class="relative overflow-x-auto">
@@ -31,6 +40,11 @@
           </th>
           <td class="">{{ entityData.entity.name }}</td>
           <td class="">
+            <span
+              *ngIf="entityData.selectors?.['isProcessing']"
+              class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
+              >isProcessing</span
+            >
             <span
               *ngIf="entityData.status.create?.isLoading"
               class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
@@ -126,10 +140,15 @@
           class=""
         >
           <th scope="row" class="">
-            {{ entityData.entity?.id }}
+            {{ entityData.entity.id }}
           </th>
-          <td class="">{{ entityData.entity?.name }}</td>
+          <td class="">{{ entityData.entity.name }}</td>
           <td class="">
+            <span
+              *ngIf="entityData.selectors?.['isProcessing']"
+              class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
+              >isProcessing</span
+            >
             <span
               *ngIf="entityData.status.create?.isLoading"
               class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
@@ -178,19 +197,19 @@
           </td>
           <td class="">
             <button
-              (click)="updateItemTest(entityData.entity?.id ?? -1)"
+              (click)="updateItemTest(entityData.entity.id)"
               class="text-blue-500"
             >
               Edit
             </button>
             <button
-              (click)="updateItemError(entityData.entity?.id ?? -1)"
+              (click)="updateItemError(entityData.entity.id)"
               class="text-red-500"
             >
               EditError
             </button>
             <button
-              (click)="deleteItemTest(entityData.entity?.id ?? -1)"
+              (click)="deleteItemTest(entityData.entity.id)"
               class="text-red-500"
             >
               Delete

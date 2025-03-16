@@ -3,7 +3,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { DataItem, DataListService } from './data-list.service';
 import { CommonModule } from '@angular/common';
 import { BehaviorSubject, exhaustMap, Subject, switchMap, timer } from 'rxjs';
-import { entityLevelAction, ReducerParams, Store2 } from './storev2';
+import { entityLevelAction, Store2 } from './storev2';
 
 type Pagination = {
   page: number;
@@ -98,7 +98,6 @@ export class DataListComponent {
                 outOfContextEntities,
                 customIdSelector,
               }) => {
-                // todo try to remove the type
                 return {
                   entities: entities?.filter(
                     (entityData) =>
@@ -119,6 +118,22 @@ export class DataListComponent {
         ],
       }),
     } as const,
+    selectors: {
+      entityLevel: ({ status }) => {
+        return {
+          isProcessing: Object.values(status).some(
+            (entityStatus) => entityStatus?.isLoading
+          ),
+        };
+      },
+      storeLevel: ({ entities }) => ({
+        hasProcessingItem: entities.some((entity) =>
+          Object.values(entity.status).some(
+            (entityStatus) => entityStatus?.isLoading
+          )
+        ),
+      }),
+    },
   });
 
   previousPage() {
