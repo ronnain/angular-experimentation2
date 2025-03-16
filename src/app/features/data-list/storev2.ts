@@ -10,9 +10,7 @@ import {
   scan,
   share,
   shareReplay,
-  startWith,
   switchMap,
-  tap,
   withLatestFrom,
 } from 'rxjs';
 import { statedStream } from '../../util/stated-stream/stated-stream';
@@ -63,7 +61,9 @@ type EntityWithStatus<TData, MethodName extends string> = {
   entity: TData;
   status: MethodStatus<MethodName>;
 };
-type MethodStatus<MethodName extends string> = Partial<Record<MethodName, EntityStatus>>;
+type MethodStatus<MethodName extends string> = Partial<
+  Record<MethodName, EntityStatus>
+>;
 
 type EntityReducerConfig<TData, TContext, MethodName extends string> = {
   entityStatedData: StatedData<TData>;
@@ -111,7 +111,6 @@ type EntityLevelActionConfig<
   api: (params: { data: TSrc }) => Observable<TData>;
   operator: Operator; // Use switchMap as default
   customIdSelector?: IdSelector<NoInfer<TData>>; // used to know of to identify the entity, it is useful for creation, when the entity has no id yet
-  // todo add status duration ?
   delayedReducer?: DelayedReducer<
     NoInfer<TData>,
     TSrcGetAllContext,
@@ -120,12 +119,16 @@ type EntityLevelActionConfig<
   reducer?: StatedDataReducer<NoInfer<TData>, TSrcGetAllContext, MethodName>; // if not provided, it will update the entity in the list
 };
 
+type FinalResult<TData, TEntityLevelActionsKeys extends string> = Observable<
+  StatedEntities<TData, TEntityLevelActionsKeys>
+>;
+
 // todo create a plug function, that will ensure that mutation api call are not cancelled if the store is destroyed
 // todo improve the statedStream typing
-// todo improve typing (src)
 // todo fix multiples entities creation make some duplication
 // todo create helper function, (to merge/add/remove entities)
 // todo add events
+// todo create a type helper function to ensure that ensure that the methods name union are the same
 
 export const Store2 = new InjectionToken('Store', {
   providedIn: 'root',
@@ -244,9 +247,7 @@ export const Store2 = new InjectionToken('Store', {
       );
 
       // I choose to merge the entitiesData$ and the entityLevelActionList$, that's enable to add some items even if entities are not loaded yet
-      const finalResult: Observable<
-        StatedEntities<TData, TEntityLevelActionsKeys>
-      > = merge(
+      const finalResult: FinalResult<TData, TEntityLevelActionsKeys> = merge(
         entitiesData$.pipe(
           map((entitiesData) => ({
             type: 'fetchedData' as const,
@@ -350,6 +351,7 @@ export const Store2 = new InjectionToken('Store', {
     };
   },
 });
+
 function applyActionOnEntities<TData, SrcContext, MethodName extends string>({
   acc,
   actionByEntity,
