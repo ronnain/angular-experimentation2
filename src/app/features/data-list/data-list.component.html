@@ -1,225 +1,251 @@
 @let data= store2.data | async;
+<div class="bg-gray-50 min-h-screen">
+  <div class="p-4">
+    <div class="mb-4">
+      <button class="btn" (click)="createItemTest()">Add Item</button>
+    </div>
 
-<div class="p-4">
-  <div class="mb-4">
-    <button class="btn" (click)="createItemTest()">Add Item</button>
-    <button class="btn" (click)="updateItemTest(1)">Update Item</button>
-  </div>
+    <div class="stats shadow mx-auto bg-white">
+      <div class="stat">
+        <div class="stat-title">Fetch status</div>
+        <div class="stat-value flex items-center gap-3">
+          @if(data?.isLoading) {
+          <div class="inline-grid *:[grid-area:1/1]">
+            <div class="status status-primary animate-ping"></div>
+            <div class="status status-primary"></div>
+          </div>
+          Loading } @if(data?.isLoaded) {
+          <div class="inline-grid *:[grid-area:1/1]">
+            <div class="status status-success"></div>
+            <div class="status status-success"></div>
+          </div>
+          Loaded }
+        </div>
+      </div>
 
-  <div
-    class="flex items-center justify-center"
-    [class.invisible]="!data?.isLoading"
-  >
-    loading <span class="ml-3 loading loading-spinner loading-sm"></span>
-  </div>
-  <div
-    class="flex items-center justify-center"
-    [class.invisible]="!data?.result?.selectors?.['hasProcessingItem']"
-  >
-    <span class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
-      >hasProcessingItem</span
-    >
-    <span class="ml-3 loading loading-spinner loading-sm"></span>
-  </div>
-  @if(data && data.result.entities && data.result.entities.length > 0) {
-  <h2 class="">Entities</h2>
-  <div class="relative overflow-x-auto">
-    <table class="table">
-      <thead class="">
-        <tr>
-          <th scope="col" class="">ID</th>
-          <th scope="col" class="">Name</th>
-          <th scope="col" class="">Status</th>
-          <th scope="col" class="">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let entityData of data?.result?.entities" class="">
-          <th scope="row" class="">
-            {{ entityData.entity.id }}
-          </th>
-          <td class="">{{ entityData.entity.name }}</td>
-          <td class="">
-            <span
-              *ngIf="entityData.selectors?.['isProcessing']"
-              class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
-              >isProcessing</span
-            >
-            <span
-              *ngIf="entityData.status.create?.isLoading"
-              class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
-              >Creating</span
-            >
-            <span
-              *ngIf="entityData.status.update?.isLoading"
-              class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
-              >Updating</span
-            >
-            <span
-              *ngIf="entityData.status.delete?.isLoading"
-              class="bg-red-200 text-red-800 px-2 py-1 rounded"
-              >Deleting</span
-            >
-            <span
-              *ngIf="entityData.status.create?.isLoaded"
-              class="bg-green-200 text-green-800 px-2 py-1 rounded"
-              >Created</span
-            >
-            <span
-              *ngIf="entityData.status.update?.isLoaded"
-              class="bg-green-200 text-green-800 px-2 py-1 rounded"
-              >Updated</span
-            >
-            <span
-              *ngIf="entityData.status.delete?.isLoaded"
-              class="bg-green-200 text-green-800 px-2 py-1 rounded"
-              >Deleted</span
-            >
-            <span
-              *ngIf="entityData.status.create?.hasError"
-              class="bg-red-200 text-red-800 px-2 py-1 rounded"
-              >Creation Error</span
-            >
-            <span
-              *ngIf="entityData.status.update?.hasError"
-              class="bg-red-200 text-red-800 px-2 py-1 rounded"
-              >Update Error</span
-            >
-            <span
-              *ngIf="entityData.status.delete?.hasError"
-              class="bg-red-200 text-red-800 px-2 py-1 rounded"
-              >Delete Error</span
-            >
-          </td>
-          <td class="">
-            <button
-              (click)="updateItemTest(entityData.entity.id)"
-              class="text-blue-500"
-            >
-              Edit
-            </button>
-            <button
-              (click)="updateItemError(entityData.entity.id)"
-              class="text-red-500"
-            >
-              EditError
-            </button>
-            <button
-              (click)="deleteItemTest(entityData.entity.id)"
-              class="text-red-500"
-            >
-              Delete
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <!-- Pagination buttons -->
-  <div class="flex justify-between mt-4">
-    <button class="btn" (click)="previousPage()">Previous</button>
-    <button class="btn" (click)="nextPage()">Next</button>
-  </div>
+      @let selectors = data?.result?.selectors;
+      <div class="stat">
+        <div class="stat-title">Processing status</div>
+        <div class="stat-value flex items-center gap-3">
+          @if(selectors?.hasProcessingItem) {
+          <div class="inline-grid *:[grid-area:1/1]">
+            <div class="status status-primary animate-ping"></div>
+            <div class="status status-primary"></div>
+          </div>
+          {{ selectors?.totalProcessingItems }} Processing } @else { - }
+        </div>
+        @if(selectors?.totalCreatedItems) {
+        <div class="stat-desc">{{ selectors?.totalCreatedItems }} created</div>
+        } @if(selectors?.totalUpdatedItems) {
+        <div class="stat-desc">{{ selectors?.totalUpdatedItems }} updated</div>
+        } @if(selectors?.totalDeletedItems) {
+        <div class="stat-desc">{{ selectors?.totalDeletedItems }} deleted</div>
+        }
+      </div>
+    </div>
 
-  <hr class="my-8" />
+    @if(data && data.result.entities ) {
+    <div class="bg-white p-4 rounded shadow mt-8">
+      <h2 class="font-bold">Entities</h2>
+      <div class="relative overflow-x-auto">
+        <table class="table table-zebra">
+          <thead class="">
+            <tr>
+              <th scope="col" class="">ID</th>
+              <th scope="col" class="">Name</th>
+              <th scope="col" class="">Status</th>
+              <th scope="col" class="">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for(entityData of data?.result?.entities; track
+            entityData.entity.id) {
+            <tr class="">
+              <th scope="row" class="flex items-center gap-3">
+                @if(entityData.selectors.isProcessing) {
+                <div class="inline-grid *:[grid-area:1/1]">
+                  <div class="status status-primary animate-ping"></div>
+                  <div class="status status-primary"></div>
+                </div>
+                }
 
-  <h2 class="">Out Of context Entities</h2>
-  <div class="relative overflow-x-auto">
-    <table *ngIf="store2.data | async as data" class="table">
-      <thead class="">
-        <tr>
-          <th scope="col" class="">ID</th>
-          <th scope="col" class="">Name</th>
-          <th scope="col" class="">Status</th>
-          <th scope="col" class="">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          *ngFor="let entityData of data.result.outOfContextEntities"
-          class=""
-        >
-          <th scope="row" class="">
-            {{ entityData.entity.id }}
-          </th>
-          <td class="">{{ entityData.entity.name }}</td>
-          <td class="">
-            <span
-              *ngIf="entityData.selectors?.['isProcessing']"
-              class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
-              >isProcessing</span
+                {{ entityData.entity.id }}
+              </th>
+              <td class="">{{ entityData.entity.name }}</td>
+              <td class="">
+                <span
+                  *ngIf="entityData.status.create?.isLoading"
+                  class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
+                  >Creating</span
+                >
+                <span
+                  *ngIf="entityData.status.update?.isLoading"
+                  class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
+                  >Updating</span
+                >
+                <span
+                  *ngIf="entityData.status.delete?.isLoading"
+                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
+                  >Deleting</span
+                >
+                <span
+                  *ngIf="entityData.status.create?.isLoaded"
+                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
+                  >Created</span
+                >
+                <span
+                  *ngIf="entityData.status.update?.isLoaded"
+                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
+                  >Updated</span
+                >
+                <span
+                  *ngIf="entityData.status.delete?.isLoaded"
+                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
+                  >Deleted</span
+                >
+                <span
+                  *ngIf="entityData.status.create?.hasError"
+                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
+                  >Creation Error</span
+                >
+                <span
+                  *ngIf="entityData.status.update?.hasError"
+                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
+                  >Update Error</span
+                >
+                <span
+                  *ngIf="entityData.status.delete?.hasError"
+                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
+                  >Delete Error</span
+                >
+              </td>
+              <td class="">
+                <button
+                  (click)="updateItemTest(entityData.entity)"
+                  class="text-blue-500"
+                >
+                  Edit
+                </button>
+                <button
+                  (click)="updateItemError(entityData.entity)"
+                  class="text-red-500"
+                >
+                  EditError
+                </button>
+                <button
+                  (click)="deleteItemTest(entityData.entity)"
+                  class="text-red-500"
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <!-- Pagination buttons -->
+      <div class="flex justify-between mt-4">
+        <button class="btn" (click)="previousPage()">Previous</button>
+        <button class="btn" (click)="nextPage()">Next</button>
+      </div>
+    </div>
+
+    <div class="bg-white p-4 rounded shadow my-8">
+      <h2 class="font-bold">Out Of context Entities</h2>
+      <div class="relative overflow-x-auto">
+        <table *ngIf="store2.data | async as data" class="table table-zebra">
+          <thead class="">
+            <tr>
+              <th scope="col" class="">ID</th>
+              <th scope="col" class="">Name</th>
+              <th scope="col" class="">Status</th>
+              <th scope="col" class="">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let entityData of data.result.outOfContextEntities"
+              class=""
             >
-            <span
-              *ngIf="entityData.status.create?.isLoading"
-              class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
-              >Creating</span
-            >
-            <span
-              *ngIf="entityData.status.update?.isLoading"
-              class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
-              >Updating</span
-            >
-            <span
-              *ngIf="entityData.status.delete?.isLoading"
-              class="bg-red-200 text-red-800 px-2 py-1 rounded"
-              >Deleting</span
-            >
-            <span
-              *ngIf="entityData.status.create?.isLoaded"
-              class="bg-green-200 text-green-800 px-2 py-1 rounded"
-              >Created</span
-            >
-            <span
-              *ngIf="entityData.status.update?.isLoaded"
-              class="bg-green-200 text-green-800 px-2 py-1 rounded"
-              >Updated</span
-            >
-            <span
-              *ngIf="entityData.status.delete?.isLoaded"
-              class="bg-green-200 text-green-800 px-2 py-1 rounded"
-              >Deleted</span
-            >
-            <span
-              *ngIf="entityData.status.create?.hasError"
-              class="bg-red-200 text-red-800 px-2 py-1 rounded"
-              >Creation Error</span
-            >
-            <span
-              *ngIf="entityData.status.update?.hasError"
-              class="bg-red-200 text-red-800 px-2 py-1 rounded"
-              >Update Error</span
-            >
-            <span
-              *ngIf="entityData.status.delete?.hasError"
-              class="bg-red-200 text-red-800 px-2 py-1 rounded"
-              >Delete Error</span
-            >
-          </td>
-          <td class="">
-            <button
-              (click)="updateItemTest(entityData.entity.id)"
-              class="text-blue-500"
-            >
-              Edit
-            </button>
-            <button
-              (click)="updateItemError(entityData.entity.id)"
-              class="text-red-500"
-            >
-              EditError
-            </button>
-            <button
-              (click)="deleteItemTest(entityData.entity.id)"
-              class="text-red-500"
-            >
-              Delete
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+              <th scope="row" class="">
+                {{ entityData.entity.id }}
+              </th>
+              <td class="">{{ entityData.entity.name }}</td>
+              <td class="">
+                <span
+                  *ngIf="entityData.status.create?.isLoading"
+                  class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
+                  >Creating</span
+                >
+                <span
+                  *ngIf="entityData.status.update?.isLoading"
+                  class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
+                  >Updating</span
+                >
+                <span
+                  *ngIf="entityData.status.delete?.isLoading"
+                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
+                  >Deleting</span
+                >
+                <span
+                  *ngIf="entityData.status.create?.isLoaded"
+                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
+                  >Created</span
+                >
+                <span
+                  *ngIf="entityData.status.update?.isLoaded"
+                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
+                  >Updated</span
+                >
+                <span
+                  *ngIf="entityData.status.delete?.isLoaded"
+                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
+                  >Deleted</span
+                >
+                <span
+                  *ngIf="entityData.status.create?.hasError"
+                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
+                  >Creation Error</span
+                >
+                <span
+                  *ngIf="entityData.status.update?.hasError"
+                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
+                  >Update Error</span
+                >
+                <span
+                  *ngIf="entityData.status.delete?.hasError"
+                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
+                  >Delete Error</span
+                >
+              </td>
+              <td class="">
+                <button
+                  (click)="updateItemTest(entityData.entity)"
+                  class="text-blue-500"
+                >
+                  Edit
+                </button>
+                <button
+                  (click)="updateItemError(entityData.entity)"
+                  class="text-red-500"
+                >
+                  EditError
+                </button>
+                <button
+                  (click)="deleteItemTest(entityData.entity)"
+                  class="text-red-500"
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    }
   </div>
-  }
 </div>
 
 <!-- <pre>{{ store2.data | async | json }}</pre> -->

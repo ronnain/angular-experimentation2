@@ -1,27 +1,29 @@
 import { Injectable } from '@angular/core';
-import { Observable, BehaviorSubject, of, delay, map, take } from 'rxjs';
+import { Observable, BehaviorSubject, of, delay, map, take, timer } from 'rxjs';
 
-export interface DataItem {
-  id: number;
-  name: string;
-}
+export type DataItem =
+  | {
+      id: string;
+      name: string;
+    }
+  | { id: undefined; name: string; optimisticId: string };
 
 @Injectable({
   providedIn: 'root',
 })
 export class DataListService {
-  private dataList$ = new BehaviorSubject(
+  private dataList$ = new BehaviorSubject<DataItem[]>(
     [
-      { id: 1, name: 'Item 1' },
-      { id: 2, name: 'Item 2' },
-      { id: 3, name: 'Item 3' },
-      { id: 4, name: 'Item 4' },
-      { id: 5, name: 'Item 5' },
-      { id: 6, name: 'Item 6' },
-      { id: 7, name: 'Item 7' },
-      { id: 8, name: 'Item 8' },
-      { id: 9, name: 'Item 9' },
-      { id: 10, name: 'Item 10' },
+      { id: '1', name: 'Item 1' },
+      { id: '2', name: 'Item 2' },
+      { id: '3', name: 'Item 3' },
+      { id: '4', name: 'Item 4' },
+      { id: '5', name: 'Item 5' },
+      { id: '6', name: 'Item 6' },
+      { id: '7', name: 'Item 7' },
+      { id: '8', name: 'Item 8' },
+      { id: '9', name: 'Item 9' },
+      { id: '10', name: 'Item 10' },
     ].reverse()
   );
 
@@ -47,32 +49,39 @@ export class DataListService {
 
   addItem(newItem: DataItem) {
     // add a radom number and return a random number
-
     this.dataList$.next([newItem, ...this.dataList$.value]);
     return of(newItem).pipe(delay(5000));
   }
 
-  deleteItem(item: DataItem) {
-    this.dataList$.next(
-      this.dataList$.value.filter((dataItem) => dataItem.id !== item.id)
+  deleteItem(itemId: DataItem['id']) {
+    const deletedItem = this.dataList$.value.find(
+      (dataItem) => dataItem.id === itemId
     );
-    return of(item).pipe(delay(2000));
+    this.dataList$.next(
+      this.dataList$.value.filter((dataItem) => dataItem.id !== itemId)
+    );
+    return of(deletedItem).pipe(delay(2000));
   }
 
-  updateItem(updatedItem: DataItem) {
+  updateItem(
+    updatedItem: DataItem & {
+      updateInfo: 'error' | 'success';
+    }
+  ) {
+    if (updatedItem.updateInfo === 'error') {
+      return timer(5000).pipe(
+        map(() => {
+          throw new Error(
+            `Error updating item ${updatedItem.name}, please retry`
+          );
+        })
+      );
+    }
     this.dataList$.next(
       this.dataList$.value.map((dataItem) =>
         dataItem.id === updatedItem.id ? updatedItem : dataItem
       )
     );
-    if (updatedItem.name === 'error') {
-      return of(updatedItem).pipe(
-        delay(2000),
-        map(() => {
-          throw new Error('Error updating item');
-        })
-      );
-    }
     return of(updatedItem).pipe(delay(2000));
   }
 }

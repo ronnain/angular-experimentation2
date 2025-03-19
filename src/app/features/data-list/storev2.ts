@@ -11,6 +11,7 @@ import {
   share,
   shareReplay,
   switchMap,
+  tap,
   withLatestFrom,
 } from 'rxjs';
 import { statedStream } from '../../util/stated-stream/stated-stream';
@@ -27,7 +28,7 @@ export type ReducerParams<TData, TContext, MethodName extends string> = {
   id: string | number;
   status: EntityStatus;
   entityWithStatus: EntityWithStatus<TData, MethodName>;
-  customIdSelector: IdSelector<TData>;
+  entityIdSelector: IdSelector<TData>;
   context: TContext;
 } & ContextualEntities<TData, MethodName>;
 
@@ -56,7 +57,7 @@ type StatedDataReducerWithoutOnLoading<
 > = Omit<StatedDataReducer<TData, TContext, MethodName>, 'onLoading'>;
 
 type EntityStatus = Omit<StatedData<unknown>, 'result'>;
-type EntityWithStatus<TData, MethodName extends string> = {
+export type EntityWithStatus<TData, MethodName extends string> = {
   id: string | number;
   entity: TData;
   status: MethodStatus<MethodName>;
@@ -66,10 +67,9 @@ type EntityWithStatusWithSelectors<
   MethodName extends string,
   TEntitySelectors
 > = {
-  id: string | number;
   entity: TData;
   status: MethodStatus<MethodName>;
-  selectors?: TEntitySelectors;
+  selectors: TEntitySelectors;
 };
 type MethodStatus<MethodName extends string> = Partial<
   Record<MethodName, EntityStatus>
@@ -78,7 +78,7 @@ type MethodStatus<MethodName extends string> = Partial<
 type EntityReducerConfig<TData, TContext, MethodName extends string> = {
   entityStatedData: StatedData<TData>;
   reducer: StatedDataReducer<TData, TContext, MethodName> | undefined;
-  idSelector: IdSelector<TData>;
+  entityIdSelector: IdSelector<TData>;
 };
 
 type EntityStateByMethodObservable<TData, TContext> = Observable<
@@ -110,7 +110,7 @@ type StatedEntitiesWithSelectors<
 > = StatedData<
   ContextualEntitiesWithSelectors<TData, MethodName, TEntitySelectors> & {
     context: TContext | undefined;
-    selectors?: TStoreSelectors;
+    selectors: TStoreSelectors;
   }
 >;
 
@@ -133,32 +133,19 @@ type ContextualEntitiesWithSelectors<
 
 type DelayedReducer<TData, TContext, MethodName extends string> = {
   reducer: StatedDataReducerWithoutOnLoading<TData, TContext, MethodName>;
-  notifier: (events: any) => Observable<unknown>; // if not provided, the entity is not removed, otherwise it is removed after the duration emit
+  notifier: (events: any) => Observable<unknown>; // it can be used to removed an entity from the lists after a certain time or a certain trigger
 };
 
-export function entityLevelAction<TSrcGetAllContext>() {
-  return <TSrc, TData, MethodName extends string>(
-    config: EntityLevelActionConfig<TSrcGetAllContext, TSrc, TData, MethodName>
-  ): EntityLevelActionConfig<TSrcGetAllContext, TSrc, TData, MethodName> =>
-    config;
+export function entityLevelAction<TSrc, TData>(
+  config: EntityLevelActionConfig<TSrc, TData>
+) {
+  return config;
 }
 
-type EntityLevelActionConfig<
-  TSrcGetAllContext,
-  TSrc,
-  TData,
-  MethodName extends string
-> = {
+export type EntityLevelActionConfig<TSrc, TData> = {
   src: () => Observable<TSrc>;
   api: (params: { data: TSrc }) => Observable<TData>;
   operator: Operator; // Use switchMap as default
-  customIdSelector?: IdSelector<NoInfer<TData>>; // used to know of to identify the entity, it is useful for creation, when the entity has no id yet
-  delayedReducer?: DelayedReducer<
-    NoInfer<TData>,
-    TSrcGetAllContext,
-    MethodName
-  >[];
-  reducer?: StatedDataReducer<NoInfer<TData>, TSrcGetAllContext, MethodName>; // if not provided, it will update the entity in the list
 };
 
 type FinalResult<
@@ -178,12 +165,12 @@ type FinalResult<
 >;
 
 type Selectors<TData, MethodName extends string, TContext> = {
-  entityLevel: (
+  entityLevel?: (
     params: EntityWithStatus<TData, MethodName> & {
       context: TContext | undefined;
     }
   ) => Record<string, unknown>;
-  storeLevel: (
+  storeLevel?: (
     params: ContextualEntities<TData, MethodName> & {
       context: TContext | undefined;
     }
@@ -209,86 +196,98 @@ export const Store2 = new InjectionToken('Store', {
         : never,
       TEntityLevelActions extends Record<
         TEntityLevelActionsKeys,
-        EntityLevelActionConfig<any, any, any, any>
+        EntityLevelActionConfig<SrcContext, TData>
+      >,
+      TSelectors extends Selectors<TData, TEntityLevelActionsKeys, SrcContext>,
+      TReducer extends Partial<
+        Record<
+          TEntityLevelActionsKeys,
+          StatedDataReducer<TData, SrcContext, TEntityLevelActionsKeys>
+        >
+      >,
+      TDelayedReducer extends Partial<
+        Record<
+          TEntityLevelActionsKeys,
+          DelayedReducer<NoInfer<TData>, SrcContext, MethodName>[]
+        >
       >
     >(data: {
       getEntities: {
         srcContext: Observable<SrcContext>;
         api: (srcContext: SrcContext) => Observable<TData[]>;
         initialData: TData[] | undefined;
-        preservePreviousEntitiesWhenSrcContextEmit?: boolean;
       };
       entityIdSelector: IdSelector<TData>; // used to know of to identify the entity
-      entityLevelAction?: TEntityLevelActions; // todo // action that will affect the targeted entity, they can be triggered concurrently
-      selectors: Selectors<TData, MethodName, SrcContext>;
+      entityLevelAction?: TEntityLevelActions; // action that will affect the targeted entity, they can be triggered concurrently
+      reducer?: TReducer; // if not provided, it will update the entity in the list (entities or outOfContextEntities)
+      delayedReducer?: TDelayedReducer;
+      selectors?: TSelectors;
     }) => {
       const entityIdSelector = data.entityIdSelector;
       const events = {}; // todo
 
-      const entityLevelActionList$: EntityStateByMethodObservable<
-        TData,
-        SrcContext
-      > = Object.entries(
-        (data.entityLevelAction ?? {}) as Record<
-          string,
-          EntityLevelActionConfig<SrcContext, any, TData, MethodName>
-        >
-      ).reduce((acc, [methodName, groupByData]) => {
-        const src$ = groupByData.src();
-        const operatorFn = groupByData.operator;
-        const api = groupByData.api;
-        const reducer = groupByData.reducer;
-        const delayedReducer = groupByData.delayedReducer || [];
-        const idSelector = groupByData.customIdSelector || entityIdSelector;
+      const entityLevelActionList$: EntityStateByMethodObservable<TData, any> =
+        Object.entries(
+          (data.entityLevelAction ?? {}) as Record<
+            string,
+            EntityLevelActionConfig<any, TData>
+          >
+        ).reduce((acc, [methodName, groupByData]) => {
+          const src$ = groupByData.src();
+          const operatorFn = groupByData.operator;
+          const api = groupByData.api;
+          const reducer = data.reducer?.[methodName as TEntityLevelActionsKeys];
+          const delayedReducer =
+            data.delayedReducer?.[methodName as TEntityLevelActionsKeys] || [];
 
-        const actionByEntity$: Observable<{
-          [x: MethodName]: {
-            entityStatedData: StatedData<TData>;
-            reducer:
-              | StatedDataReducer<TData, SrcContext, MethodName>
-              | undefined;
-            idSelector: IdSelector<TData>;
-          };
-        }> = src$.pipe(
-          groupBy((entity) => idSelector(entity)),
-          mergeMap((groupedEntityById$) => {
-            return groupedEntityById$.pipe(
-              operatorFn((entity) => {
-                return statedStream(api({ data: entity }), entity).pipe(
-                  map((entityStatedData) => ({
-                    [entityIdSelector(entity)]: {
-                      entityStatedData,
-                      reducer,
-                      idSelector,
-                    } satisfies EntityReducerConfig<
-                      TData,
-                      SrcContext,
-                      MethodName
-                    >,
-                  })),
-                  switchMap((entityReducerConfigWithMethod) =>
-                    connectAssociatedDelayedReducer$({
-                      entityReducerConfigWithMethod,
-                      delayedReducer,
-                      events,
-                      idSelector,
-                    })
-                  )
-                );
-              })
-            );
-          })
-        );
+          const actionByEntity$: Observable<{
+            [x: MethodName]: {
+              entityStatedData: StatedData<TData>;
+              reducer:
+                | StatedDataReducer<TData, SrcContext, MethodName>
+                | undefined;
+              entityIdSelector: IdSelector<TData>;
+            };
+          }> = src$.pipe(
+            groupBy((entity) => entityIdSelector(entity)),
+            mergeMap((groupedEntityById$) => {
+              return groupedEntityById$.pipe(
+                operatorFn((entity) => {
+                  return statedStream(api({ data: entity }), entity).pipe(
+                    map((entityStatedData) => ({
+                      [entityIdSelector(entity)]: {
+                        entityStatedData,
+                        reducer,
+                        entityIdSelector,
+                      } satisfies EntityReducerConfig<
+                        TData,
+                        SrcContext,
+                        MethodName
+                      >,
+                    })),
+                    switchMap((entityReducerConfigWithMethod) =>
+                      connectAssociatedDelayedReducer$({
+                        entityReducerConfigWithMethod,
+                        delayedReducer,
+                        events,
+                        entityIdSelector,
+                      })
+                    )
+                  );
+                })
+              );
+            })
+          );
 
-        return [
-          ...acc,
-          actionByEntity$.pipe(
-            map((groupedEntityById) => ({
-              [methodName]: groupedEntityById,
-            }))
-          ),
-        ];
-      }, [] as EntityStateByMethodObservable<TData, SrcContext>);
+          return [
+            ...acc,
+            actionByEntity$.pipe(
+              map((groupedEntityById) => ({
+                [methodName]: groupedEntityById,
+              }))
+            ),
+          ];
+        }, [] as EntityStateByMethodObservable<TData, SrcContext>);
 
       const entitiesData$ = data.getEntities.srcContext.pipe(
         switchMap((srcContextValue) =>
@@ -305,8 +304,12 @@ export const Store2 = new InjectionToken('Store', {
         TData,
         TEntityLevelActionsKeys,
         SrcContext,
-        ReturnType<Selectors<TData, MethodName, SrcContext>['entityLevel']>,
-        ReturnType<Selectors<TData, MethodName, SrcContext>['storeLevel']>
+        TSelectors['entityLevel'] extends Function
+          ? ReturnType<TSelectors['entityLevel']>
+          : undefined,
+        TSelectors['storeLevel'] extends Function
+          ? ReturnType<TSelectors['storeLevel']>
+          : undefined
       > = merge(
         entitiesData$.pipe(
           map((entitiesData) => ({
@@ -345,7 +348,7 @@ export const Store2 = new InjectionToken('Store', {
                     entity,
                     status: {
                       ...previousEntity?.status,
-                    } as MethodStatus<MethodName>,
+                    } as MethodStatus<TEntityLevelActionsKeys>,
                   };
                 }
               );
@@ -401,29 +404,17 @@ export const Store2 = new InjectionToken('Store', {
             },
           } satisfies StatedEntities<
             TData,
-            MethodName,
+            TEntityLevelActionsKeys,
             SrcContext
-          > as StatedEntities<TData, MethodName, SrcContext> // satisfies apply an as const effect
+          > as StatedEntities<TData, TEntityLevelActionsKeys, SrcContext> // satisfies apply an as const effect
         ),
-        map((acc) => ({
-          ...acc,
-          result: {
-            ...acc.result,
-            entities: acc.result.entities.map((entityData) => ({
-              ...entityData,
-              selectors: data.selectors?.entityLevel?.({
-                ...entityData,
-                context: acc.result.context,
-              }),
-            })),
-            outOfContextEntities: acc.result.outOfContextEntities,
-            selectors: data.selectors?.storeLevel?.({
-              context: acc.result.context,
-              entities: acc.result.entities,
-              outOfContextEntities: acc.result.outOfContextEntities,
-            }),
-          },
-        })), // apply selectors
+        applySelectors<
+          TData,
+          SrcContext,
+          TEntityLevelActionsKeys,
+          TEntityLevelActions,
+          TSelectors
+        >(data.selectors), // apply selectors
         shareReplay(1)
       );
 
@@ -433,6 +424,55 @@ export const Store2 = new InjectionToken('Store', {
     };
   },
 });
+
+function applySelectors<
+  TData,
+  SrcContext,
+  TEntityLevelActionsKeys extends keyof TEntityLevelActions extends string
+    ? keyof TEntityLevelActions
+    : never,
+  TEntityLevelActions extends Record<
+    TEntityLevelActionsKeys,
+    EntityLevelActionConfig<SrcContext, TData>
+  >,
+  TSelectors extends Selectors<TData, TEntityLevelActionsKeys, SrcContext>
+>(selectors?: TSelectors) {
+  return map(
+    (acc: StatedEntities<TData, TEntityLevelActionsKeys, SrcContext>) => ({
+      ...acc,
+      result: {
+        ...acc.result,
+        entities: acc.result.entities.map((entityData) => ({
+          ...entityData,
+          selectors: selectors?.entityLevel?.({
+            ...entityData,
+            context: acc.result.context,
+          }) as TSelectors['entityLevel'] extends Function
+            ? ReturnType<TSelectors['entityLevel']>
+            : undefined,
+        })),
+        outOfContextEntities: acc.result.outOfContextEntities.map(
+          (entityData) => ({
+            ...entityData,
+            selectors: selectors?.entityLevel?.({
+              ...entityData,
+              context: acc.result.context,
+            }) as TSelectors['entityLevel'] extends Function
+              ? ReturnType<TSelectors['entityLevel']>
+              : undefined,
+          })
+        ),
+        selectors: selectors?.storeLevel?.({
+          context: acc.result.context,
+          entities: acc.result.entities,
+          outOfContextEntities: acc.result.outOfContextEntities,
+        }) as TSelectors['storeLevel'] extends Function
+          ? ReturnType<TSelectors['storeLevel']>
+          : undefined,
+      },
+    })
+  );
+}
 
 function applyActionOnEntities<TData, SrcContext, MethodName extends string>({
   acc,
@@ -453,17 +493,17 @@ function applyActionOnEntities<TData, SrcContext, MethodName extends string>({
   const {
     entityStatedData: { error, hasError, isLoaded, isLoading, result },
     reducer,
-    idSelector,
+    entityIdSelector,
   } = actionByEntity[methodName][entityId];
 
   const incomingEntityValue = result;
   const previousEntityWithStatus =
     acc.result.entities?.find(
-      (entityData) => idSelector(entityData.entity) == entityId
+      (entityData) => entityIdSelector(entityData.entity) == entityId
     ) ??
     acc.result.outOfContextEntities?.find(
       (entityData) =>
-        entityData.entity && idSelector(entityData.entity) == entityId
+        entityData.entity && entityIdSelector(entityData.entity) == entityId
     );
   const updatedEntityValue: TData | undefined = previousEntityWithStatus?.entity
     ? {
@@ -503,7 +543,7 @@ function applyActionOnEntities<TData, SrcContext, MethodName extends string>({
 
   if (!customReducer || !acc.result) {
     const isEntityInEntities = acc.result.entities?.some(
-      (entityData) => idSelector(entityData.entity) == entityId
+      (entityData) => entityIdSelector(entityData.entity) == entityId
     );
     const isEntityInOutOfContextEntities =
       acc.result.outOfContextEntities?.some(
@@ -537,7 +577,7 @@ function applyActionOnEntities<TData, SrcContext, MethodName extends string>({
           outOfContextEntities: isEntityInOutOfContextEntities
             ? acc.result.outOfContextEntities.filter(
                 (entity) =>
-                  entity.entity && idSelector(entity.entity) !== entityId
+                  entity.entity && entityIdSelector(entity.entity) !== entityId
               )
             : acc.result.outOfContextEntities,
           context,
@@ -568,7 +608,7 @@ function applyActionOnEntities<TData, SrcContext, MethodName extends string>({
           outOfContextEntities: acc.result.outOfContextEntities,
           entityWithStatus: updatedEntity,
           status: incomingMethodStatus,
-          customIdSelector: idSelector,
+          entityIdSelector,
           id: entityId,
           context,
         }),
@@ -605,7 +645,7 @@ function connectAssociatedDelayedReducer$<
 >({
   entityReducerConfigWithMethod,
   delayedReducer,
-  idSelector,
+  entityIdSelector,
   events,
 }: {
   entityReducerConfigWithMethod: Record<
@@ -613,7 +653,7 @@ function connectAssociatedDelayedReducer$<
     EntityReducerConfig<TData, SrcContext, MethodName>
   >;
   delayedReducer: DelayedReducer<TData, SrcContext, MethodName>[] | undefined;
-  idSelector: IdSelector<TData>;
+  entityIdSelector: IdSelector<TData>;
   events: any;
 }) {
   const id = Object.keys(entityReducerConfigWithMethod)[0];
@@ -633,7 +673,7 @@ function connectAssociatedDelayedReducer$<
               [id as string | number]: {
                 entityStatedData: entityReducerConfig.entityStatedData,
                 reducer,
-                idSelector,
+                entityIdSelector,
               } satisfies EntityReducerConfig<TData, SrcContext, MethodName>,
             }))
           );
@@ -651,7 +691,7 @@ function connectAssociatedDelayedReducer$<
               [id as string | number]: {
                 entityStatedData: entityReducerConfig.entityStatedData,
                 reducer,
-                idSelector,
+                entityIdSelector,
               } satisfies EntityReducerConfig<TData, SrcContext, MethodName>,
             }))
           );

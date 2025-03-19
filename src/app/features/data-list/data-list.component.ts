@@ -2,8 +2,15 @@ import { Component, inject } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { DataItem, DataListService } from './data-list.service';
 import { CommonModule } from '@angular/common';
-import { BehaviorSubject, exhaustMap, Subject, switchMap, timer } from 'rxjs';
-import { entityLevelAction, Store2 } from './storev2';
+import {
+  BehaviorSubject,
+  exhaustMap,
+  Observable,
+  Subject,
+  switchMap,
+  timer,
+} from 'rxjs';
+import { entityLevelAction, EntityLevelActionConfig, Store2 } from './storev2';
 
 type Pagination = {
   page: number;
@@ -20,7 +27,7 @@ export class DataListComponent {
   private dataListService = inject(DataListService);
 
   createItem$ = new Subject<DataItem>();
-  updateItem$ = new Subject<DataItem>();
+  updateItem$ = new Subject<DataItem & { updateInfo: 'error' | 'success' }>();
   deleteItem$ = new Subject<DataItem>();
   getAllData$ = new BehaviorSubject<Pagination>({
     page: 1,
@@ -32,106 +39,137 @@ export class DataListComponent {
       srcContext: this.getAllData$,
       api: (srcContext) => this.dataListService.getDataList$(srcContext),
       initialData: [],
-      preservePreviousEntitiesWhenSrcContextEmit: true,
     },
-    entityIdSelector: (item) => item.id,
+    entityIdSelector: (item) => item.id ?? item.optimisticId,
     entityLevelAction: {
-      update: entityLevelAction<Pagination>()({
+      update: entityLevelAction({
         src: () => this.updateItem$,
         api: ({ data }) => {
           return this.dataListService.updateItem(data);
         },
         operator: switchMap,
       }),
-      create: entityLevelAction<Pagination>()({
+      create: entityLevelAction({
         src: () => this.createItem$,
-        api: ({ data }: { data: DataItem }) =>
-          this.dataListService.addItem(data),
+        api: ({ data }) => this.dataListService.addItem(data),
         operator: switchMap,
-        customIdSelector: (item: DataItem) => item.name,
-        reducer: {
-          onLoaded: ({
-            context,
-            entityWithStatus,
-            entities,
-            outOfContextEntities,
-            customIdSelector,
-          }) => {
-            if (context.page !== 1) {
-              return {
-                entities: entities,
-                outOfContextEntities: [
-                  entityWithStatus,
-                  ...outOfContextEntities,
-                ],
-              };
-            }
-            return {
-              entities: [entityWithStatus, ...entities],
-              outOfContextEntities: outOfContextEntities.filter(
-                (entityWithStatus) => {
-                  if (!entityWithStatus.entity || !entityWithStatus?.entity) {
-                    return true;
-                  }
-                  return (
-                    customIdSelector(entityWithStatus.entity) !==
-                    customIdSelector(entityWithStatus.entity)
-                  );
-                }
-              ),
-            };
-          },
-        },
       }),
-      delete: entityLevelAction<Pagination>()({
+      delete: entityLevelAction({
         src: () => this.deleteItem$,
-        api: ({ data }: { data: DataItem }) =>
-          this.dataListService.deleteItem(data),
+        api: ({ data }) => this.dataListService.deleteItem(data.id),
         operator: exhaustMap,
-        delayedReducer: [
-          {
-            notifier: () => timer(2000),
-            reducer: {
-              onLoaded: ({
-                entityWithStatus,
-                entities,
-                outOfContextEntities,
-                customIdSelector,
-              }) => {
-                return {
-                  entities: entities?.filter(
-                    (entityData) =>
-                      !entityData.entity ||
-                      customIdSelector(entityData.entity) !=
-                        entityWithStatus?.id
-                  ),
-                  outOfContextEntities: outOfContextEntities?.filter(
-                    (entityData) =>
-                      !entityData.entity ||
-                      customIdSelector(entityData.entity) !=
-                        entityWithStatus?.id
-                  ),
-                };
-              },
-            },
-          },
-        ],
       }),
     } as const,
+    reducer: {
+      create: {
+        onLoaded: ({
+          context,
+          entityWithStatus,
+          entities,
+          outOfContextEntities,
+          entityIdSelector,
+        }) => {
+          entityWithStatus.status.update;
+          if (context.page !== 1) {
+            return {
+              entities: entities,
+              outOfContextEntities: [entityWithStatus, ...outOfContextEntities],
+            };
+          }
+          return {
+            entities: [entityWithStatus, ...entities],
+            outOfContextEntities: outOfContextEntities.filter(
+              (entityWithStatus) => {
+                if (!entityWithStatus.entity || !entityWithStatus?.entity) {
+                  return true;
+                }
+                return (
+                  entityIdSelector(entityWithStatus.entity) !==
+                  entityIdSelector(entityWithStatus.entity)
+                );
+              }
+            ),
+          };
+        },
+      },
+    },
+    delayedReducer: {
+      delete: [
+        {
+          notifier: () => timer(2000),
+          reducer: {
+            onLoaded: ({
+              entityWithStatus,
+              entities,
+              outOfContextEntities,
+              entityIdSelector,
+            }) => {
+              return {
+                entities: entities?.filter(
+                  (entityData) =>
+                    !entityData.entity ||
+                    entityIdSelector(entityData.entity) != entityWithStatus?.id
+                ),
+                outOfContextEntities: outOfContextEntities?.filter(
+                  (entityData) =>
+                    !entityData.entity ||
+                    entityIdSelector(entityData.entity) != entityWithStatus?.id
+                ),
+              };
+            },
+          },
+        },
+      ],
+    },
     selectors: {
       entityLevel: ({ status }) => {
+        const hasError = Object.values(status).some(
+          (entityStatus) => entityStatus?.hasError
+        );
         return {
           isProcessing: Object.values(status).some(
             (entityStatus) => entityStatus?.isLoading
           ),
+          hasError,
+          errors: Object.entries(status)
+            .filter(([, entityStatus]) => entityStatus.hasError)
+            .map(([status, statusWithError]) => {
+              return {
+                status,
+                message: statusWithError.error.message,
+              };
+            }),
         };
       },
-      storeLevel: ({ entities }) => ({
+      storeLevel: ({ entities, outOfContextEntities }) => ({
+        // todo for storelevel selectors pass the entityLevelSelectors
         hasProcessingItem: entities.some((entity) =>
           Object.values(entity.status).some(
             (entityStatus) => entityStatus?.isLoading
           )
         ),
+        totalProcessingItems: [...entities, ...outOfContextEntities].reduce(
+          (acc, entity) =>
+            acc +
+            Object.values(entity.status).filter(
+              (entityStatus) => entityStatus?.isLoading
+            ).length,
+          0
+        ),
+        totalDeletedItems: [...entities, ...outOfContextEntities].reduce(
+          (acc, entity) => acc + (entity.status.delete?.isLoaded ? 1 : 0),
+
+          0
+        ),
+        totalUpdatedItems: [...entities, ...outOfContextEntities].reduce(
+          (acc, entity) => acc + (entity.status.update?.isLoaded ? 1 : 0),
+          0
+        ),
+        totalCreatedItems: [...entities, ...outOfContextEntities].reduce(
+          (acc, entity) => acc + (entity.status.create?.isLoaded ? 1 : 0),
+          0
+        ),
+        // todo get errors ?
       }),
     },
   });
@@ -154,30 +192,30 @@ export class DataListComponent {
     });
   }
 
-  updateItemTest(id: number) {
+  updateItemTest(item: DataItem) {
     this.updateItem$.next({
-      id,
-      name:
-        'Item 1 TEST UPDATE' +
-        Math.floor(Math.random() * (1000 - 100 + 1) + 100),
+      ...item,
+      name: 'Item ' + Math.floor(Math.random() * (1000 - 100 + 1) + 100),
+      updateInfo: 'success',
     });
   }
-  updateItemError(id: number) {
+  updateItemError(item: DataItem) {
     this.updateItem$.next({
-      id,
-      name: 'error',
+      ...item,
+      updateInfo: 'error',
     });
   }
 
-  deleteItemTest(id: number) {
-    this.deleteItem$.next({ id, name: 'Item 1' });
+  deleteItemTest(item: DataItem) {
+    this.deleteItem$.next(item);
   }
 
   createItemTest() {
-    const id = Math.floor(Math.random() * 1000);
+    const id = Math.floor(Math.random() * 1000).toString();
     const newItemWithId = {
       id,
       name: 'Created Item ' + ' - ' + id,
+      optimisticId: id.toString(),
     };
     this.createItem$.next(newItemWithId);
   }
