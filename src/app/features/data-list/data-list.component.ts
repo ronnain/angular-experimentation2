@@ -108,12 +108,14 @@ export class DataListComponent {
                 entities: entities?.filter(
                   (entityData) =>
                     !entityData.entity ||
-                    entityIdSelector(entityData.entity) != entityWithStatus?.id
+                    entityIdSelector(entityData.entity) !=
+                      entityIdSelector(entityWithStatus?.entity)
                 ),
                 outOfContextEntities: outOfContextEntities?.filter(
                   (entityData) =>
                     !entityData.entity ||
-                    entityIdSelector(entityData.entity) != entityWithStatus?.id
+                    entityIdSelector(entityData.entity) !=
+                      entityIdSelector(entityWithStatus?.entity)
                 ),
               };
             },

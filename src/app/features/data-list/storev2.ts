@@ -58,7 +58,6 @@ type StatedDataReducerWithoutOnLoading<
 
 type EntityStatus = Omit<StatedData<unknown>, 'result'>;
 export type EntityWithStatus<TData, MethodName extends string> = {
-  id: string | number;
   entity: TData;
   status: MethodStatus<MethodName>;
 };
@@ -184,6 +183,7 @@ type Selectors<TData, MethodName extends string, TContext> = {
 // todo add events
 // todo create a type helper function to ensure that ensure that the methods name union are the same
 // todo try to integrate slector using a pipe methode ?
+// todo supprimer les noinfer ?
 
 export const Store2 = new InjectionToken('Store', {
   providedIn: 'root',
@@ -196,7 +196,7 @@ export const Store2 = new InjectionToken('Store', {
         : never,
       TEntityLevelActions extends Record<
         TEntityLevelActionsKeys,
-        EntityLevelActionConfig<SrcContext, TData>
+        EntityLevelActionConfig<SrcContext, NoInfer<TData>>
       >,
       TSelectors extends Selectors<TData, TEntityLevelActionsKeys, SrcContext>,
       TReducer extends Partial<
@@ -208,7 +208,7 @@ export const Store2 = new InjectionToken('Store', {
       TDelayedReducer extends Partial<
         Record<
           TEntityLevelActionsKeys,
-          DelayedReducer<NoInfer<TData>, SrcContext, MethodName>[]
+          DelayedReducer<NoInfer<TData>, SrcContext, TEntityLevelActionsKeys>[]
         >
       >
     >(data: {
@@ -514,7 +514,6 @@ function applyActionOnEntities<TData, SrcContext, MethodName extends string>({
 
   const updatedEntity: EntityWithStatus<TData, MethodName> = {
     ...previousEntityWithStatus,
-    id: entityId,
     entity: updatedEntityValue,
     status: {
       ...previousEntityWithStatus?.status,
@@ -547,7 +546,7 @@ function applyActionOnEntities<TData, SrcContext, MethodName extends string>({
     );
     const isEntityInOutOfContextEntities =
       acc.result.outOfContextEntities?.some(
-        (entityData) => entityData.id == entityId
+        (entityData) => entityIdSelector(entityData.entity) == entityId
       );
 
     if (!isEntityInEntities && !isEntityInOutOfContextEntities) {
@@ -573,6 +572,7 @@ function applyActionOnEntities<TData, SrcContext, MethodName extends string>({
             entities: acc.result.entities,
             entityId,
             updatedEntity,
+            entityIdSelector,
           }),
           outOfContextEntities: isEntityInOutOfContextEntities
             ? acc.result.outOfContextEntities.filter(
@@ -593,6 +593,7 @@ function applyActionOnEntities<TData, SrcContext, MethodName extends string>({
           entities: acc.result.outOfContextEntities,
           entityId,
           updatedEntity,
+          entityIdSelector,
         }),
         context,
       },
@@ -624,13 +625,15 @@ function replaceEntityIn<TData, MethodName extends string>({
   entities,
   entityId,
   updatedEntity,
+  entityIdSelector,
 }: {
   entities: EntityWithStatus<TData, MethodName>[];
   entityId: string;
   updatedEntity: EntityWithStatus<TData, MethodName>;
+  entityIdSelector: IdSelector<TData>;
 }) {
   return entities?.map((entityData) => {
-    if (entityData.id != entityId) {
+    if (entityIdSelector(entityData.entity) != entityId) {
       return entityData;
     }
 
