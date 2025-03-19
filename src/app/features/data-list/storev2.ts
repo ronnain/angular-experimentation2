@@ -178,7 +178,6 @@ type Selectors<TData, MethodName extends string, TContext> = {
 
 // todo create a plug function, that will ensure that mutation api call are not cancelled if the store is destroyed
 // todo improve the statedStream typing
-// todo fix multiples entities creation, when
 // todo create helper function, (to merge/add/remove entities)
 // todo add events
 // todo create a type helper function to ensure that ensure that the methods name union are the same
