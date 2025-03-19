@@ -72,17 +72,23 @@ export class DataListComponent {
           entityWithStatus.status.update;
           if (context.page !== 1) {
             return {
-              entities: entities,
-              outOfContextEntities: [entityWithStatus, ...outOfContextEntities],
+              entities,
+              outOfContextEntities: [
+                // replace the created with the creating entity
+                entityWithStatus,
+                ...outOfContextEntities.filter((entityWithStatus) => {
+                  return (
+                    entityIdSelector(entityWithStatus.entity) !==
+                    entityIdSelector(entityWithStatus.entity)
+                  );
+                }),
+              ],
             };
           }
           return {
             entities: [entityWithStatus, ...entities],
             outOfContextEntities: outOfContextEntities.filter(
               (entityWithStatus) => {
-                if (!entityWithStatus.entity || !entityWithStatus?.entity) {
-                  return true;
-                }
                 return (
                   entityIdSelector(entityWithStatus.entity) !==
                   entityIdSelector(entityWithStatus.entity)
@@ -144,7 +150,6 @@ export class DataListComponent {
         };
       },
       storeLevel: ({ entities, outOfContextEntities }) => ({
-        // todo for storelevel selectors pass the entityLevelSelectors
         hasProcessingItem: entities.some((entity) =>
           Object.values(entity.status).some(
             (entityStatus) => entityStatus?.isLoading

@@ -178,12 +178,13 @@ type Selectors<TData, MethodName extends string, TContext> = {
 
 // todo create a plug function, that will ensure that mutation api call are not cancelled if the store is destroyed
 // todo improve the statedStream typing
-// todo fix multiples entities creation make some duplication
+// todo fix multiples entities creation, when
 // todo create helper function, (to merge/add/remove entities)
 // todo add events
 // todo create a type helper function to ensure that ensure that the methods name union are the same
 // todo try to integrate slector using a pipe methode ?
 // todo supprimer les noinfer ?
+// todo retry to pass the entityLevelSelector types to the store selectors
 
 export const Store2 = new InjectionToken('Store', {
   providedIn: 'root',
