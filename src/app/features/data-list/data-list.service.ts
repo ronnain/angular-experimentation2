@@ -63,20 +63,7 @@ export class DataListService {
     return of(deletedItem).pipe(delay(2000));
   }
 
-  updateItem(
-    updatedItem: DataItem & {
-      updateInfo: 'error' | 'success';
-    }
-  ) {
-    if (updatedItem.updateInfo === 'error') {
-      return timer(5000).pipe(
-        map(() => {
-          throw new Error(
-            `Error updating item ${updatedItem.name}, please retry`
-          );
-        })
-      );
-    }
+  updateItem(updatedItem: DataItem) {
     this.dataList$.next(
       this.dataList$.value.map((dataItem) =>
         dataItem.id === updatedItem.id ? updatedItem : dataItem

@@ -4,8 +4,15 @@ type SatedStreamResult<T> = {
   isLoading: boolean;
   isLoaded: boolean;
   hasError: boolean;
-  error: unknown;
+  error: any;
   result: T;
+};
+
+export type SatedStreamStatus = {
+  isLoading: boolean;
+  isLoaded: boolean;
+  hasError: boolean;
+  error: any;
 };
 
 export type LoadingStateData<T> = {
