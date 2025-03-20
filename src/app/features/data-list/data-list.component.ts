@@ -27,7 +27,7 @@ type StatedVm = {
   error: undefined;
   result: {
     entity: DataItem;
-    status: Partial<Record<'update', SatedStreamStatus>>;
+    status: Partial<Record<'update' | 'delete', SatedStreamStatus>>;
   }[];
 };
 type Pagination = {
@@ -132,7 +132,9 @@ export class DataListComponent {
                       hasError: curr.updatedItem.hasError,
                       error: curr.updatedItem.error,
                     },
-                  } satisfies Partial<Record<'update', SatedStreamStatus>>,
+                  } satisfies Partial<
+                    Record<'update' | 'delete', SatedStreamStatus>
+                  >,
                 };
               }
               return entityData;
@@ -158,13 +160,15 @@ export class DataListComponent {
                 return {
                   entity: curr.deletingItem.result,
                   status: {
-                    update: {
+                    delete: {
                       isLoading: curr.deletingItem.isLoading,
                       isLoaded: curr.deletingItem.isLoaded,
                       hasError: curr.deletingItem.hasError,
                       error: curr.deletingItem.error,
                     },
-                  } satisfies Partial<Record<'update', SatedStreamStatus>>,
+                  } satisfies Partial<
+                    Record<'update' | 'delete', SatedStreamStatus>
+                  >,
                 };
               }
               return entityData;
@@ -180,7 +184,7 @@ export class DataListComponent {
         error: undefined,
         result: [] as {
           entity: DataItem;
-          status: Partial<Record<'update', SatedStreamStatus>>;
+          status: Partial<Record<'update' | 'delete', SatedStreamStatus>>;
         }[],
       } satisfies StatedVm as StatedVm
     )
