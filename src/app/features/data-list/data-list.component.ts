@@ -215,4 +215,8 @@ export class DataListComponent {
       name: 'Item ' + Math.floor(Math.random() * (1000 - 100 + 1) + 100),
     });
   }
+
+  deleteItem(item: DataItem) {
+    this.deleteItem$.next(item);
+  }
 }
