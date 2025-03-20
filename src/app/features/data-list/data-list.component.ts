@@ -5,12 +5,15 @@ import { CommonModule } from '@angular/common';
 import {
   BehaviorSubject,
   exhaustMap,
+  groupBy,
+  mergeMap,
   Observable,
   Subject,
   switchMap,
   timer,
 } from 'rxjs';
 import { entityLevelAction, EntityLevelActionConfig, Store2 } from './storev2';
+import { statedStream } from '../../util/stated-stream/stated-stream';
 
 type Pagination = {
   page: number;
@@ -29,172 +32,42 @@ export class DataListComponent {
   createItem$ = new Subject<DataItem>();
   updateItem$ = new Subject<DataItem & { updateInfo: 'error' | 'success' }>();
   deleteItem$ = new Subject<DataItem>();
-  getAllData$ = new BehaviorSubject<Pagination>({
+  pagination$ = new BehaviorSubject<Pagination>({
     page: 1,
     pageSize: 3,
   });
 
-  protected readonly store2 = inject(Store2)({
-    getEntities: {
-      srcContext: this.getAllData$,
-      api: (srcContext) => this.dataListService.getDataList$(srcContext),
-      initialData: [],
-    },
-    entityIdSelector: (item) => item.id ?? item.optimisticId,
-    entityLevelAction: {
-      update: entityLevelAction({
-        src: () => this.updateItem$,
-        api: ({ data }) => {
-          return this.dataListService.updateItem(data);
-        },
-        operator: switchMap,
-      }),
-      create: entityLevelAction({
-        src: () => this.createItem$,
-        api: ({ data }) => this.dataListService.addItem(data),
-        operator: switchMap,
-      }),
-      delete: entityLevelAction({
-        src: () => this.deleteItem$,
-        api: ({ data }) => this.dataListService.deleteItem(data.id),
-        operator: exhaustMap,
-      }),
-    } as const,
-    reducer: {
-      create: {
-        onLoaded: ({
-          context,
-          entityWithStatus,
-          entities,
-          outOfContextEntities,
-          entityIdSelector,
-        }) => {
-          entityWithStatus.status.update;
-          if (context.page !== 1) {
-            return {
-              entities,
-              outOfContextEntities: [
-                // replace the created with the creating entity
-                entityWithStatus,
-                ...outOfContextEntities.filter((entityWithStatus) => {
-                  return (
-                    entityIdSelector(entityWithStatus.entity) !==
-                    entityIdSelector(entityWithStatus.entity)
-                  );
-                }),
-              ],
-            };
-          }
-          return {
-            entities: [entityWithStatus, ...entities],
-            outOfContextEntities: outOfContextEntities.filter(
-              (entityWithStatus) => {
-                return (
-                  entityIdSelector(entityWithStatus.entity) !==
-                  entityIdSelector(entityWithStatus.entity)
-                );
-              }
-            ),
-          };
-        },
-      },
-    },
-    delayedReducer: {
-      delete: [
-        {
-          notifier: () => timer(2000),
-          reducer: {
-            onLoaded: ({
-              entityWithStatus,
-              entities,
-              outOfContextEntities,
-              entityIdSelector,
-            }) => {
-              return {
-                entities: entities?.filter(
-                  (entityData) =>
-                    !entityData.entity ||
-                    entityIdSelector(entityData.entity) !=
-                      entityIdSelector(entityWithStatus?.entity)
-                ),
-                outOfContextEntities: outOfContextEntities?.filter(
-                  (entityData) =>
-                    !entityData.entity ||
-                    entityIdSelector(entityData.entity) !=
-                      entityIdSelector(entityWithStatus?.entity)
-                ),
-              };
-            },
-          },
-        },
-      ],
-    },
-    selectors: {
-      entityLevel: ({ status }) => {
-        const hasError = Object.values(status).some(
-          (entityStatus) => entityStatus?.hasError
-        );
-        return {
-          isProcessing: Object.values(status).some(
-            (entityStatus) => entityStatus?.isLoading
-          ),
-          hasError,
-          errors: Object.entries(status)
-            .filter(([, entityStatus]) => entityStatus.hasError)
-            .map(([status, statusWithError]) => {
-              return {
-                status,
-                message: statusWithError.error.message,
-              };
-            }),
-        };
-      },
-      storeLevel: ({ entities, outOfContextEntities }) => ({
-        hasProcessingItem: entities.some((entity) =>
-          Object.values(entity.status).some(
-            (entityStatus) => entityStatus?.isLoading
-          )
-        ),
-        totalProcessingItems: [...entities, ...outOfContextEntities].reduce(
-          (acc, entity) =>
-            acc +
-            Object.values(entity.status).filter(
-              (entityStatus) => entityStatus?.isLoading
-            ).length,
-          0
-        ),
-        totalDeletedItems: [...entities, ...outOfContextEntities].reduce(
-          (acc, entity) => acc + (entity.status.delete?.isLoaded ? 1 : 0),
+  private readonly updatingItem$ = this.updateItem$.pipe(
+    groupBy((updateItem) => updateItem.id),
+    mergeMap((group$) => {
+      return group$.pipe(
+        switchMap((updateItem) =>
+          statedStream(this.dataListService.updateItem(updateItem), updateItem)
+        )
+      );
+    })
+  );
 
-          0
-        ),
-        totalUpdatedItems: [...entities, ...outOfContextEntities].reduce(
-          (acc, entity) => acc + (entity.status.update?.isLoaded ? 1 : 0),
-          0
-        ),
-        totalCreatedItems: [...entities, ...outOfContextEntities].reduce(
-          (acc, entity) => acc + (entity.status.create?.isLoaded ? 1 : 0),
-          0
-        ),
-        // todo get errors ?
-      }),
-    },
-  });
+  vm$ = this.pagination$.pipe(
+    switchMap((pagination) =>
+      statedStream(this.dataListService.getDataList$(pagination), [])
+    )
+  );
 
   previousPage() {
-    const currentPage = this.getAllData$.value.page;
+    const currentPage = this.pagination$.value.page;
     if (currentPage > 1) {
-      this.getAllData$.next({
-        ...this.getAllData$.value,
+      this.pagination$.next({
+        ...this.pagination$.value,
         page: currentPage - 1,
       });
     }
   }
 
   nextPage() {
-    const currentPage = this.getAllData$.value.page;
-    this.getAllData$.next({
-      ...this.getAllData$.value,
+    const currentPage = this.pagination$.value.page;
+    this.pagination$.next({
+      ...this.pagination$.value,
       page: currentPage + 1,
     });
   }
