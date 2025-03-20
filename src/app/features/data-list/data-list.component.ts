@@ -45,6 +45,7 @@ export class DataListComponent {
   private dataListService = inject(DataListService);
 
   updateItem$ = new Subject<DataItem>();
+  deleteItem$ = new Subject<DataItem>();
   pagination$ = new BehaviorSubject<Pagination>({
     page: 1,
     pageSize: 3,
@@ -56,16 +57,36 @@ export class DataListComponent {
     groupBy((updateItem) => updateItem.id),
     mergeMap((group$) => {
       return group$.pipe(
+        // switchMap: each time group$ emits, the previous api call will be canceled and the new one will be called (it can be changed using exhaustMap or concatMap). But avoid mergeMap here because it will mix responses
         switchMap((updateItem) =>
           statedStream(this.dataListService.updateItem(updateItem), updateItem)
         )
       );
     }),
-    share()
+    share() // enable multiple subscriptions to the same stream
+  );
+
+  private readonly deletingItem$ = this.deleteItem$.pipe(
+    // takeUntilDestroyed here will avoid to cancel the api call when using the pagination thanks to the constructor subscription, but it will avoid memory leak when navigating on another page
+    takeUntilDestroyed(),
+    groupBy((removeItem) => removeItem.id),
+    mergeMap((group$) => {
+      return group$.pipe(
+        switchMap((removeItem) =>
+          statedStream(
+            this.dataListService.deleteItem(removeItem.id),
+            removeItem
+          )
+        )
+      );
+    }),
+    share() // enable multiple subscriptions to the same stream
   );
 
   protected readonly vm$: Observable<StatedVm> = this.pagination$.pipe(
+    // each time the pagination change, we will call the api to get the data list
     switchMap((pagination) =>
+      // merge, we listen to all the streams and add a type property to identify which stream emit
       merge(
         statedStream(this.dataListService.getDataList$(pagination), []).pipe(
           map((dataList) => ({ dataList, type: 'dataList' as const }))
@@ -75,9 +96,16 @@ export class DataListComponent {
             updatedItem,
             type: 'update' as const,
           }))
+        ),
+        this.deletingItem$.pipe(
+          map((deletingItem) => ({
+            deletingItem,
+            type: 'delete' as const,
+          }))
         )
       )
     ),
+    // scan it used to accumulate the data and return the new state. (It saves the last emitted state and we can modify it using the "acc" variable)
     scan(
       (acc, curr) => {
         if (curr.type === 'dataList') {
@@ -103,6 +131,38 @@ export class DataListComponent {
                       isLoaded: curr.updatedItem.isLoaded,
                       hasError: curr.updatedItem.hasError,
                       error: curr.updatedItem.error,
+                    },
+                  } satisfies Partial<Record<'update', SatedStreamStatus>>,
+                };
+              }
+              return entityData;
+            }),
+          } satisfies StatedVm;
+        }
+
+        if (curr.type === 'delete') {
+          if (curr.deletingItem.isLoaded) {
+            // remove the deleted item from the list
+            return {
+              ...acc,
+              result: acc.result.filter(
+                (entityData) =>
+                  entityData.entity.id !== curr.deletingItem.result.id
+              ),
+            } satisfies StatedVm;
+          }
+          return {
+            ...acc,
+            result: acc.result.map((entityData) => {
+              if (entityData.entity.id === curr.deletingItem.result.id) {
+                return {
+                  entity: curr.deletingItem.result,
+                  status: {
+                    update: {
+                      isLoading: curr.deletingItem.isLoading,
+                      isLoaded: curr.deletingItem.isLoaded,
+                      hasError: curr.deletingItem.hasError,
+                      error: curr.deletingItem.error,
                     },
                   } satisfies Partial<Record<'update', SatedStreamStatus>>,
                 };
@@ -149,7 +209,7 @@ export class DataListComponent {
     });
   }
 
-  updateItemTest(item: DataItem) {
+  updateItem(item: DataItem) {
     this.updateItem$.next({
       ...item,
       name: 'Item ' + Math.floor(Math.random() * (1000 - 100 + 1) + 100),

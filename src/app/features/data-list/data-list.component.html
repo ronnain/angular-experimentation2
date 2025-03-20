@@ -1,7 +1,6 @@
 @let data= vm$ | async;
 <div class="bg-gray-50 min-h-screen">
   <div class="p-4">
-
     <div class="stats shadow mx-auto bg-white">
       <div class="stat">
         <div class="stat-title">Fetch status</div>
@@ -60,13 +59,30 @@
                   class="bg-green-200 text-green-800 px-2 py-1 rounded"
                   >Updated</span
                 >
+                <span
+                  *ngIf="entityData.status.update?.isLoading"
+                  class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
+                  >Updating</span
+                >
+
+                <span
+                  *ngIf="entityData.status.update?.isLoaded"
+                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
+                  >Updated</span
+                >
               </td>
               <td class="">
                 <button
-                  (click)="updateItemTest(entityData.entity)"
+                  (click)="updateItem(entityData.entity)"
                   class="text-blue-500"
                 >
                   Edit
+                </button>
+                <button
+                  (click)="deleteItem(entityData.entity)"
+                  class="text-red-500"
+                >
+                  Delete
                 </button>
               </td>
             </tr>

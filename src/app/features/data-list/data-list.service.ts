@@ -57,6 +57,9 @@ export class DataListService {
     const deletedItem = this.dataList$.value.find(
       (dataItem) => dataItem.id === itemId
     );
+    if (!deletedItem) {
+      throw new Error('Item not found');
+    }
     this.dataList$.next(
       this.dataList$.value.filter((dataItem) => dataItem.id !== itemId)
     );
