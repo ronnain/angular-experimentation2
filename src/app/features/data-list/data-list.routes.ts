@@ -6,4 +6,8 @@ export const dataListRoutes: Route[] = [
     path: 'data-list',
     component: DataListComponent,
   },
+  {
+    path: 'signal',
+    loadComponent: () => import('./signal-data-service/signal-data-list.ng'),
+  },
 ];
