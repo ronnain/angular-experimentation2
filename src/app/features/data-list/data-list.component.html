@@ -44,13 +44,28 @@
       </div>
     </div>
 
-    @if(data && data.result.entities ) {
+    <div>
+      <div class="join">
+        <button class="btn join-item" (click)="bulkUpdate()">
+          Bulk update
+        </button>
+        <button class="btn join-item">Button</button>
+        <button class="btn join-item">Button</button>
+      </div>
+    </div>
+    @let selectedSelectedEntities = (selectedEntities$ | async) ?? []; @if(data
+    && data.result.entities ) {
     <div class="bg-white p-4 rounded shadow mt-8">
       <h2 class="font-bold">Entities</h2>
       <div class="relative overflow-x-auto">
         <table class="table table-zebra">
           <thead class="">
             <tr>
+              <th>
+                <label>
+                  <input type="checkbox" class="checkbox" />
+                </label>
+              </th>
               <th scope="col" class="">ID</th>
               <th scope="col" class="">Name</th>
               <th scope="col" class="">Status</th>
@@ -61,6 +76,17 @@
             @for(entityData of data?.result?.entities; track
             entityData.entity.id) {
             <tr class="">
+              <th>
+                <label (click)="toggleSelect(entityData.entity)">
+                  <input
+                    type="checkbox"
+                    class="checkbox"
+                    [checked]="
+                      isSelected(selectedSelectedEntities, entityData.entity)
+                    "
+                  />
+                </label>
+              </th>
               <th scope="row" class="flex items-center gap-3">
                 @if(entityData.selectors.isProcessing) {
                 <div class="inline-grid *:[grid-area:1/1]">
@@ -119,7 +145,7 @@
                   >Delete Error</span
                 >
               </td>
-              <td class="">
+              <td class="flex items-center justify-start gap-2">
                 <button
                   (click)="updateItemTest(entityData.entity)"
                   class="text-blue-500"

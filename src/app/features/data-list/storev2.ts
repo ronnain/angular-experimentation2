@@ -27,7 +27,13 @@ type IdSelector<TData> = (entity: TData) => string | number;
 export type ReducerParams<TData, TContext, MethodName extends string> = {
   id: string | number;
   status: EntityStatus;
-  entityWithStatus: EntityWithStatus<TData, MethodName>;
+  entityWithStatus: EntityWithStatus<TData, MethodName>; // todo check why there is still status here ?
+  entityIdSelector: IdSelector<TData>;
+  context: TContext;
+} & ContextualEntities<TData, MethodName>;
+
+export type BulkReducerParams<TData, TContext, MethodName extends string> = {
+  bulkEntities: EntityWithStatus<TData, MethodName>[];
   entityIdSelector: IdSelector<TData>;
   context: TContext;
 } & ContextualEntities<TData, MethodName>;
@@ -50,11 +56,27 @@ type StatedDataReducer<TData, TContext, MethodName extends string> = {
   onError?: Reducer<TData, TContext, MethodName>;
 };
 
+export type BulkReducer<TData, TContext, MethodName extends string> = (
+  data: BulkReducerParams<TData, TContext, MethodName>
+) => ContextualEntities<TData, MethodName>;
+
+type BulkStatedDataReducer<TData, TContext, MethodName extends string> = {
+  onLoading?: BulkReducer<TData, TContext, MethodName>;
+  onLoaded?: BulkReducer<TData, TContext, MethodName>;
+  onError?: BulkReducer<TData, TContext, MethodName>;
+};
+
 type StatedDataReducerWithoutOnLoading<
   TData,
   TContext,
   MethodName extends string
 > = Omit<StatedDataReducer<TData, TContext, MethodName>, 'onLoading'>;
+
+type BulkStatedDataReducerWithoutOnLoading<
+  TData,
+  TContext,
+  MethodName extends string
+> = Omit<BulkStatedDataReducer<TData, TContext, MethodName>, 'onLoading'>;
 
 type EntityStatus = Omit<StatedData<unknown>, 'result'>;
 export type EntityWithStatus<TData, MethodName extends string> = {
@@ -87,6 +109,16 @@ type EntityStateByMethodObservable<TData, TContext> = Observable<
       [x: string]: EntityReducerConfig<TData, TContext, MethodName>;
     }
   >
+>[];
+
+type BulkReducerConfig<TData, TContext, MethodName extends string> = {
+  entitiesStatedData: StatedData<TData[]>;
+  reducer: BulkStatedDataReducer<TData[], TContext, MethodName> | undefined;
+  entityIdSelector: IdSelector<TData>;
+};
+
+type BulkStateByMethodObservable<TData, TContext> = Observable<
+  Record<MethodName, BulkReducerConfig<TData, TContext, MethodName>>
 >[];
 
 type ContextualEntities<TData, MethodName extends string> = {
@@ -135,13 +167,28 @@ type DelayedReducer<TData, TContext, MethodName extends string> = {
   notifier: (events: any) => Observable<unknown>; // it can be used to removed an entity from the lists after a certain time or a certain trigger
 };
 
+type BulkDelayedReducer<TData, TContext, MethodName extends string> = {
+  reducer: BulkStatedDataReducerWithoutOnLoading<TData, TContext, MethodName>;
+  notifier: (events: any) => Observable<unknown>; // it can be used to removed an entity from the lists after a certain time or a certain trigger
+};
+
 export function entityLevelAction<TSrc, TData>(
   config: EntityLevelActionConfig<TSrc, TData>
 ) {
   return config;
 }
 
+export function bulkAction<TSrc, TData>(config: BulkActionConfig<TSrc, TData>) {
+  return config;
+}
+
 export type EntityLevelActionConfig<TSrc, TData> = {
+  src: () => Observable<TSrc>;
+  api: (params: { data: TSrc }) => Observable<TData>;
+  operator: Operator; // Use switchMap as default
+};
+
+export type BulkActionConfig<TSrc, TData> = {
   src: () => Observable<TSrc>;
   api: (params: { data: TSrc }) => Observable<TData>;
   operator: Operator; // Use switchMap as default
@@ -198,6 +245,13 @@ export const Store2 = new InjectionToken('Store', {
         TEntityLevelActionsKeys,
         EntityLevelActionConfig<SrcContext, NoInfer<TData>>
       >,
+      TBulkActionsKeys extends keyof TBulkActions extends string
+        ? keyof TBulkActions
+        : never,
+      TBulkActions extends Record<
+        TBulkActionsKeys,
+        BulkActionConfig<SrcContext, NoInfer<TData[]>>
+      >,
       TSelectors extends Selectors<TData, TEntityLevelActionsKeys, SrcContext>,
       TReducer extends Partial<
         Record<
@@ -205,10 +259,26 @@ export const Store2 = new InjectionToken('Store', {
           StatedDataReducer<TData, SrcContext, TEntityLevelActionsKeys>
         >
       >,
+      TBulkReducer extends Partial<
+        Record<
+          TBulkActionsKeys,
+          BulkStatedDataReducer<TData[], SrcContext, TBulkActionsKeys>
+        >
+      >,
       TDelayedReducer extends Partial<
         Record<
           TEntityLevelActionsKeys,
-          DelayedReducer<NoInfer<TData>, SrcContext, TEntityLevelActionsKeys>[]
+          DelayedReducer<
+            NoInfer<TData[]>,
+            SrcContext,
+            TEntityLevelActionsKeys
+          >[]
+        >
+      >,
+      TBulkDelayedReducer extends Partial<
+        Record<
+          TBulkActionsKeys,
+          BulkDelayedReducer<NoInfer<TData[]>, SrcContext, TBulkActionsKeys>[]
         >
       >
     >(data: {
@@ -220,9 +290,13 @@ export const Store2 = new InjectionToken('Store', {
       entityIdSelector: IdSelector<TData>; // used to know of to identify the entity
       entityLevelAction?: TEntityLevelActions; // action that will affect the targeted entity, they can be triggered concurrently
       reducer?: TReducer; // if not provided, it will update the entity in the list (entities or outOfContextEntities)
+      bulkActions?: TBulkActions;
+      bulkReducer?: TBulkReducer; // if not provided, it will update the entities in the list (entities or outOfContextEntities)
+      bulkDelayedReducer?: TBulkDelayedReducer;
       delayedReducer?: TDelayedReducer;
       selectors?: TSelectors;
     }) => {
+      // return {} as TBulkActionsKeys;
       const entityIdSelector = data.entityIdSelector;
       const events = {}; // todo
 
@@ -237,8 +311,11 @@ export const Store2 = new InjectionToken('Store', {
           const operatorFn = groupByData.operator;
           const api = groupByData.api;
           const reducer = data.reducer?.[methodName as TEntityLevelActionsKeys];
-          const delayedReducer =
-            data.delayedReducer?.[methodName as TEntityLevelActionsKeys] || [];
+          const delayedReducer = (data.delayedReducer?.[
+            methodName as TEntityLevelActionsKeys
+          ] || []) as unknown as
+            | DelayedReducer<TData, SrcContext, MethodName>[]
+            | undefined; // todo check type
 
           const actionByEntity$: Observable<{
             [x: MethodName]: {
@@ -266,7 +343,11 @@ export const Store2 = new InjectionToken('Store', {
                       >,
                     })),
                     switchMap((entityReducerConfigWithMethod) =>
-                      connectAssociatedDelayedReducer$({
+                      connectAssociatedDelayedReducer$<
+                        TData,
+                        SrcContext,
+                        MethodName
+                      >({
                         entityReducerConfigWithMethod,
                         delayedReducer,
                         events,
@@ -288,6 +369,60 @@ export const Store2 = new InjectionToken('Store', {
             ),
           ];
         }, [] as EntityStateByMethodObservable<TData, SrcContext>);
+
+      const bulkActionsList$: BulkStateByMethodObservable<TData, any> =
+        Object.entries(
+          (data.bulkActions ?? {}) as Record<
+            string,
+            BulkActionConfig<any, TData>
+          >
+        ).reduce((acc, [methodName, groupByData]) => {
+          const src$ = groupByData.src();
+          const operatorFn = groupByData.operator;
+          const api = groupByData.api;
+          const reducer = data.bulkReducer?.[methodName as TBulkActionsKeys]; // todo
+          const delayedReducer =
+            data.bulkDelayedReducer?.[methodName as TBulkActionsKeys] || []; // todo
+
+          const bulkActions$ = src$.pipe(
+            operatorFn((entities) => {
+              return statedStream(api({ data: entities }), entities).pipe(
+                map(
+                  (entitiesStatedData) =>
+                    ({
+                      entitiesStatedData,
+                      reducer,
+                      entityIdSelector,
+                    } satisfies BulkReducerConfig<
+                      TData,
+                      SrcContext,
+                      MethodName
+                    >)
+                ),
+                switchMap((bulkReducerConfig) =>
+                  bulkConnectAssociatedDelayedReducer$<
+                    TData,
+                    SrcContext,
+                    MethodName
+                  >({
+                    bulkReducerConfig,
+                    delayedReducer,
+                    events,
+                  })
+                )
+              );
+            })
+          );
+
+          return [
+            ...acc,
+            bulkActions$.pipe(
+              map((bulkReducerConfig) => ({
+                [methodName]: bulkReducerConfig,
+              }))
+            ),
+          ];
+        }, [] as BulkStateByMethodObservable<TData, SrcContext>);
 
       const entitiesData$ = data.getEntities.srcContext.pipe(
         switchMap((srcContextValue) =>
@@ -321,6 +456,12 @@ export const Store2 = new InjectionToken('Store', {
           map((entityLevelActionList) => ({
             type: 'action' as const,
             data: entityLevelActionList,
+          }))
+        ),
+        ...bulkActionsList$.map(
+          map((bulkActionList) => ({
+            type: 'bulkAction' as const,
+            data: bulkActionList,
           }))
         )
       ).pipe(
@@ -387,6 +528,13 @@ export const Store2 = new InjectionToken('Store', {
               return applyActionOnEntities({
                 acc,
                 actionByEntity: action.data,
+                context,
+              });
+            }
+            if (action.type === 'bulkAction') {
+              return applyBulkActionOnEntities({
+                acc,
+                bulkAction: action.data,
                 context,
               });
             }
@@ -621,6 +769,165 @@ function applyActionOnEntities<TData, SrcContext, MethodName extends string>({
   return acc;
 }
 
+function applyBulkActionOnEntities<
+  TData,
+  SrcContext,
+  MethodName extends string
+>({
+  acc,
+  bulkAction,
+  context,
+}: {
+  acc: StatedEntities<TData, MethodName, SrcContext>;
+  bulkAction: Record<
+    MethodName,
+    BulkReducerConfig<TData, SrcContext, MethodName>
+  >;
+  context: SrcContext;
+}): StatedEntities<TData, MethodName, SrcContext> {
+  const methodName = Object.keys(bulkAction)[0] as MethodName;
+  const {
+    entitiesStatedData: { error, hasError, isLoaded, isLoading, result },
+    reducer,
+    entityIdSelector,
+  } = bulkAction[methodName];
+
+  const incomingEntitiesValue = result;
+  const previousEntitiesWithStatus =
+    acc.result.entities?.filter((entityData) =>
+      incomingEntitiesValue.find(
+        (selectedEntity) =>
+          entityIdSelector(selectedEntity) ===
+          entityIdSelector(entityData.entity)
+      )
+    ) ??
+    acc.result.outOfContextEntities?.filter((entityData) =>
+      incomingEntitiesValue.find(
+        (selectedEntity) =>
+          entityIdSelector(selectedEntity) ===
+          entityIdSelector(entityData.entity)
+      )
+    );
+  const updatedEntitiesValue: TData[] = previousEntitiesWithStatus.map(
+    (previousEntityWithStatus) => {
+      return {
+        ...previousEntityWithStatus.entity,
+        ...incomingEntitiesValue.find(
+          (selectedEntity) =>
+            entityIdSelector(selectedEntity) ===
+            entityIdSelector(previousEntityWithStatus.entity)
+        ),
+      };
+    }
+  );
+
+  const updatedEntities: EntityWithStatus<TData, MethodName>[] =
+    previousEntitiesWithStatus.map((previousEntityWithStatus) => {
+      return {
+        entity: {
+          ...previousEntityWithStatus.entity,
+          ...incomingEntitiesValue.find(
+            (selectedEntity) =>
+              entityIdSelector(selectedEntity) ===
+              entityIdSelector(previousEntityWithStatus.entity)
+          ),
+        },
+        status: {
+          ...previousEntityWithStatus.status,
+          [methodName]: {
+            isLoading,
+            isLoaded,
+            hasError,
+            error,
+          },
+        },
+      };
+    });
+  const incomingMethodStatus: EntityStatus = {
+    isLoading,
+    isLoaded,
+    hasError,
+    error,
+  };
+
+  const customReducer = (
+    isLoading
+      ? reducer?.onLoading
+      : isLoaded
+      ? reducer?.onLoaded
+      : hasError
+      ? reducer?.onError
+      : undefined
+  ) as BulkReducer<TData, SrcContext, MethodName> | undefined; // todo fix this type
+
+  if (!customReducer || !acc.result) {
+    return {
+      ...acc,
+      result: {
+        ...acc.result,
+        entities: acc.result.entities.map((entityData) => {
+          const updatedEntity = updatedEntities.find(
+            (updatedEntity) =>
+              entityIdSelector(updatedEntity.entity) ===
+              entityIdSelector(entityData.entity)
+          );
+          if (updatedEntity) {
+            return {
+              ...entityData,
+              entity: updatedEntity.entity,
+              status: {
+                ...entityData.status,
+                [methodName]: updatedEntity.status[methodName],
+              },
+            };
+          }
+          return entityData;
+        }),
+        outOfContextEntities: acc.result.outOfContextEntities.map(
+          (outOfContextEntityData) => {
+            const updatedEntity = updatedEntities.find(
+              (updatedEntity) =>
+                entityIdSelector(updatedEntity.entity) ===
+                entityIdSelector(outOfContextEntityData.entity)
+            );
+            if (updatedEntity) {
+              return {
+                ...outOfContextEntityData,
+                entity: updatedEntity.entity,
+                status: {
+                  ...outOfContextEntityData.status,
+                  [methodName]: updatedEntity.status[methodName],
+                },
+              };
+            }
+            return outOfContextEntityData;
+          }
+        ),
+
+        context,
+      },
+    };
+  }
+
+  if (customReducer) {
+    return {
+      ...acc,
+      result: {
+        ...customReducer({
+          bulkEntities: updatedEntities,
+          outOfContextEntities: acc.result.outOfContextEntities,
+          entities: acc.result.entities,
+          entityIdSelector,
+          context,
+        }),
+        context,
+      },
+    };
+  }
+
+  return acc;
+}
+
 function replaceEntityIn<TData, MethodName extends string>({
   entities,
   entityId,
@@ -628,7 +935,7 @@ function replaceEntityIn<TData, MethodName extends string>({
   entityIdSelector,
 }: {
   entities: EntityWithStatus<TData, MethodName>[];
-  entityId: string;
+  entityId: string; // todo remove this field and use only the entityIdSelector
   updatedEntity: EntityWithStatus<TData, MethodName>;
   entityIdSelector: IdSelector<TData>;
 }) {
@@ -642,7 +949,7 @@ function replaceEntityIn<TData, MethodName extends string>({
 }
 
 function connectAssociatedDelayedReducer$<
-  TData,
+  TDataConnect,
   SrcContext,
   MethodName extends string
 >({
@@ -652,11 +959,13 @@ function connectAssociatedDelayedReducer$<
   events,
 }: {
   entityReducerConfigWithMethod: Record<
-    string | number,
-    EntityReducerConfig<TData, SrcContext, MethodName>
+    string,
+    EntityReducerConfig<TDataConnect, SrcContext, MethodName>
   >;
-  delayedReducer: DelayedReducer<TData, SrcContext, MethodName>[] | undefined;
-  entityIdSelector: IdSelector<TData>;
+  delayedReducer:
+    | DelayedReducer<TDataConnect, SrcContext, MethodName>[]
+    | undefined;
+  entityIdSelector: IdSelector<TDataConnect>;
   events: any;
 }) {
   const id = Object.keys(entityReducerConfigWithMethod)[0];
@@ -677,7 +986,11 @@ function connectAssociatedDelayedReducer$<
                 entityStatedData: entityReducerConfig.entityStatedData,
                 reducer,
                 entityIdSelector,
-              } satisfies EntityReducerConfig<TData, SrcContext, MethodName>,
+              } satisfies EntityReducerConfig<
+                TDataConnect,
+                SrcContext,
+                MethodName
+              >,
             }))
           );
         }) ?? [];
@@ -691,15 +1004,79 @@ function connectAssociatedDelayedReducer$<
         .map(({ reducer, notifier }) => {
           return notifier(events).pipe(
             map(() => ({
-              [id as string | number]: {
+              [id as string]: {
                 entityStatedData: entityReducerConfig.entityStatedData,
                 reducer,
                 entityIdSelector,
-              } satisfies EntityReducerConfig<TData, SrcContext, MethodName>,
+              } satisfies EntityReducerConfig<
+                TDataConnect,
+                SrcContext,
+                MethodName
+              >,
             }))
           );
         }) ?? [];
     return merge(of(entityReducerConfigWithMethod), ...onErrorDelayedReducer$);
   }
   return of(entityReducerConfigWithMethod);
+}
+
+function bulkConnectAssociatedDelayedReducer$<
+  TData,
+  SrcContext,
+  MethodName extends string
+>({
+  bulkReducerConfig,
+  delayedReducer,
+  events,
+}: {
+  bulkReducerConfig: BulkReducerConfig<TData, SrcContext, MethodName>;
+  delayedReducer:
+    | BulkDelayedReducer<TData[], SrcContext, MethodName>[]
+    | undefined;
+  events: any;
+}) {
+  const { isLoading, isLoaded, hasError } =
+    bulkReducerConfig.entitiesStatedData;
+  if (isLoading) {
+    return of(bulkReducerConfig);
+  }
+  if (isLoaded) {
+    const onLoadedDelayedReducer$ =
+      delayedReducer
+        ?.filter(({ reducer }) => reducer.onLoaded)
+        .map(({ reducer, notifier }) => {
+          return notifier(events).pipe(
+            map(
+              () =>
+                bulkReducerConfig satisfies BulkReducerConfig<
+                  TData,
+                  SrcContext,
+                  MethodName
+                >
+            )
+          );
+        }) ?? [];
+    return merge(of(bulkReducerConfig), ...onLoadedDelayedReducer$);
+  }
+
+  if (hasError) {
+    const onErrorDelayedReducer$ =
+      delayedReducer
+        ?.filter(({ reducer }) => reducer.onError)
+        .map(({ reducer, notifier }) => {
+          return notifier(events).pipe(
+            map(
+              () =>
+                bulkReducerConfig satisfies BulkReducerConfig<
+                  TData,
+                  SrcContext,
+                  MethodName
+                >
+            )
+          );
+        }) ?? [];
+    return merge(of(bulkReducerConfig), ...onErrorDelayedReducer$);
+  }
+  return of(bulkReducerConfig);
 }

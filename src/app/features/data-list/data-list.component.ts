@@ -10,7 +10,7 @@ import {
   switchMap,
   timer,
 } from 'rxjs';
-import { entityLevelAction, EntityLevelActionConfig, Store2 } from './storev2';
+import { bulkAction, entityLevelAction, Store2 } from './storev2';
 
 type Pagination = {
   page: number;
@@ -20,7 +20,6 @@ type Pagination = {
 @Component({
   selector: 'app-data-list',
   templateUrl: './data-list.component.html',
-  styleUrls: ['./data-list.component.css'],
   imports: [CommonModule, FormsModule, ReactiveFormsModule],
 })
 export class DataListComponent {
@@ -31,8 +30,12 @@ export class DataListComponent {
   deleteItem$ = new Subject<DataItem>();
   getAllData$ = new BehaviorSubject<Pagination>({
     page: 1,
-    pageSize: 3,
+    pageSize: 20,
   });
+
+  protected readonly selectedEntities$ = new BehaviorSubject<DataItem[]>([]);
+
+  private readonly bulkUpdate$ = new Subject<DataItem[]>();
 
   protected readonly store2 = inject(Store2)({
     getEntities: {
@@ -128,6 +131,31 @@ export class DataListComponent {
           },
         },
       ],
+    },
+    bulkActions: {
+      bulkUpdate: bulkAction({
+        src: () => this.bulkUpdate$,
+        api: ({ data }) => {
+          return this.dataListService.bulkUpdate(data);
+        },
+        operator: switchMap,
+      }),
+    } as const,
+    bulkReducer: {
+      // todo remove this
+      bulkUpdate: {
+        onLoaded: ({
+          bulkEntities,
+          context,
+          entities,
+          outOfContextEntities,
+        }) => {
+          return {
+            entities,
+            outOfContextEntities,
+          };
+        },
+      },
     },
     selectors: {
       entityLevel: ({ status }) => {
@@ -225,5 +253,35 @@ export class DataListComponent {
       optimisticId: id.toString(),
     };
     this.createItem$.next(newItemWithId);
+  }
+
+  protected bulkUpdate() {
+    this.bulkUpdate$.next(this.selectedEntities$.value);
+    this.resetSelectedEntities();
+  }
+  protected toggleSelect(item: DataItem) {
+    const selectedEntities = this.selectedEntities$.value;
+    const selectedItem = selectedEntities.find(
+      (selectedItem) => selectedItem.id === item.id
+    );
+    if (selectedItem) {
+      this.selectedEntities$.next(
+        selectedEntities.filter((selectedItem) => selectedItem.id !== item.id)
+      );
+    }
+    this.selectedEntities$.next([item, ...selectedEntities]);
+  }
+
+  protected resetSelectedEntities() {
+    this.selectedEntities$.next([]);
+  }
+
+  protected isSelected(selectedEntities: DataItem[], item: DataItem) {
+    // todo improve that, maybe add a isSelected from the selectors
+    return selectedEntities.some((selectedItem) => selectedItem.id === item.id);
+  }
+
+  protected selectAll(entities: DataItem[] | undefined) {
+    this.selectedEntities$.next(entities ?? []);
   }
 }
