@@ -144,6 +144,23 @@
                   class="bg-red-200 text-red-800 px-2 py-1 rounded"
                   >Delete Error</span
                 >
+
+                <span
+                  *ngIf="entityData.status.bulkUpdate?.error"
+                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
+                  >Bulk Update Error</span
+                >
+                <span
+                  *ngIf="entityData.status.bulkUpdate?.isLoaded"
+                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
+                  >Bulk update</span
+                >
+
+                <span
+                  *ngIf="entityData.status.bulkUpdate?.isLoading"
+                  class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
+                  >Updating</span
+                >
               </td>
               <td class="flex items-center justify-start gap-2">
                 <button

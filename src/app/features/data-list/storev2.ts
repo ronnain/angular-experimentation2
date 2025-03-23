@@ -252,17 +252,29 @@ export const Store2 = new InjectionToken('Store', {
         TBulkActionsKeys,
         BulkActionConfig<SrcContext, NoInfer<TData[]>>
       >,
-      TSelectors extends Selectors<TData, TEntityLevelActionsKeys, SrcContext>,
+      TSelectors extends Selectors<
+        TData,
+        TEntityLevelActionsKeys | TBulkActionsKeys,
+        SrcContext
+      >,
       TReducer extends Partial<
         Record<
           TEntityLevelActionsKeys,
-          StatedDataReducer<TData, SrcContext, TEntityLevelActionsKeys>
+          StatedDataReducer<
+            TData,
+            SrcContext,
+            TEntityLevelActionsKeys | TBulkActionsKeys
+          >
         >
       >,
       TBulkReducer extends Partial<
         Record<
           TBulkActionsKeys,
-          BulkStatedDataReducer<TData[], SrcContext, TBulkActionsKeys>
+          BulkStatedDataReducer<
+            TData[],
+            SrcContext,
+            TBulkActionsKeys | TEntityLevelActionsKeys
+          >
         >
       >,
       TDelayedReducer extends Partial<
@@ -271,14 +283,18 @@ export const Store2 = new InjectionToken('Store', {
           DelayedReducer<
             NoInfer<TData[]>,
             SrcContext,
-            TEntityLevelActionsKeys
+            TEntityLevelActionsKeys | TBulkActionsKeys
           >[]
         >
       >,
       TBulkDelayedReducer extends Partial<
         Record<
           TBulkActionsKeys,
-          BulkDelayedReducer<NoInfer<TData[]>, SrcContext, TBulkActionsKeys>[]
+          BulkDelayedReducer<
+            NoInfer<TData[]>,
+            SrcContext,
+            TBulkActionsKeys | TEntityLevelActionsKeys
+          >[]
         >
       >
     >(data: {
@@ -380,9 +396,9 @@ export const Store2 = new InjectionToken('Store', {
           const src$ = groupByData.src();
           const operatorFn = groupByData.operator;
           const api = groupByData.api;
-          const reducer = data.bulkReducer?.[methodName as TBulkActionsKeys]; // todo
+          const reducer = data.bulkReducer?.[methodName as TBulkActionsKeys];
           const delayedReducer =
-            data.bulkDelayedReducer?.[methodName as TBulkActionsKeys] || []; // todo
+            data.bulkDelayedReducer?.[methodName as TBulkActionsKeys] || [];
 
           const bulkActions$ = src$.pipe(
             operatorFn((entities) => {
@@ -437,7 +453,7 @@ export const Store2 = new InjectionToken('Store', {
       // I choose to merge the entitiesData$ and the entityLevelActionList$, that's enable to add some items even if entities are not loaded yet
       const finalResult: FinalResult<
         TData,
-        TEntityLevelActionsKeys,
+        TEntityLevelActionsKeys | TBulkActionsKeys,
         SrcContext,
         TSelectors['entityLevel'] extends Function
           ? ReturnType<TSelectors['entityLevel']>
@@ -452,16 +468,16 @@ export const Store2 = new InjectionToken('Store', {
             data: entitiesData,
           }))
         ),
-        ...entityLevelActionList$.map(
-          map((entityLevelActionList) => ({
-            type: 'action' as const,
-            data: entityLevelActionList,
-          }))
-        ),
         ...bulkActionsList$.map(
           map((bulkActionList) => ({
             type: 'bulkAction' as const,
             data: bulkActionList,
+          }))
+        ),
+        ...entityLevelActionList$.map(
+          map((entityLevelActionList) => ({
+            type: 'action' as const,
+            data: entityLevelActionList,
           }))
         )
       ).pipe(
@@ -489,7 +505,9 @@ export const Store2 = new InjectionToken('Store', {
                     entity,
                     status: {
                       ...previousEntity?.status,
-                    } as MethodStatus<TEntityLevelActionsKeys>,
+                    } satisfies MethodStatus<
+                      TEntityLevelActionsKeys | TBulkActionsKeys
+                    >,
                   };
                 }
               );
@@ -554,12 +572,16 @@ export const Store2 = new InjectionToken('Store', {
             TData,
             TEntityLevelActionsKeys,
             SrcContext
-          > as StatedEntities<TData, TEntityLevelActionsKeys, SrcContext> // satisfies apply an as const effect
+          > as StatedEntities<
+            TData,
+            TEntityLevelActionsKeys | TBulkActionsKeys,
+            SrcContext
+          > // satisfies apply an as const effect
         ),
         applySelectors<
           TData,
           SrcContext,
-          TEntityLevelActionsKeys,
+          TEntityLevelActionsKeys | TBulkActionsKeys,
           TEntityLevelActions,
           TSelectors
         >(data.selectors), // apply selectors
@@ -576,21 +598,28 @@ export const Store2 = new InjectionToken('Store', {
 function applySelectors<
   TData,
   SrcContext,
-  TEntityLevelActionsKeys extends keyof TEntityLevelActions extends string
-    ? keyof TEntityLevelActions
-    : never,
+  MethodKeys extends string,
   TEntityLevelActions extends Record<
-    TEntityLevelActionsKeys,
+    string,
     EntityLevelActionConfig<SrcContext, TData>
   >,
-  TSelectors extends Selectors<TData, TEntityLevelActionsKeys, SrcContext>
+  TSelectors extends Selectors<TData, MethodKeys, SrcContext>
 >(selectors?: TSelectors) {
-  return map(
-    (acc: StatedEntities<TData, TEntityLevelActionsKeys, SrcContext>) => ({
-      ...acc,
-      result: {
-        ...acc.result,
-        entities: acc.result.entities.map((entityData) => ({
+  return map((acc: StatedEntities<TData, MethodKeys, SrcContext>) => ({
+    ...acc,
+    result: {
+      ...acc.result,
+      entities: acc.result.entities.map((entityData) => ({
+        ...entityData,
+        selectors: selectors?.entityLevel?.({
+          ...entityData,
+          context: acc.result.context,
+        }) as TSelectors['entityLevel'] extends Function
+          ? ReturnType<TSelectors['entityLevel']>
+          : undefined,
+      })),
+      outOfContextEntities: acc.result.outOfContextEntities.map(
+        (entityData) => ({
           ...entityData,
           selectors: selectors?.entityLevel?.({
             ...entityData,
@@ -598,28 +627,17 @@ function applySelectors<
           }) as TSelectors['entityLevel'] extends Function
             ? ReturnType<TSelectors['entityLevel']>
             : undefined,
-        })),
-        outOfContextEntities: acc.result.outOfContextEntities.map(
-          (entityData) => ({
-            ...entityData,
-            selectors: selectors?.entityLevel?.({
-              ...entityData,
-              context: acc.result.context,
-            }) as TSelectors['entityLevel'] extends Function
-              ? ReturnType<TSelectors['entityLevel']>
-              : undefined,
-          })
-        ),
-        selectors: selectors?.storeLevel?.({
-          context: acc.result.context,
-          entities: acc.result.entities,
-          outOfContextEntities: acc.result.outOfContextEntities,
-        }) as TSelectors['storeLevel'] extends Function
-          ? ReturnType<TSelectors['storeLevel']>
-          : undefined,
-      },
-    })
-  );
+        })
+      ),
+      selectors: selectors?.storeLevel?.({
+        context: acc.result.context,
+        entities: acc.result.entities,
+        outOfContextEntities: acc.result.outOfContextEntities,
+      }) as TSelectors['storeLevel'] extends Function
+        ? ReturnType<TSelectors['storeLevel']>
+        : undefined,
+    },
+  }));
 }
 
 function applyActionOnEntities<TData, SrcContext, MethodName extends string>({

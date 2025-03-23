@@ -141,22 +141,22 @@ export class DataListComponent {
         operator: switchMap,
       }),
     } as const,
-    bulkReducer: {
-      // todo remove this
-      bulkUpdate: {
-        onLoaded: ({
-          bulkEntities,
-          context,
-          entities,
-          outOfContextEntities,
-        }) => {
-          return {
-            entities,
-            outOfContextEntities,
-          };
-        },
-      },
-    },
+    // bulkReducer: {
+    //   // todo remove this
+    //   bulkUpdate: {
+    //     onLoaded: ({
+    //       bulkEntities,
+    //       context,
+    //       entities,
+    //       outOfContextEntities,
+    //     }) => {
+    //       return {
+    //         entities,
+    //         outOfContextEntities,
+    //       };
+    //     },
+    //   },
+    // },
     selectors: {
       entityLevel: ({ status }) => {
         const hasError = Object.values(status).some(
