@@ -166,3 +166,38 @@ export function addOrReplaceEntityIn<
         : addEntityToTargetEntities,
   };
 }
+
+/// bulk
+export function removedEntities<
+  TData,
+  Entities extends EntityWithStatus<TData, string>[]
+>({
+  entities,
+  entityIdSelector,
+  bulkEntities,
+  outOfContextEntities,
+}: {
+  bulkEntities: Entities;
+  entities: Entities;
+  outOfContextEntities: Entities;
+  entityIdSelector: IdSelector<TData>;
+}) {
+  return {
+    entities: entities.filter((entityWithStatusData) => {
+      return bulkEntities.some(
+        (bulkEntity) =>
+          entityIdSelector(bulkEntity.entity) ===
+          entityIdSelector(entityWithStatusData.entity)
+      );
+    }),
+    outOfContextEntities: outOfContextEntities.filter(
+      (entityWithStatusData) => {
+        return bulkEntities.some(
+          (bulkEntity) =>
+            entityIdSelector(bulkEntity.entity) ===
+            entityIdSelector(entityWithStatusData.entity)
+        );
+      }
+    ),
+  };
+}

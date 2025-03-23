@@ -13,7 +13,11 @@ import {
   timer,
 } from 'rxjs';
 import { bulkAction, entityLevelAction, Store2 } from './storev2';
-import { addOrReplaceEntityIn, removedEntity } from './store-helper';
+import {
+  addOrReplaceEntityIn,
+  removedEntities,
+  removedEntity,
+} from './store-helper';
 
 type Pagination = {
   page: number;
@@ -125,6 +129,18 @@ export class DataListComponent {
     //     },
     //   },
     // },
+    bulkDelayedReducer: {
+      bulkRemove: [
+        {
+          notifier: () => timer(2000),
+          reducer: {
+            onLoaded: (data) => {
+              return removedEntities(data);
+            },
+          },
+        },
+      ],
+    },
     selectors: {
       entityLevel: ({ status }) => {
         const hasError = Object.values(status).some(

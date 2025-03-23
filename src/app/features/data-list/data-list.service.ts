@@ -1,12 +1,17 @@
 import { Injectable } from '@angular/core';
 import { Observable, BehaviorSubject, of, delay, map, take, timer } from 'rxjs';
 
-export type DataItem =
+export type DataItem = {
+  name: string;
+  ui?: {
+    deletedIn: Date;
+  };
+} & (
   | {
       id: string;
-      name: string;
     }
-  | { id: undefined; name: string; optimisticId: string };
+  | { id: undefined; optimisticId: string }
+);
 
 @Injectable({
   providedIn: 'root',
