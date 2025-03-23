@@ -49,8 +49,9 @@
         <button class="btn join-item" (click)="bulkUpdate()">
           Bulk update
         </button>
-        <button class="btn join-item">Button</button>
-        <button class="btn join-item">Button</button>
+        <button (click)="bulkRemove()" class="btn join-item">
+          Bulk remove
+        </button>
       </div>
     </div>
     @let selectedSelectedEntities = (selectedEntities$ | async) ?? []; @if(data
@@ -159,7 +160,24 @@
                 <span
                   *ngIf="entityData.status.bulkUpdate?.isLoading"
                   class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
-                  >Updating</span
+                  >Bulk updating</span
+                >
+
+                <span
+                  *ngIf="entityData.status.bulkRemove?.error"
+                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
+                  >Bulk remove Error</span
+                >
+                <span
+                  *ngIf="entityData.status.bulkRemove?.isLoaded"
+                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
+                  >Bulk remove</span
+                >
+
+                <span
+                  *ngIf="entityData.status.bulkRemove?.isLoading"
+                  class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
+                  >Bulk remove</span
                 >
               </td>
               <td class="flex items-center justify-start gap-2">

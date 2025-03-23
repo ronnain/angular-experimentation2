@@ -22,7 +22,7 @@ export type Operator = <T, R>(
 
 type MethodName = string;
 
-type IdSelector<TData> = (entity: TData) => string | number;
+export type IdSelector<TData> = (entity: TData) => string | number;
 
 export type ReducerParams<TData, TContext, MethodName extends string> = {
   id: string | number;
@@ -185,13 +185,13 @@ export function bulkAction<TSrc, TData>(config: BulkActionConfig<TSrc, TData>) {
 export type EntityLevelActionConfig<TSrc, TData> = {
   src: () => Observable<TSrc>;
   api: (params: { data: TSrc }) => Observable<TData>;
-  operator: Operator; // Use switchMap as default
+  operator: Operator; // Use switchMap as default, mergeMap is not recommended
 };
 
 export type BulkActionConfig<TSrc, TData> = {
   src: () => Observable<TSrc>;
   api: (params: { data: TSrc }) => Observable<TData>;
-  operator: Operator; // Use switchMap as default
+  operator: Operator; // Use concatMap or exhaustMap as default (switchMap and mergeMap are not recommended), because, it ait is trigger a second time during the loading phase and if the list of the selected Id change, the removed selected id will be display as loading (it may be fixed)
 };
 
 type FinalResult<

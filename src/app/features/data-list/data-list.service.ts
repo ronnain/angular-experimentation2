@@ -86,18 +86,20 @@ export class DataListService {
   }
 
   bulkUpdate(data: DataItem[]) {
-    // if (data.status.updateInfo === 'error') {
-    //   return timer(5000).pipe(
-    //     map(() => {
-    //       throw new Error(`Error updating items, please retry`);
-    //     })
-    //   );
-    // }
     this.dataList$.next(
       this.dataList$.value.map(
         (dataItem) => data.find((item) => item.id === dataItem.id) || dataItem
       )
     );
-    return of(data).pipe(delay(2000));
+    return of(data).pipe(delay(5000));
+  }
+
+  bulkDelete(data: DataItem[]) {
+    this.dataList$.next(
+      this.dataList$.value.filter(
+        (dataItem) => !data.find((item) => item.id === dataItem.id)
+      )
+    );
+    return of(data).pipe(delay(5000));
   }
 }

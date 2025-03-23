@@ -4,13 +4,16 @@ import { DataItem, DataListService } from './data-list.service';
 import { CommonModule } from '@angular/common';
 import {
   BehaviorSubject,
+  concatMap,
   exhaustMap,
+  mergeMap,
   Observable,
   Subject,
   switchMap,
   timer,
 } from 'rxjs';
 import { bulkAction, entityLevelAction, Store2 } from './storev2';
+import { addOrReplaceEntityIn, removedEntity } from './store-helper';
 
 type Pagination = {
   page: number;
@@ -36,6 +39,7 @@ export class DataListComponent {
   protected readonly selectedEntities$ = new BehaviorSubject<DataItem[]>([]);
 
   private readonly bulkUpdate$ = new Subject<DataItem[]>();
+  private readonly bulkRemove$ = new Subject<DataItem[]>();
 
   protected readonly store2 = inject(Store2)({
     getEntities: {
@@ -65,40 +69,15 @@ export class DataListComponent {
     } as const,
     reducer: {
       create: {
-        onLoaded: ({
-          context,
-          entityWithStatus,
-          entities,
-          outOfContextEntities,
-          entityIdSelector,
-        }) => {
-          entityWithStatus.status.update;
-          if (context.page !== 1) {
-            return {
-              entities,
-              outOfContextEntities: [
-                // replace the created with the creating entity
-                entityWithStatus,
-                ...outOfContextEntities.filter((entityWithStatus) => {
-                  return (
-                    entityIdSelector(entityWithStatus.entity) !==
-                    entityIdSelector(entityWithStatus.entity)
-                  );
-                }),
-              ],
-            };
+        onLoaded: (data) => {
+          if (data.context.page !== 1) {
+            return addOrReplaceEntityIn(data, {
+              target: 'outOfContextEntities',
+            });
           }
-          return {
-            entities: [entityWithStatus, ...entities],
-            outOfContextEntities: outOfContextEntities.filter(
-              (entityWithStatus) => {
-                return (
-                  entityIdSelector(entityWithStatus.entity) !==
-                  entityIdSelector(entityWithStatus.entity)
-                );
-              }
-            ),
-          };
+          return addOrReplaceEntityIn(data, {
+            target: 'entities',
+          });
         },
       },
     },
@@ -107,26 +86,8 @@ export class DataListComponent {
         {
           notifier: () => timer(2000),
           reducer: {
-            onLoaded: ({
-              entityWithStatus,
-              entities,
-              outOfContextEntities,
-              entityIdSelector,
-            }) => {
-              return {
-                entities: entities?.filter(
-                  (entityData) =>
-                    !entityData.entity ||
-                    entityIdSelector(entityData.entity) !=
-                      entityIdSelector(entityWithStatus?.entity)
-                ),
-                outOfContextEntities: outOfContextEntities?.filter(
-                  (entityData) =>
-                    !entityData.entity ||
-                    entityIdSelector(entityData.entity) !=
-                      entityIdSelector(entityWithStatus?.entity)
-                ),
-              };
+            onLoaded: (data) => {
+              return removedEntity(data);
             },
           },
         },
@@ -138,7 +99,14 @@ export class DataListComponent {
         api: ({ data }) => {
           return this.dataListService.bulkUpdate(data);
         },
-        operator: switchMap,
+        operator: concatMap,
+      }),
+      bulkRemove: bulkAction({
+        src: () => this.bulkRemove$,
+        api: ({ data }) => {
+          return this.dataListService.bulkUpdate(data);
+        },
+        operator: concatMap,
       }),
     } as const,
     // bulkReducer: {
@@ -257,6 +225,11 @@ export class DataListComponent {
 
   protected bulkUpdate() {
     this.bulkUpdate$.next(this.selectedEntities$.value);
+    this.resetSelectedEntities();
+  }
+
+  protected bulkRemove() {
+    this.bulkRemove$.next(this.selectedEntities$.value);
     this.resetSelectedEntities();
   }
   protected toggleSelect(item: DataItem) {
