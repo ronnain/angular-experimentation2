@@ -100,85 +100,12 @@
               </th>
               <td class="">{{ entityData.entity.name }}</td>
               <td class="">
-                <span
-                  *ngIf="entityData.status.create?.isLoading"
-                  class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
-                  >Creating</span
-                >
-                <span
-                  *ngIf="entityData.status.update?.isLoading"
-                  class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
-                  >Updating</span
-                >
-                <span
-                  *ngIf="entityData.status.delete?.isLoading"
-                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
-                  >Deleting</span
-                >
-                <span
-                  *ngIf="entityData.status.create?.isLoaded"
-                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
-                  >Created</span
-                >
-                <span
-                  *ngIf="entityData.status.update?.isLoaded"
-                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
-                  >Updated</span
-                >
-                <span
-                  *ngIf="entityData.status.delete?.isLoaded"
-                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
-                  >Deleted</span
-                >
-                <span
-                  *ngIf="entityData.status.create?.hasError"
-                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
-                  >Creation Error</span
-                >
-                <span
-                  *ngIf="entityData.status.update?.hasError"
-                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
-                  >Update Error</span
-                >
-                <span
-                  *ngIf="entityData.status.delete?.hasError"
-                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
-                  >Delete Error</span
-                >
-
-                <span
-                  *ngIf="entityData.status.bulkUpdate?.error"
-                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
-                  >Bulk Update Error</span
-                >
-                <span
-                  *ngIf="entityData.status.bulkUpdate?.isLoaded"
-                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
-                  >Bulk update</span
-                >
-
-                <span
-                  *ngIf="entityData.status.bulkUpdate?.isLoading"
-                  class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
-                  >Bulk updating</span
-                >
-
-                <span
-                  *ngIf="entityData.status.bulkRemove?.error"
-                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
-                  >Bulk remove Error</span
-                >
-                <span
-                  *ngIf="entityData.status.bulkRemove?.isLoaded"
-                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
-                  >Bulk remove</span
-                >
-
-                <span
-                  *ngIf="entityData.status.bulkRemove?.isLoading"
-                  class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
-                  >Bulk remove</span
-                >
+                <ng-container
+                  *ngTemplateOutlet="
+                    statusTemplate;
+                    context: { status: entityData.status }
+                  "
+                ></ng-container>
               </td>
               <td class="flex items-center justify-start gap-2">
                 <button
@@ -234,51 +161,12 @@
               </th>
               <td class="">{{ entityData.entity.name }}</td>
               <td class="">
-                <span
-                  *ngIf="entityData.status.create?.isLoading"
-                  class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
-                  >Creating</span
-                >
-                <span
-                  *ngIf="entityData.status.update?.isLoading"
-                  class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
-                  >Updating</span
-                >
-                <span
-                  *ngIf="entityData.status.delete?.isLoading"
-                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
-                  >Deleting</span
-                >
-                <span
-                  *ngIf="entityData.status.create?.isLoaded"
-                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
-                  >Created</span
-                >
-                <span
-                  *ngIf="entityData.status.update?.isLoaded"
-                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
-                  >Updated</span
-                >
-                <span
-                  *ngIf="entityData.status.delete?.isLoaded"
-                  class="bg-green-200 text-green-800 px-2 py-1 rounded"
-                  >Deleted</span
-                >
-                <span
-                  *ngIf="entityData.status.create?.hasError"
-                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
-                  >Creation Error</span
-                >
-                <span
-                  *ngIf="entityData.status.update?.hasError"
-                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
-                  >Update Error</span
-                >
-                <span
-                  *ngIf="entityData.status.delete?.hasError"
-                  class="bg-red-200 text-red-800 px-2 py-1 rounded"
-                  >Delete Error</span
-                >
+                <ng-container
+                  *ngTemplateOutlet="
+                    statusTemplate;
+                    context: { status: entityData.status }
+                  "
+                ></ng-container>
               </td>
               <td class="">
                 <button
@@ -309,4 +197,80 @@
   </div>
 </div>
 
-<!-- <pre>{{ store2.data | async | json }}</pre> -->
+<ng-template #statusTemplate let-status="status">
+  <span
+    *ngIf="status.create?.isLoading"
+    class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
+    >Creating</span
+  >
+  <span
+    *ngIf="status.update?.isLoading"
+    class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
+    >Updating</span
+  >
+  <span
+    *ngIf="status.delete?.isLoading"
+    class="bg-red-200 text-red-800 px-2 py-1 rounded"
+    >Deleting</span
+  >
+  <span
+    *ngIf="status.create?.isLoaded"
+    class="bg-green-200 text-green-800 px-2 py-1 rounded"
+    >Created</span
+  >
+  <span
+    *ngIf="status.update?.isLoaded"
+    class="bg-green-200 text-green-800 px-2 py-1 rounded"
+    >Updated</span
+  >
+  <span
+    *ngIf="status.delete?.isLoaded"
+    class="bg-green-200 text-green-800 px-2 py-1 rounded"
+    >Deleted</span
+  >
+  <span
+    *ngIf="status.create?.hasError"
+    class="bg-red-200 text-red-800 px-2 py-1 rounded"
+    >Creation Error</span
+  >
+  <span
+    *ngIf="status.update?.hasError"
+    class="bg-red-200 text-red-800 px-2 py-1 rounded"
+    >Update Error</span
+  >
+  <span
+    *ngIf="status.delete?.hasError"
+    class="bg-red-200 text-red-800 px-2 py-1 rounded"
+    >Delete Error</span
+  >
+  <span
+    *ngIf="status.bulkUpdate?.error"
+    class="bg-red-200 text-red-800 px-2 py-1 rounded"
+    >Bulk Update Error</span
+  >
+  <span
+    *ngIf="status.bulkUpdate?.isLoaded"
+    class="bg-green-200 text-green-800 px-2 py-1 rounded"
+    >Bulk update</span
+  >
+  <span
+    *ngIf="status.bulkUpdate?.isLoading"
+    class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
+    >Bulk updating</span
+  >
+  <span
+    *ngIf="status.bulkRemove?.error"
+    class="bg-red-200 text-red-800 px-2 py-1 rounded"
+    >Bulk remove Error</span
+  >
+  <span
+    *ngIf="status.bulkRemove?.isLoading"
+    class="bg-green-200 text-green-800 px-2 py-1 rounded"
+    >Bulk removing</span
+  >
+  <span
+    *ngIf="status.bulkRemove?.isLoaded"
+    class="bg-green-200 text-green-800 px-2 py-1 rounded"
+    >Bulk removed</span
+  >
+</ng-template>

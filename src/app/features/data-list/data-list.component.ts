@@ -6,17 +6,24 @@ import {
   BehaviorSubject,
   concatMap,
   exhaustMap,
-  mergeMap,
-  Observable,
+  race,
   Subject,
   switchMap,
   timer,
 } from 'rxjs';
-import { bulkAction, entityLevelAction, Store2 } from './storev2';
+import {
+  bulkAction,
+  BulkReducerParams,
+  entityLevelAction,
+  EntityWithStatus,
+  Store2,
+} from './storev2';
 import {
   addOrReplaceEntityIn,
   removedEntities,
   removedEntity,
+  updateEntities,
+  updateEntity,
 } from './store-helper';
 
 type Pagination = {
@@ -35,9 +42,9 @@ export class DataListComponent {
   createItem$ = new Subject<DataItem>();
   updateItem$ = new Subject<DataItem & { updateInfo: 'error' | 'success' }>();
   deleteItem$ = new Subject<DataItem>();
-  getAllData$ = new BehaviorSubject<Pagination>({
+  pagination$ = new BehaviorSubject<Pagination>({
     page: 1,
-    pageSize: 20,
+    pageSize: 8,
   });
 
   protected readonly selectedEntities$ = new BehaviorSubject<DataItem[]>([]);
@@ -47,7 +54,7 @@ export class DataListComponent {
 
   protected readonly store2 = inject(Store2)({
     getEntities: {
-      srcContext: this.getAllData$,
+      srcContext: this.pagination$,
       api: (srcContext) => this.dataListService.getDataList$(srcContext),
       initialData: [],
     },
@@ -113,28 +120,39 @@ export class DataListComponent {
         operator: concatMap,
       }),
     } as const,
-    // bulkReducer: {
-    //   // todo remove this
-    //   bulkUpdate: {
-    //     onLoaded: ({
-    //       bulkEntities,
-    //       context,
-    //       entities,
-    //       outOfContextEntities,
-    //     }) => {
-    //       return {
-    //         entities,
-    //         outOfContextEntities,
-    //       };
-    //     },
-    //   },
-    // },
+    bulkReducer: {
+      bulkUpdate: {
+        onLoaded: (data) => {
+          debugger;
+          const result = updateEntities(data, ({ entity, status }) => ({
+            entity: {
+              ...entity,
+              ui: {
+                ...entity.ui,
+                deletedIn: new Date(Date.now() + 5000),
+              },
+            },
+            status: {
+              ...status,
+              delete: {
+                isLoading: false,
+                isLoaded: true,
+                hasError: false,
+                error: null,
+              },
+            },
+          }));
+          return result;
+        },
+      },
+    },
     bulkDelayedReducer: {
       bulkRemove: [
         {
-          notifier: () => timer(2000),
+          notifier: () => race(this.pagination$, timer(2000)),
           reducer: {
             onLoaded: (data) => {
+              debugger;
               return removedEntities(data);
             },
           },
@@ -188,25 +206,24 @@ export class DataListComponent {
           (acc, entity) => acc + (entity.status.create?.isLoaded ? 1 : 0),
           0
         ),
-        // todo get errors ?
       }),
     },
   });
 
   previousPage() {
-    const currentPage = this.getAllData$.value.page;
+    const currentPage = this.pagination$.value.page;
     if (currentPage > 1) {
-      this.getAllData$.next({
-        ...this.getAllData$.value,
+      this.pagination$.next({
+        ...this.pagination$.value,
         page: currentPage - 1,
       });
     }
   }
 
   nextPage() {
-    const currentPage = this.getAllData$.value.page;
-    this.getAllData$.next({
-      ...this.getAllData$.value,
+    const currentPage = this.pagination$.value.page;
+    this.pagination$.next({
+      ...this.pagination$.value,
       page: currentPage + 1,
     });
   }

@@ -81,33 +81,36 @@ export function updateEntity<
   TData,
   Entity extends EntityWithStatus<TData, string>,
   Entities extends EntityWithStatus<TData, string>[]
->({
-  entities,
-  entityIdSelector,
-  entityWithStatus,
-  outOfContextEntities,
-}: {
-  entityWithStatus: Entity;
-  entities: Entities;
-  outOfContextEntities: Entities;
-  entityIdSelector: IdSelector<TData>;
-}) {
+>(
+  {
+    entities,
+    entityIdSelector,
+    entityWithStatus,
+    outOfContextEntities,
+  }: {
+    entityWithStatus: Entity;
+    entities: Entities;
+    outOfContextEntities: Entities;
+    entityIdSelector: IdSelector<TData>;
+  },
+  callBack: (entityWithStatus: Entity) => Entity
+) {
   return {
     entities: entities.map((entityWithStatusData) => {
       if (
-        entityIdSelector(entityWithStatusData.entity) !==
+        entityIdSelector(entityWithStatusData.entity) ===
         entityIdSelector(entityWithStatus.entity)
       ) {
-        return entityWithStatus;
+        return callBack(entityWithStatus);
       }
       return entityWithStatusData;
     }),
     outOfContextEntities: outOfContextEntities.map((entityWithStatusData) => {
       if (
-        entityIdSelector(entityWithStatusData.entity) !==
+        entityIdSelector(entityWithStatusData.entity) ===
         entityIdSelector(entityWithStatus.entity)
       ) {
-        return entityWithStatus;
+        return callBack(entityWithStatus);
       }
       return entityWithStatusData;
     }),
@@ -184,7 +187,7 @@ export function removedEntities<
 }) {
   return {
     entities: entities.filter((entityWithStatusData) => {
-      return bulkEntities.some(
+      return !bulkEntities.some(
         (bulkEntity) =>
           entityIdSelector(bulkEntity.entity) ===
           entityIdSelector(entityWithStatusData.entity)
@@ -192,12 +195,65 @@ export function removedEntities<
     }),
     outOfContextEntities: outOfContextEntities.filter(
       (entityWithStatusData) => {
-        return bulkEntities.some(
+        return !bulkEntities.some(
           (bulkEntity) =>
             entityIdSelector(bulkEntity.entity) ===
             entityIdSelector(entityWithStatusData.entity)
         );
       }
     ),
+  };
+}
+
+//! the callback function can add more status methods than the existing one
+export function updateEntities<
+  TData,
+  TActionKeys extends keyof TEntityWithStatus['status'] extends string
+    ? keyof TEntityWithStatus['status']
+    : never,
+  TEntityWithStatus extends EntityWithStatus<TData, TActionKeys>,
+  TCallBack extends (
+    entityWithStatus: TEntityWithStatus
+  ) => EntityWithStatus<TData, TActionKeys>
+>(
+  {
+    bulkEntities,
+    entities,
+    entityIdSelector,
+    outOfContextEntities,
+  }: {
+    bulkEntities: TEntityWithStatus[];
+    entities: TEntityWithStatus[];
+    outOfContextEntities: TEntityWithStatus[];
+    entityIdSelector: IdSelector<TData>;
+  },
+  callBack: TCallBack
+) {
+  //   return {} as Context;
+  return {
+    entities: entities.map((entityWithStatusData) => {
+      const targetEntity = bulkEntities.find((bulkEntity) => {
+        return (
+          entityIdSelector(bulkEntity.entity) ===
+          entityIdSelector(entityWithStatusData.entity)
+        );
+      });
+      if (targetEntity) {
+        return callBack(targetEntity);
+      }
+      return entityWithStatusData;
+    }),
+    outOfContextEntities: outOfContextEntities.map((entityWithStatusData) => {
+      const targetEntity = bulkEntities.find((bulkEntity) => {
+        return (
+          entityIdSelector(bulkEntity.entity) ===
+          entityIdSelector(entityWithStatusData.entity)
+        );
+      });
+      if (targetEntity) {
+        return callBack(targetEntity);
+      }
+      return entityWithStatusData;
+    }),
   };
 }
