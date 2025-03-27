@@ -14,27 +14,19 @@ import {
   Subject,
   switchMap,
   takeWhile,
-  tap,
   timer,
 } from 'rxjs';
-import {
-  bulkAction,
-  BulkReducerParams,
-  entityLevelAction,
-  EntityWithStatus,
-  Store2,
-} from './storev2';
+import { bulkAction, entityLevelAction, Store2 } from './storev2';
 import {
   addOrReplaceEntityIn,
   countEntitiesWithStatusByAction,
   extractAllErrors,
   hasProcessingItem,
   hasStatus,
-  isStatusProcessing,
-  removedEntities,
+  removedBulkEntities,
   removedEntity,
   totalProcessingItems,
-  updateEntities,
+  updateBulkEntities,
   updateEntity,
 } from './store-helper';
 
@@ -51,7 +43,7 @@ type Pagination = {
 export class DataListComponent {
   private dataListService = inject(DataListService);
 
-  private readonly DISAPPEAR_TIMEOUT = 10000;
+  private readonly DISAPPEAR_TIMEOUT = 15000;
 
   // sources
   private readonly pagination$ = new BehaviorSubject<Pagination>({
@@ -94,7 +86,7 @@ export class DataListComponent {
         api: ({ data }) => this.dataListService.deleteItem(data.id),
         operator: exhaustMap,
       }),
-    } as const,
+    },
     reducer: {
       create: {
         onLoaded: (data) => {
@@ -108,11 +100,34 @@ export class DataListComponent {
           });
         },
       },
+      delete: {
+        onLoaded: (data) => {
+          return updateEntity(data, ({ entity, status }) => ({
+            entity: {
+              ...entity,
+              ui: {
+                ...entity.ui,
+                disappearIn$: this.remainingTimeBeforeHiding$(),
+              },
+            },
+            status: {
+              ...status,
+              delete: {
+                isLoading: false,
+                isLoaded: true,
+                hasError: false,
+                error: null,
+              },
+            },
+          }));
+        },
+      },
     },
     delayedReducer: {
       delete: [
         {
-          notifier: () => timer(2000),
+          notifier: () =>
+            race(this.pagination$.pipe(skip(1)), timer(this.DISAPPEAR_TIMEOUT)),
           reducer: {
             onLoaded: (data) => {
               return removedEntity(data);
@@ -136,16 +151,16 @@ export class DataListComponent {
         },
         operator: concatMap,
       }),
-    } as const,
+    },
     bulkReducer: {
       bulkDelete: {
         onLoaded: (data) => {
-          const result = updateEntities(data, ({ entity, status }) => ({
+          const result = updateBulkEntities(data, ({ entity, status }) => ({
             entity: {
               ...entity,
               ui: {
                 ...entity.ui,
-                hidingIn$: this.remainingTimeBeforeHiding$(),
+                disappearIn$: this.remainingTimeBeforeHiding$(),
               },
             },
             status: {
@@ -169,7 +184,7 @@ export class DataListComponent {
             race(this.pagination$.pipe(skip(1)), timer(this.DISAPPEAR_TIMEOUT)),
           reducer: {
             onLoaded: (data) => {
-              return removedEntities(data);
+              return removedBulkEntities(data);
             },
           },
         },
@@ -191,16 +206,28 @@ export class DataListComponent {
             hasProcessingItem(entity)
           ),
           totalProcessingItems: totalProcessingItems(allEntities),
-          totalDeletedItems: countEntitiesWithStatusByAction({
-            entities: allEntities,
-            actionName: 'delete',
-            state: 'isLoaded',
-          }),
-          totalUpdatedItems: countEntitiesWithStatusByAction({
-            entities: allEntities,
-            actionName: 'update',
-            state: 'isLoaded',
-          }),
+          totalDeletedItems:
+            countEntitiesWithStatusByAction({
+              entities: allEntities,
+              actionName: 'delete',
+              state: 'isLoaded',
+            }) +
+            countEntitiesWithStatusByAction({
+              entities: allEntities,
+              actionName: 'bulkDelete',
+              state: 'isLoaded',
+            }),
+          totalUpdatedItems:
+            countEntitiesWithStatusByAction({
+              entities: allEntities,
+              actionName: 'update',
+              state: 'isLoaded',
+            }) +
+            countEntitiesWithStatusByAction({
+              entities: allEntities,
+              actionName: 'bulkUpdate',
+              state: 'isLoaded',
+            }),
           totalCreatedItems: countEntitiesWithStatusByAction({
             entities: allEntities,
             actionName: 'create',

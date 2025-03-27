@@ -100,19 +100,19 @@
               </th>
               <td class="">{{ entityData.entity.name }}</td>
               <td class="">
-                <ng-container
-                  *ngTemplateOutlet="
-                    statusTemplate;
-                    context: { status: entityData.status }
-                  "
-                ></ng-container>
-                @let hidingIn = entityData.entity.ui?.hidingIn$ | async;
-                @if(hidingIn) {
-                <div role="alert" class="alert alert-warning alert-soft">
-                  <span>{{ hidingIn }}</span>
+                @let disappearIn = entityData.entity.ui?.disappearIn$ | async;
+                <div
+                  class="tooltip"
+                  [class.tooltip]="!!disappearIn"
+                  [attr.data-tip]="disappearIn"
+                >
+                  <ng-container
+                    *ngTemplateOutlet="
+                      statusTemplate;
+                      context: { status: entityData.status }
+                    "
+                  />
                 </div>
-
-                }
               </td>
               <td class="flex items-center justify-start gap-2">
                 <button

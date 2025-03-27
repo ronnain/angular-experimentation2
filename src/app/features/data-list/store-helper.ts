@@ -171,7 +171,7 @@ export function addOrReplaceEntityIn<
 }
 
 /// bulk
-export function removedEntities<
+export function removedBulkEntities<
   TData,
   Entities extends EntityWithStatus<TData, string>[]
 >({
@@ -206,7 +206,7 @@ export function removedEntities<
 }
 
 //! the callback function can add more status methods than the existing one
-export function updateEntities<
+export function updateBulkEntities<
   TData,
   TActionKeys extends keyof TEntityWithStatus['status'] extends string
     ? keyof TEntityWithStatus['status']

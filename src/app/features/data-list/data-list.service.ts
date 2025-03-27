@@ -4,7 +4,7 @@ import { Observable, BehaviorSubject, of, delay, map, take, timer } from 'rxjs';
 export type DataItem = {
   name: string;
   ui?: {
-    hidingIn$: Observable<string>; // will emit each seconds
+    disappearIn$: Observable<string>; // will emit each seconds
   };
 } & (
   | {
