@@ -4,7 +4,7 @@ import { Observable, BehaviorSubject, of, delay, map, take, timer } from 'rxjs';
 export type DataItem = {
   name: string;
   ui?: {
-    deletedIn: Date;
+    hidingIn$: Observable<string>; // will emit each seconds
   };
 } & (
   | {
@@ -115,6 +115,6 @@ export class DataListService {
         (dataItem) => !data.find((item) => item.id === dataItem.id)
       )
     );
-    return of(data).pipe(delay(1000));
+    return of(data).pipe(delay(2000));
   }
 }

@@ -1,4 +1,4 @@
-import { EntityWithStatus, IdSelector } from './storev2';
+import { EntityStatus, EntityWithStatus, IdSelector } from './storev2';
 
 export function removedEntityFrom<
   TData,
@@ -256,4 +256,82 @@ export function updateEntities<
       return entityWithStatusData;
     }),
   };
+}
+
+export function hasProcessingItem<
+  TData,
+  TEntityWithStatus extends EntityWithStatus<TData, string>
+>(entity: TEntityWithStatus): boolean {
+  return Object.values(entity.status).some(
+    (entityStatus) => entityStatus?.isLoading
+  );
+}
+
+export function totalProcessingItems<
+  TData,
+  TEntityWithStatus extends EntityWithStatus<TData, string>
+>(entities: TEntityWithStatus[]): number {
+  return entities.reduce(
+    (acc, entity) =>
+      acc +
+      Object.values(entity.status).filter(
+        (entityStatus) => entityStatus?.isLoading
+      ).length,
+    0
+  );
+}
+
+export function countEntitiesWithStatusByAction<
+  TData,
+  TActionKeys extends keyof TEntityWithStatus['status'] extends string
+    ? keyof TEntityWithStatus['status']
+    : never,
+  TEntityWithStatus extends EntityWithStatus<TData, TActionKeys>
+>({
+  entities,
+  actionName,
+  state,
+}: {
+  entities: TEntityWithStatus[];
+  actionName: TActionKeys;
+  state: keyof EntityStatus;
+}): number {
+  return entities.reduce(
+    (acc, entity) => acc + (entity.status[actionName]?.[state] ? 1 : 0),
+    0
+  );
+}
+
+export function extractAllErrors<T extends Record<string, EntityStatus>>(
+  status: T
+): Array<{ status: string; message: string }> {
+  return Object.entries(status)
+    .filter(([, entityStatus]) => entityStatus?.hasError)
+    .map(([statusKey, statusWithError]) => {
+      return {
+        status: statusKey,
+        message: statusWithError.error?.message || 'Unknown error',
+      };
+    });
+}
+
+/**
+ * Checks if any status in the entity has errors
+ */
+export function hasStatus<T extends Record<string, EntityStatus>>({
+  status,
+}: {
+  status: T;
+  state: keyof EntityStatus;
+}): boolean {
+  return Object.values(status).some((entityStatus) => entityStatus?.hasError);
+}
+
+/**
+ * Checks if any status in the entity is loading
+ */
+export function isStatusProcessing<T extends Record<string, EntityStatus>>(
+  status: T
+): boolean {
+  return Object.values(status).some((entityStatus) => entityStatus?.isLoading);
 }

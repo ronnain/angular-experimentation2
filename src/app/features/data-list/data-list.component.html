@@ -106,6 +106,13 @@
                     context: { status: entityData.status }
                   "
                 ></ng-container>
+                @let hidingIn = entityData.entity.ui?.hidingIn$ | async;
+                @if(hidingIn) {
+                <div role="alert" class="alert alert-warning alert-soft">
+                  <span>{{ hidingIn }}</span>
+                </div>
+
+                }
               </td>
               <td class="flex items-center justify-start gap-2">
                 <button
@@ -259,17 +266,17 @@
     >Bulk updating</span
   >
   <span
-    *ngIf="status.bulkRemove?.error"
+    *ngIf="status.bulkDelete?.error"
     class="bg-red-200 text-red-800 px-2 py-1 rounded"
     >Bulk remove Error</span
   >
   <span
-    *ngIf="status.bulkRemove?.isLoading"
-    class="bg-green-200 text-green-800 px-2 py-1 rounded"
+    *ngIf="status.bulkDelete?.isLoading"
+    class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
     >Bulk removing</span
   >
   <span
-    *ngIf="status.bulkRemove?.isLoaded"
+    *ngIf="status.bulkDelete?.isLoaded"
     class="bg-green-200 text-green-800 px-2 py-1 rounded"
     >Bulk removed</span
   >

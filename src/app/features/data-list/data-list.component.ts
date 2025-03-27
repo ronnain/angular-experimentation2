@@ -6,9 +6,15 @@ import {
   BehaviorSubject,
   concatMap,
   exhaustMap,
+  interval,
+  map,
   race,
+  skip,
+  startWith,
   Subject,
   switchMap,
+  takeWhile,
+  tap,
   timer,
 } from 'rxjs';
 import {
@@ -20,8 +26,14 @@ import {
 } from './storev2';
 import {
   addOrReplaceEntityIn,
+  countEntitiesWithStatusByAction,
+  extractAllErrors,
+  hasProcessingItem,
+  hasStatus,
+  isStatusProcessing,
   removedEntities,
   removedEntity,
+  totalProcessingItems,
   updateEntities,
   updateEntity,
 } from './store-helper';
@@ -39,18 +51,23 @@ type Pagination = {
 export class DataListComponent {
   private dataListService = inject(DataListService);
 
-  createItem$ = new Subject<DataItem>();
-  updateItem$ = new Subject<DataItem & { updateInfo: 'error' | 'success' }>();
-  deleteItem$ = new Subject<DataItem>();
-  pagination$ = new BehaviorSubject<Pagination>({
+  private readonly DISAPPEAR_TIMEOUT = 10000;
+
+  // sources
+  private readonly pagination$ = new BehaviorSubject<Pagination>({
     page: 1,
     pageSize: 8,
   });
+  // sources actions
+  private readonly createItem$ = new Subject<DataItem>();
+  private readonly updateItem$ = new Subject<
+    DataItem & { updateInfo: 'error' | 'success' }
+  >();
+  private readonly deleteItem$ = new Subject<DataItem>();
+  private readonly bulkUpdate$ = new Subject<DataItem[]>();
+  private readonly bulkDelete$ = new Subject<DataItem[]>();
 
   protected readonly selectedEntities$ = new BehaviorSubject<DataItem[]>([]);
-
-  private readonly bulkUpdate$ = new Subject<DataItem[]>();
-  private readonly bulkRemove$ = new Subject<DataItem[]>();
 
   protected readonly store2 = inject(Store2)({
     getEntities: {
@@ -112,29 +129,28 @@ export class DataListComponent {
         },
         operator: concatMap,
       }),
-      bulkRemove: bulkAction({
-        src: () => this.bulkRemove$,
+      bulkDelete: bulkAction({
+        src: () => this.bulkDelete$,
         api: ({ data }) => {
-          return this.dataListService.bulkUpdate(data);
+          return this.dataListService.bulkDelete(data);
         },
         operator: concatMap,
       }),
     } as const,
     bulkReducer: {
-      bulkUpdate: {
+      bulkDelete: {
         onLoaded: (data) => {
-          debugger;
           const result = updateEntities(data, ({ entity, status }) => ({
             entity: {
               ...entity,
               ui: {
                 ...entity.ui,
-                deletedIn: new Date(Date.now() + 5000),
+                hidingIn$: this.remainingTimeBeforeHiding$(),
               },
             },
             status: {
               ...status,
-              delete: {
+              bulkDelete: {
                 isLoading: false,
                 isLoaded: true,
                 hasError: false,
@@ -147,12 +163,12 @@ export class DataListComponent {
       },
     },
     bulkDelayedReducer: {
-      bulkRemove: [
+      bulkDelete: [
         {
-          notifier: () => race(this.pagination$, timer(2000)),
+          notifier: () =>
+            race(this.pagination$.pipe(skip(1)), timer(this.DISAPPEAR_TIMEOUT)),
           reducer: {
             onLoaded: (data) => {
-              debugger;
               return removedEntities(data);
             },
           },
@@ -161,52 +177,37 @@ export class DataListComponent {
     },
     selectors: {
       entityLevel: ({ status }) => {
-        const hasError = Object.values(status).some(
-          (entityStatus) => entityStatus?.hasError
-        );
         return {
-          isProcessing: Object.values(status).some(
-            (entityStatus) => entityStatus?.isLoading
-          ),
-          hasError,
-          errors: Object.entries(status)
-            .filter(([, entityStatus]) => entityStatus.hasError)
-            .map(([status, statusWithError]) => {
-              return {
-                status,
-                message: statusWithError.error.message,
-              };
-            }),
+          isProcessing: hasStatus({ status, state: 'isLoading' }),
+          hasError: hasStatus({ status, state: 'hasError' }),
+          errors: extractAllErrors(status),
         };
       },
-      storeLevel: ({ entities, outOfContextEntities }) => ({
-        hasProcessingItem: entities.some((entity) =>
-          Object.values(entity.status).some(
-            (entityStatus) => entityStatus?.isLoading
-          )
-        ),
-        totalProcessingItems: [...entities, ...outOfContextEntities].reduce(
-          (acc, entity) =>
-            acc +
-            Object.values(entity.status).filter(
-              (entityStatus) => entityStatus?.isLoading
-            ).length,
-          0
-        ),
-        totalDeletedItems: [...entities, ...outOfContextEntities].reduce(
-          (acc, entity) => acc + (entity.status.delete?.isLoaded ? 1 : 0),
-
-          0
-        ),
-        totalUpdatedItems: [...entities, ...outOfContextEntities].reduce(
-          (acc, entity) => acc + (entity.status.update?.isLoaded ? 1 : 0),
-          0
-        ),
-        totalCreatedItems: [...entities, ...outOfContextEntities].reduce(
-          (acc, entity) => acc + (entity.status.create?.isLoaded ? 1 : 0),
-          0
-        ),
-      }),
+      storeLevel: ({ entities, outOfContextEntities }) => {
+        console.log('entities', entities);
+        const allEntities = [...entities, ...outOfContextEntities];
+        return {
+          hasProcessingItem: entities.some((entity) =>
+            hasProcessingItem(entity)
+          ),
+          totalProcessingItems: totalProcessingItems(allEntities),
+          totalDeletedItems: countEntitiesWithStatusByAction({
+            entities: allEntities,
+            actionName: 'delete',
+            state: 'isLoaded',
+          }),
+          totalUpdatedItems: countEntitiesWithStatusByAction({
+            entities: allEntities,
+            actionName: 'update',
+            state: 'isLoaded',
+          }),
+          totalCreatedItems: countEntitiesWithStatusByAction({
+            entities: allEntities,
+            actionName: 'create',
+            state: 'isLoaded',
+          }),
+        };
+      },
     },
   });
 
@@ -262,7 +263,7 @@ export class DataListComponent {
   }
 
   protected bulkRemove() {
-    this.bulkRemove$.next(this.selectedEntities$.value);
+    this.bulkDelete$.next(this.selectedEntities$.value);
     this.resetSelectedEntities();
   }
   protected toggleSelect(item: DataItem) {
@@ -289,5 +290,20 @@ export class DataListComponent {
 
   protected selectAll(entities: DataItem[] | undefined) {
     this.selectedEntities$.next(entities ?? []);
+  }
+
+  private remainingTimeBeforeHiding$() {
+    const deletionTime = new Date(Date.now() + this.DISAPPEAR_TIMEOUT);
+    const remainingTime$ = interval(1000).pipe(
+      startWith(0), // Emit immediately
+      map(() =>
+        Math.max(0, Math.ceil((deletionTime.getTime() - Date.now()) / 1000))
+      ), // Convert ms to seconds
+      takeWhile((remainingTime) => remainingTime > 0, true), // Emit until time reaches 0
+      map(
+        (remainingTime) => `Remaining time before disappear: ${remainingTime}s`
+      )
+    );
+    return remainingTime$;
   }
 }

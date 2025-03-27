@@ -78,7 +78,7 @@ type BulkStatedDataReducerWithoutOnLoading<
   MethodName extends string
 > = Omit<BulkStatedDataReducer<TData, TContext, MethodName>, 'onLoading'>;
 
-type EntityStatus = Omit<StatedData<unknown>, 'result'>;
+export type EntityStatus = Omit<StatedData<unknown>, 'result'>;
 export type EntityWithStatus<TData, MethodName extends string> = {
   entity: TData;
   status: MethodStatus<MethodName>;
@@ -859,7 +859,7 @@ function applyBulkActionOnEntities<
       ? reducer?.onError
       : undefined
   ) as BulkReducer<TData, SrcContext, MethodName> | undefined; // todo fix this type
-  debugger;
+  // debugger;
   if (!customReducer || !acc.result) {
     return {
       ...acc,
@@ -1037,7 +1037,7 @@ function bulkConnectAssociatedDelayedReducer$<
 }) {
   const { isLoading, isLoaded, hasError } =
     bulkReducerConfig.entitiesStatedData;
-  debugger;
+  // debugger;
   if (isLoading) {
     return of(bulkReducerConfig);
   }
