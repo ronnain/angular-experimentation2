@@ -115,6 +115,6 @@ export class DataListService {
         (dataItem) => !data.find((item) => item.id === dataItem.id)
       )
     );
-    return of(data).pipe(delay(2000));
+    return of(data).pipe(delay(5000));
   }
 }

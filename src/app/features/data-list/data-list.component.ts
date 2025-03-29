@@ -16,7 +16,7 @@ import {
   takeWhile,
   timer,
 } from 'rxjs';
-import { bulkAction, entityLevelAction, Store2 } from './storev2';
+import { bulkAction, entityLevelAction, DataListStore } from './storev2';
 import {
   addOrReplaceEntityIn,
   countEntitiesWithStatusByAction,
@@ -29,6 +29,7 @@ import {
   updateBulkEntities,
   updateEntity,
 } from './store-helper';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 type Pagination = {
   page: number;
@@ -43,12 +44,12 @@ type Pagination = {
 export class DataListComponent {
   private dataListService = inject(DataListService);
 
-  private readonly DISAPPEAR_TIMEOUT = 15000;
+  private readonly DISAPPEAR_TIMEOUT = 5000;
 
   // sources
   private readonly pagination$ = new BehaviorSubject<Pagination>({
     page: 1,
-    pageSize: 8,
+    pageSize: 5,
   });
   // sources actions
   private readonly createItem$ = new Subject<DataItem>();
@@ -61,8 +62,8 @@ export class DataListComponent {
 
   protected readonly selectedEntities$ = new BehaviorSubject<DataItem[]>([]);
 
-  protected readonly store2 = inject(Store2)({
-    getEntities: {
+  protected readonly dataList = inject(DataListStore)({
+    entitiesSrc: {
       srcContext: this.pagination$,
       api: (srcContext) => this.dataListService.getDataList$(srcContext),
       initialData: [],
@@ -107,7 +108,7 @@ export class DataListComponent {
               ...entity,
               ui: {
                 ...entity.ui,
-                disappearIn$: this.remainingTimeBeforeHiding$(),
+                disappearIn$: this.remainingTimeBeforeDisappear$(),
               },
             },
             status: {
@@ -160,7 +161,7 @@ export class DataListComponent {
               ...entity,
               ui: {
                 ...entity.ui,
-                disappearIn$: this.remainingTimeBeforeHiding$(),
+                disappearIn$: this.remainingTimeBeforeDisappear$(),
               },
             },
             status: {
@@ -199,24 +200,12 @@ export class DataListComponent {
         };
       },
       storeLevel: ({ entities, outOfContextEntities }) => {
-        console.log('entities', entities);
         const allEntities = [...entities, ...outOfContextEntities];
         return {
           hasProcessingItem: entities.some((entity) =>
             hasProcessingItem(entity)
           ),
           totalProcessingItems: totalProcessingItems(allEntities),
-          totalDeletedItems:
-            countEntitiesWithStatusByAction({
-              entities: allEntities,
-              actionName: 'delete',
-              state: 'isLoaded',
-            }) +
-            countEntitiesWithStatusByAction({
-              entities: allEntities,
-              actionName: 'bulkDelete',
-              state: 'isLoaded',
-            }),
           totalUpdatedItems:
             countEntitiesWithStatusByAction({
               entities: allEntities,
@@ -228,15 +217,16 @@ export class DataListComponent {
               actionName: 'bulkUpdate',
               state: 'isLoaded',
             }),
-          totalCreatedItems: countEntitiesWithStatusByAction({
-            entities: allEntities,
-            actionName: 'create',
-            state: 'isLoaded',
-          }),
         };
       },
     },
   });
+
+  constructor() {
+    this.dataList.data.pipe(takeUntilDestroyed()).subscribe((data) => {
+      console.log('dataList', data);
+    });
+  }
 
   previousPage() {
     const currentPage = this.pagination$.value.page;
@@ -319,7 +309,7 @@ export class DataListComponent {
     this.selectedEntities$.next(entities ?? []);
   }
 
-  private remainingTimeBeforeHiding$() {
+  private remainingTimeBeforeDisappear$() {
     const deletionTime = new Date(Date.now() + this.DISAPPEAR_TIMEOUT);
     const remainingTime$ = interval(1000).pipe(
       startWith(0), // Emit immediately

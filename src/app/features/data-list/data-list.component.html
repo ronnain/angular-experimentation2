@@ -1,4 +1,4 @@
-@let data= store2.data | async;
+@let data= dataList.data | async;
 <div class="bg-gray-50 min-h-screen">
   <div class="p-4">
     <div class="mb-4">
@@ -34,12 +34,8 @@
           </div>
           {{ selectors?.totalProcessingItems }} Processing } @else { - }
         </div>
-        @if(selectors?.totalCreatedItems) {
-        <div class="stat-desc">{{ selectors?.totalCreatedItems }} created</div>
-        } @if(selectors?.totalUpdatedItems) {
+        @if(selectors?.totalUpdatedItems) {
         <div class="stat-desc">{{ selectors?.totalUpdatedItems }} updated</div>
-        } @if(selectors?.totalDeletedItems) {
-        <div class="stat-desc">{{ selectors?.totalDeletedItems }} deleted</div>
         }
       </div>
     </div>
@@ -89,13 +85,6 @@
                 </label>
               </th>
               <th scope="row" class="flex items-center gap-3">
-                @if(entityData.selectors.isProcessing) {
-                <div class="inline-grid *:[grid-area:1/1]">
-                  <div class="status status-primary animate-ping"></div>
-                  <div class="status status-primary"></div>
-                </div>
-                }
-
                 {{ entityData.entity.id }}
               </th>
               <td class="">{{ entityData.entity.name }}</td>
@@ -122,12 +111,6 @@
                   Edit
                 </button>
                 <button
-                  (click)="updateItemError(entityData.entity)"
-                  class="text-red-500"
-                >
-                  EditError
-                </button>
-                <button
                   (click)="deleteItemTest(entityData.entity)"
                   class="text-red-500"
                 >
@@ -149,7 +132,7 @@
     <div class="bg-white p-4 rounded shadow my-8">
       <h2 class="font-bold">Out Of context Entities</h2>
       <div class="relative overflow-x-auto">
-        <table *ngIf="store2.data | async as data" class="table table-zebra">
+        <table *ngIf="dataList.data | async as data" class="table table-zebra">
           <thead class="">
             <tr>
               <th scope="col" class="">ID</th>
@@ -181,12 +164,6 @@
                   class="text-blue-500"
                 >
                   Edit
-                </button>
-                <button
-                  (click)="updateItemError(entityData.entity)"
-                  class="text-red-500"
-                >
-                  EditError
                 </button>
                 <button
                   (click)="deleteItemTest(entityData.entity)"
@@ -268,16 +245,16 @@
   <span
     *ngIf="status.bulkDelete?.error"
     class="bg-red-200 text-red-800 px-2 py-1 rounded"
-    >Bulk remove Error</span
+    >Bulk delete Error</span
   >
   <span
     *ngIf="status.bulkDelete?.isLoading"
     class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
-    >Bulk removing</span
+    >Bulk deleting</span
   >
   <span
     *ngIf="status.bulkDelete?.isLoaded"
     class="bg-green-200 text-green-800 px-2 py-1 rounded"
-    >Bulk removed</span
+    >Bulk deleted</span
   >
 </ng-template>

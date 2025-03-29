@@ -232,7 +232,7 @@ type Selectors<TData, MethodName extends string, TContext> = {
 // todo retry to pass the entityLevelSelector types to the store selectors
 // todo add the possibility to add a src that are already a result and only needs to be merged with the current result
 
-export const Store2 = new InjectionToken('Store', {
+export const DataListStore = new InjectionToken('Store', {
   providedIn: 'root',
   factory: () => {
     return <
@@ -298,7 +298,7 @@ export const Store2 = new InjectionToken('Store', {
         >
       >
     >(data: {
-      getEntities: {
+      entitiesSrc: {
         srcContext: Observable<SrcContext>;
         api: (srcContext: SrcContext) => Observable<TData[]>;
         initialData: TData[] | undefined;
@@ -440,11 +440,11 @@ export const Store2 = new InjectionToken('Store', {
           ];
         }, [] as BulkStateByMethodObservable<TData, SrcContext>);
 
-      const entitiesData$ = data.getEntities.srcContext.pipe(
+      const entitiesData$ = data.entitiesSrc.srcContext.pipe(
         switchMap((srcContextValue) =>
           statedStream(
-            data.getEntities.api(srcContextValue),
-            data.getEntities.initialData
+            data.entitiesSrc.api(srcContextValue),
+            data.entitiesSrc.initialData
           )
         ),
         share()
@@ -481,7 +481,7 @@ export const Store2 = new InjectionToken('Store', {
           }))
         )
       ).pipe(
-        withLatestFrom(data.getEntities.srcContext),
+        withLatestFrom(data.entitiesSrc.srcContext),
         scan(
           (acc, [action, context]) => {
             if (action.type === 'fetchedData') {
