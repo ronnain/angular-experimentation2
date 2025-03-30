@@ -172,10 +172,21 @@ type BulkDelayedReducer<TData, TContext, MethodName extends string> = {
   notifier: (events: any) => Observable<unknown>; // it can be used to removed an entity from the lists after a certain time or a certain trigger
 };
 
-export function entityLevelAction<TSrc, TData>(
-  config: EntityLevelActionConfig<TSrc, TData>
-) {
-  return config;
+export function entityLevelAction<TData>() {
+  return <
+    TSrc,
+    TTargetSrc extends TSrc extends TData
+      ? {}
+      : {
+          optimisticEntity: (actionContext: TSrc) => TData;
+        }
+  >(
+    config: {
+      src: () => Observable<TSrc>;
+      api: (params: { data: TSrc }) => Observable<TData>;
+      operator: Operator; // Use switchMap as default, mergeMap is not recommended
+    } & TTargetSrc
+  ) => config;
 }
 
 export function bulkAction<TSrc, TData>(config: BulkActionConfig<TSrc, TData>) {

@@ -53,9 +53,10 @@ export class DataListComponent {
   });
   // sources actions
   private readonly createItem$ = new Subject<DataItem>();
-  private readonly updateItem$ = new Subject<
-    DataItem & { updateInfo: 'error' | 'success' }
-  >();
+  private readonly updateItem$ = new Subject<{
+    entity: DataItem;
+    status: 'error' | 'success';
+  }>();
   private readonly deleteItem$ = new Subject<DataItem>();
   private readonly bulkUpdate$ = new Subject<DataItem[]>();
   private readonly bulkDelete$ = new Subject<DataItem[]>();
@@ -70,19 +71,20 @@ export class DataListComponent {
     },
     entityIdSelector: (item) => item.id ?? item.optimisticId,
     entityLevelAction: {
-      update: entityLevelAction({
+      update: entityLevelAction<DataItem>()({
         src: () => this.updateItem$,
+        optimisticEntity: (actionSrc) => actionSrc.entity,
         api: ({ data }) => {
           return this.dataListService.updateItem(data);
         },
         operator: switchMap,
       }),
-      create: entityLevelAction({
+      create: entityLevelAction<DataItem>()({
         src: () => this.createItem$,
         api: ({ data }) => this.dataListService.addItem(data),
         operator: switchMap,
       }),
-      delete: entityLevelAction({
+      delete: entityLevelAction<DataItem>()({
         src: () => this.deleteItem$,
         api: ({ data }) => this.dataListService.deleteItem(data.id),
         operator: exhaustMap,
@@ -248,15 +250,20 @@ export class DataListComponent {
 
   updateItemTest(item: DataItem) {
     this.updateItem$.next({
-      ...item,
-      name: 'Item ' + Math.floor(Math.random() * (1000 - 100 + 1) + 100),
-      updateInfo: 'success',
+      entity: {
+        ...item,
+        name: 'Item ' + Math.floor(Math.random() * (1000 - 100 + 1) + 100),
+      },
+      status: 'success',
     });
   }
   updateItemError(item: DataItem) {
     this.updateItem$.next({
-      ...item,
-      updateInfo: 'error',
+      entity: {
+        ...item,
+        name: 'Item ' + Math.floor(Math.random() * (1000 - 100 + 1) + 100),
+      },
+      status: 'error',
     });
   }
 

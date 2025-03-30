@@ -72,32 +72,35 @@ export class DataListService {
     const deletedItem = this.dataList$.value.find(
       (dataItem) => dataItem.id === itemId
     );
+    if (!deletedItem) {
+      throw new Error('failed to find the deleted item');
+    }
     this.dataList$.next(
       this.dataList$.value.filter((dataItem) => dataItem.id !== itemId)
     );
     return of(deletedItem).pipe(delay(2000));
   }
 
-  updateItem(
-    updatedItem: DataItem & {
-      updateInfo: 'error' | 'success';
-    }
-  ) {
-    if (updatedItem.updateInfo === 'error') {
+  updateItem({
+    entity,
+    status,
+  }: {
+    entity: DataItem;
+    status: 'error' | 'success';
+  }) {
+    if (status === 'error') {
       return timer(5000).pipe(
         map(() => {
-          throw new Error(
-            `Error updating item ${updatedItem.name}, please retry`
-          );
+          throw new Error(`Error updating item ${entity.name}, please retry`);
         })
       );
     }
     this.dataList$.next(
       this.dataList$.value.map((dataItem) =>
-        dataItem.id === updatedItem.id ? updatedItem : dataItem
+        dataItem.id === entity.id ? entity : dataItem
       )
     );
-    return of(updatedItem).pipe(delay(2000));
+    return of(entity).pipe(delay(2000));
   }
 
   bulkUpdate(data: DataItem[]) {
