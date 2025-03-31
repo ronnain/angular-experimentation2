@@ -16,7 +16,12 @@ import {
   takeWhile,
   timer,
 } from 'rxjs';
-import { bulkAction, entityLevelAction, DataListStore } from './storev2';
+import {
+  bulkAction,
+  entityLevelAction,
+  DataListStore,
+  entitiesSource,
+} from './storev2';
 import {
   addOrReplaceEntityIn,
   countEntitiesWithStatusByAction,
@@ -35,6 +40,8 @@ type Pagination = {
   page: number;
   pageSize: number;
 };
+
+type ActionsName = 'update' | 'create' | 'delete' | 'bulkUpdate' | 'bulkDelete';
 
 @Component({
   selector: 'app-data-list',
@@ -63,12 +70,16 @@ export class DataListComponent {
 
   protected readonly selectedEntities$ = new BehaviorSubject<DataItem[]>([]);
 
-  protected readonly dataList = inject(DataListStore)({
-    entitiesSrc: {
+  protected readonly dataList = inject(DataListStore)<
+    DataItem,
+    Pagination,
+    ActionsName
+  >()({
+    entitiesSrc: entitiesSource<DataItem, ActionsName>()({
       srcContext: this.pagination$,
-      api: (srcContext) => this.dataListService.getDataList$(srcContext),
+      query: (srcContext) => this.dataListService.getDataList$(srcContext),
       initialData: [],
-    },
+    }),
     entityIdSelector: (item) => item.id ?? item.optimisticId,
     entityLevelAction: {
       update: entityLevelAction<DataItem>()({
