@@ -219,30 +219,3 @@ const result = store<MyDataListStoreType>()(
     },
   })
 );
-
-const testStore = result.selectors.storeLevel?.({} as any)?.hasErrorStore;
-
-const query = result.actions.update.query;
-//     ^?
-
-const selectors = withSelectors<MyDataListStoreType>()({
-  entityLevel: (entityWithStatus) => {
-    return {
-      hasError: Object.values(entityWithStatus.status).some(
-        (entityStatus) => entityStatus?.hasError
-      ),
-    } as const;
-  },
-  storeLevel: (contextualEntities) => {
-    return {
-      hasErrorStore: Object.values(contextualEntities.entities).some(
-        (entityWuthStatus) =>
-          Object.values(entityWuthStatus.status).some(
-            (entityStatus) => entityStatus?.hasError
-          )
-      ),
-    } as const;
-  },
-} as const);
-
-const testSelectors = selectors.selectors.entityLevel?.({} as any);
