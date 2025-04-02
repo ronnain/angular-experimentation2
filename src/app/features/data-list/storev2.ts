@@ -50,7 +50,7 @@ export type Reducer<TData, TContext, MethodName extends string> = (
   data: ReducerParams<TData, TContext, MethodName>
 ) => ContextualEntities<TData, MethodName>;
 
-type StatedDataReducer<TData, TContext, MethodName extends string> = {
+export type StatedDataReducer<TData, TContext, MethodName extends string> = {
   onLoading?: Reducer<TData, TContext, MethodName>;
   onLoaded?: Reducer<TData, TContext, MethodName>;
   onError?: Reducer<TData, TContext, MethodName>;
@@ -162,7 +162,7 @@ type ContextualEntitiesWithSelectors<
   >[];
 };
 
-type DelayedReducer<TData, TContext, MethodName extends string> = {
+export type DelayedReducer<TData, TContext, MethodName extends string> = {
   reducer: StatedDataReducerWithoutOnLoading<TData, TContext, MethodName>;
   notifier: (events: any) => Observable<unknown>; // it can be used to removed an entity from the lists after a certain time or a certain trigger
 };

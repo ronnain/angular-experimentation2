@@ -1,6 +1,11 @@
-import { Observable, of } from 'rxjs';
+import { Observable, of, timer } from 'rxjs';
 import { Merge } from '../../util/types/merge';
-import { ContextualEntities, EntityWithStatus } from './storev2';
+import {
+  ContextualEntities,
+  DelayedReducer,
+  EntityWithStatus,
+  StatedDataReducer,
+} from './storev2';
 
 type DataListMainTypeScope = any extends {
   entity: any;
@@ -49,6 +54,16 @@ function action<TMainConfig extends DataListMainTypeScope>() {
       : {
           src: () => Observable<TSrc>;
           query: (params: { data: TSrc }) => Observable<TMainConfig['entity']>;
+          reducer?: StatedDataReducer<
+            TMainConfig['entity'],
+            TMainConfig['pagination'],
+            TMainConfig['actions']
+          >;
+          delayedReducer?: DelayedReducer<
+            NoInfer<TMainConfig['entity'][]>,
+            TMainConfig['pagination'],
+            TMainConfig['actions']
+          >[];
         }
   ) => config;
 }
@@ -193,6 +208,27 @@ const result = store<MyDataListStoreType>()(
     update: action<MyDataListStoreType>()({
       src: () => of({ id: 'test', name: 'test' }),
       query: ({ data }) => of({ id: 'test', name: 'test' }),
+      reducer: {
+        onLoaded: (data) => {
+          return {
+            entities: data.entities,
+            outOfContextEntities: data.outOfContextEntities,
+          };
+        },
+      },
+      delayedReducer: [
+        {
+          notifier: () => timer(1000),
+          reducer: {
+            onLoaded: (data) => {
+              return {
+                entities: data.entities,
+                outOfContextEntities: data.outOfContextEntities,
+              };
+            },
+          },
+        },
+      ],
     }),
     delete: action<MyDataListStoreType>()({
       src: () => of({ id: 'test' }),
@@ -210,8 +246,8 @@ const result = store<MyDataListStoreType>()(
     storeLevel: (contextualEntities) => {
       return {
         hasErrorStore: Object.values(contextualEntities.entities).some(
-          (entityWuthStatus) =>
-            Object.values(entityWuthStatus.status).some(
+          (entityWithStatus) =>
+            Object.values(entityWithStatus.status).some(
               (entityStatus) => entityStatus?.hasError
             )
         ),
