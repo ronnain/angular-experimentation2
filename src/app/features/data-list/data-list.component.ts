@@ -31,7 +31,7 @@ import {
 } from './store-helper';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-type Pagination = {
+export type Pagination = {
   page: number;
   pageSize: number;
 };

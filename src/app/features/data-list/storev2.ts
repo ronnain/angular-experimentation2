@@ -232,366 +232,357 @@ type Selectors<TData, MethodName extends string, TContext> = {
 // todo retry to pass the entityLevelSelector types to the store selectors
 // todo add the possibility to add a src that are already a result and only needs to be merged with the current result
 
-export const DataListStore = new InjectionToken('Store', {
-  providedIn: 'root',
-  factory: () => {
-    return <
-      TData,
-      SrcContext,
-      TEntityLevelActionsKeys extends keyof TEntityLevelActions extends string
-        ? keyof TEntityLevelActions
-        : never,
-      TEntityLevelActions extends Record<
-        TEntityLevelActionsKeys,
-        EntityLevelActionConfig<SrcContext, NoInfer<TData>>
-      >,
-      TBulkActionsKeys extends keyof TBulkActions extends string
-        ? keyof TBulkActions
-        : never,
-      TBulkActions extends Record<
-        TBulkActionsKeys,
-        BulkActionConfig<SrcContext, NoInfer<TData[]>>
-      >,
-      TSelectors extends Selectors<
+export const dataListStoreFn = <
+  TData,
+  SrcContext,
+  TEntityLevelActionsKeys extends keyof TEntityLevelActions extends string
+    ? keyof TEntityLevelActions
+    : never,
+  TEntityLevelActions extends Record<
+    TEntityLevelActionsKeys,
+    EntityLevelActionConfig<SrcContext, NoInfer<TData>>
+  >,
+  TBulkActionsKeys extends keyof TBulkActions extends string
+    ? keyof TBulkActions
+    : never,
+  TBulkActions extends Record<
+    TBulkActionsKeys,
+    BulkActionConfig<SrcContext, NoInfer<TData[]>>
+  >,
+  TSelectors extends Selectors<
+    TData,
+    TEntityLevelActionsKeys | TBulkActionsKeys,
+    SrcContext
+  >,
+  TReducer extends Partial<
+    Record<
+      TEntityLevelActionsKeys,
+      StatedDataReducer<
         TData,
-        TEntityLevelActionsKeys | TBulkActionsKeys,
-        SrcContext
-      >,
-      TReducer extends Partial<
-        Record<
-          TEntityLevelActionsKeys,
-          StatedDataReducer<
-            TData,
-            SrcContext,
-            TEntityLevelActionsKeys | TBulkActionsKeys
-          >
-        >
-      >,
-      TBulkReducer extends Partial<
-        Record<
-          TBulkActionsKeys,
-          BulkStatedDataReducer<
-            TData,
-            SrcContext,
-            TBulkActionsKeys | TEntityLevelActionsKeys
-          >
-        >
-      >,
-      TDelayedReducer extends Partial<
-        Record<
-          TEntityLevelActionsKeys,
-          DelayedReducer<
-            NoInfer<TData[]>,
-            SrcContext,
-            TEntityLevelActionsKeys | TBulkActionsKeys
-          >[]
-        >
-      >,
-      TBulkDelayedReducer extends Partial<
-        Record<
-          TBulkActionsKeys,
-          BulkDelayedReducer<
-            NoInfer<TData>,
-            SrcContext,
-            TBulkActionsKeys | TEntityLevelActionsKeys
-          >[]
-        >
+        SrcContext,
+        TEntityLevelActionsKeys | TBulkActionsKeys
       >
-    >(data: {
-      entitiesSrc: {
-        srcContext: Observable<SrcContext>;
-        api: (srcContext: SrcContext) => Observable<TData[]>;
-        initialData: TData[] | undefined;
-      };
-      entityIdSelector: IdSelector<TData>; // used to know of to identify the entity
-      entityLevelAction?: TEntityLevelActions; // action that will affect the targeted entity, they can be triggered concurrently
-      reducer?: TReducer; // if not provided, it will update the entity in the list (entities or outOfContextEntities)
-      bulkActions?: TBulkActions;
-      bulkReducer?: TBulkReducer; // if not provided, it will update the entities in the list (entities or outOfContextEntities)
-      bulkDelayedReducer?: TBulkDelayedReducer;
-      delayedReducer?: TDelayedReducer;
-      selectors?: TSelectors;
-    }) => {
-      // return {} as TBulkActionsKeys;
-      const entityIdSelector = data.entityIdSelector;
-      const events = {}; // todo
+    >
+  >,
+  TBulkReducer extends Partial<
+    Record<
+      TBulkActionsKeys,
+      BulkStatedDataReducer<
+        TData,
+        SrcContext,
+        TBulkActionsKeys | TEntityLevelActionsKeys
+      >
+    >
+  >,
+  TDelayedReducer extends Partial<
+    Record<
+      TEntityLevelActionsKeys,
+      DelayedReducer<
+        NoInfer<TData[]>,
+        SrcContext,
+        TEntityLevelActionsKeys | TBulkActionsKeys
+      >[]
+    >
+  >,
+  TBulkDelayedReducer extends Partial<
+    Record<
+      TBulkActionsKeys,
+      BulkDelayedReducer<
+        NoInfer<TData>,
+        SrcContext,
+        TBulkActionsKeys | TEntityLevelActionsKeys
+      >[]
+    >
+  >
+>(data: {
+  entitiesSrc: {
+    srcContext: Observable<SrcContext>;
+    api: (srcContext: SrcContext) => Observable<TData[]>;
+    initialData: TData[] | undefined;
+  };
+  entityIdSelector: IdSelector<TData>; // used to know of to identify the entity
+  entityLevelAction?: TEntityLevelActions; // action that will affect the targeted entity, they can be triggered concurrently
+  reducer?: TReducer; // if not provided, it will update the entity in the list (entities or outOfContextEntities)
+  bulkActions?: TBulkActions;
+  bulkReducer?: TBulkReducer; // if not provided, it will update the entities in the list (entities or outOfContextEntities)
+  bulkDelayedReducer?: TBulkDelayedReducer;
+  delayedReducer?: TDelayedReducer;
+  selectors?: TSelectors;
+}) => {
+  // return {} as TBulkActionsKeys;
+  const entityIdSelector = data.entityIdSelector;
+  const events = {}; // todo
 
-      const entityLevelActionList$: EntityStateByMethodObservable<TData, any> =
-        Object.entries(
-          (data.entityLevelAction ?? {}) as Record<
-            string,
-            EntityLevelActionConfig<any, TData>
-          >
-        ).reduce((acc, [methodName, groupByData]) => {
-          const src$ = groupByData.src();
-          const operatorFn = groupByData.operator;
-          const api = groupByData.api;
-          const reducer = data.reducer?.[methodName as TEntityLevelActionsKeys];
-          const delayedReducer = (data.delayedReducer?.[
-            methodName as TEntityLevelActionsKeys
-          ] || []) as unknown as
-            | DelayedReducer<TData, SrcContext, MethodName>[]
-            | undefined; // todo check type
+  const entityLevelActionList$: EntityStateByMethodObservable<TData, any> =
+    Object.entries(
+      (data.entityLevelAction ?? {}) as Record<
+        string,
+        EntityLevelActionConfig<any, TData>
+      >
+    ).reduce((acc, [methodName, groupByData]) => {
+      const src$ = groupByData.src();
+      const operatorFn = groupByData.operator;
+      const api = groupByData.api;
+      const reducer = data.reducer?.[methodName as TEntityLevelActionsKeys];
+      const delayedReducer = (data.delayedReducer?.[
+        methodName as TEntityLevelActionsKeys
+      ] || []) as unknown as
+        | DelayedReducer<TData, SrcContext, MethodName>[]
+        | undefined; // todo check type
 
-          const actionByEntity$: Observable<{
-            [x: MethodName]: {
-              entityStatedData: StatedData<TData>;
-              reducer:
-                | StatedDataReducer<TData, SrcContext, MethodName>
-                | undefined;
-              entityIdSelector: IdSelector<TData>;
-            };
-          }> = src$.pipe(
-            groupBy((entity) => entityIdSelector(entity)),
-            mergeMap((groupedEntityById$) => {
-              return groupedEntityById$.pipe(
-                operatorFn((entity) => {
-                  return statedStream(api({ data: entity }), entity).pipe(
-                    map((entityStatedData) => ({
-                      [entityIdSelector(entity)]: {
-                        entityStatedData,
-                        reducer,
-                        entityIdSelector,
-                      } satisfies EntityReducerConfig<
-                        TData,
-                        SrcContext,
-                        MethodName
-                      >,
-                    })),
-                    switchMap((entityReducerConfigWithMethod) =>
-                      connectAssociatedDelayedReducer$<
-                        TData,
-                        SrcContext,
-                        MethodName
-                      >({
-                        entityReducerConfigWithMethod,
-                        delayedReducer,
-                        events,
-                        entityIdSelector,
-                      })
-                    )
-                  );
-                })
-              );
-            })
-          );
-
-          return [
-            ...acc,
-            actionByEntity$.pipe(
-              map((groupedEntityById) => ({
-                [methodName]: groupedEntityById,
-              }))
-            ),
-          ];
-        }, [] as EntityStateByMethodObservable<TData, SrcContext>);
-
-      const bulkActionsList$: BulkStateByMethodObservable<TData, any> =
-        Object.entries(
-          (data.bulkActions ?? {}) as Record<
-            string,
-            BulkActionConfig<any, TData>
-          >
-        ).reduce((acc, [methodName, groupByData]) => {
-          const src$ = groupByData.src();
-          const operatorFn = groupByData.operator;
-          const api = groupByData.api;
-          const reducer = data.bulkReducer?.[methodName as TBulkActionsKeys];
-          const delayedReducer =
-            data.bulkDelayedReducer?.[methodName as TBulkActionsKeys] || [];
-
-          const bulkActions$ = src$.pipe(
-            operatorFn((entities) => {
-              return statedStream(api({ data: entities }), entities).pipe(
-                map(
-                  (entitiesStatedData) =>
-                    ({
-                      entitiesStatedData,
-                      reducer,
-                      entityIdSelector,
-                    } satisfies BulkReducerConfig<
-                      TData,
-                      SrcContext,
-                      MethodName
-                    >)
-                ),
-                switchMap((bulkReducerConfig) =>
-                  bulkConnectAssociatedDelayedReducer$<
+      const actionByEntity$: Observable<{
+        [x: MethodName]: {
+          entityStatedData: StatedData<TData>;
+          reducer: StatedDataReducer<TData, SrcContext, MethodName> | undefined;
+          entityIdSelector: IdSelector<TData>;
+        };
+      }> = src$.pipe(
+        groupBy((entity) => entityIdSelector(entity)),
+        mergeMap((groupedEntityById$) => {
+          return groupedEntityById$.pipe(
+            operatorFn((entity) => {
+              return statedStream(api({ data: entity }), entity).pipe(
+                map((entityStatedData) => ({
+                  [entityIdSelector(entity)]: {
+                    entityStatedData,
+                    reducer,
+                    entityIdSelector,
+                  } satisfies EntityReducerConfig<
+                    TData,
+                    SrcContext,
+                    MethodName
+                  >,
+                })),
+                switchMap((entityReducerConfigWithMethod) =>
+                  connectAssociatedDelayedReducer$<
                     TData,
                     SrcContext,
                     MethodName
                   >({
-                    bulkReducerConfig,
+                    entityReducerConfigWithMethod,
                     delayedReducer,
                     events,
+                    entityIdSelector,
                   })
                 )
               );
             })
           );
-
-          return [
-            ...acc,
-            bulkActions$.pipe(
-              map((bulkReducerConfig) => ({
-                [methodName]: bulkReducerConfig,
-              }))
-            ),
-          ];
-        }, [] as BulkStateByMethodObservable<TData, SrcContext>);
-
-      const entitiesData$ = data.entitiesSrc.srcContext.pipe(
-        switchMap((srcContextValue) =>
-          statedStream(
-            data.entitiesSrc.api(srcContextValue),
-            data.entitiesSrc.initialData
-          )
-        ),
-        share()
+        })
       );
 
-      // I choose to merge the entitiesData$ and the entityLevelActionList$, that's enable to add some items even if entities are not loaded yet
-      const finalResult: FinalResult<
+      return [
+        ...acc,
+        actionByEntity$.pipe(
+          map((groupedEntityById) => ({
+            [methodName]: groupedEntityById,
+          }))
+        ),
+      ];
+    }, [] as EntityStateByMethodObservable<TData, SrcContext>);
+
+  const bulkActionsList$: BulkStateByMethodObservable<TData, any> =
+    Object.entries(
+      (data.bulkActions ?? {}) as Record<string, BulkActionConfig<any, TData>>
+    ).reduce((acc, [methodName, groupByData]) => {
+      const src$ = groupByData.src();
+      const operatorFn = groupByData.operator;
+      const api = groupByData.api;
+      const reducer = data.bulkReducer?.[methodName as TBulkActionsKeys];
+      const delayedReducer =
+        data.bulkDelayedReducer?.[methodName as TBulkActionsKeys] || [];
+
+      const bulkActions$ = src$.pipe(
+        operatorFn((entities) => {
+          return statedStream(api({ data: entities }), entities).pipe(
+            map(
+              (entitiesStatedData) =>
+                ({
+                  entitiesStatedData,
+                  reducer,
+                  entityIdSelector,
+                } satisfies BulkReducerConfig<TData, SrcContext, MethodName>)
+            ),
+            switchMap((bulkReducerConfig) =>
+              bulkConnectAssociatedDelayedReducer$<
+                TData,
+                SrcContext,
+                MethodName
+              >({
+                bulkReducerConfig,
+                delayedReducer,
+                events,
+              })
+            )
+          );
+        })
+      );
+
+      return [
+        ...acc,
+        bulkActions$.pipe(
+          map((bulkReducerConfig) => ({
+            [methodName]: bulkReducerConfig,
+          }))
+        ),
+      ];
+    }, [] as BulkStateByMethodObservable<TData, SrcContext>);
+
+  const entitiesData$ = data.entitiesSrc.srcContext.pipe(
+    switchMap((srcContextValue) =>
+      statedStream(
+        data.entitiesSrc.api(srcContextValue),
+        data.entitiesSrc.initialData
+      )
+    ),
+    share()
+  );
+
+  // I choose to merge the entitiesData$ and the entityLevelActionList$, that's enable to add some items even if entities are not loaded yet
+  const finalResult: FinalResult<
+    TData,
+    TEntityLevelActionsKeys | TBulkActionsKeys,
+    SrcContext,
+    TSelectors['entityLevel'] extends Function
+      ? ReturnType<TSelectors['entityLevel']>
+      : undefined,
+    TSelectors['storeLevel'] extends Function
+      ? ReturnType<TSelectors['storeLevel']>
+      : undefined
+  > = merge(
+    entitiesData$.pipe(
+      map((entitiesData) => ({
+        type: 'fetchedData' as const,
+        data: entitiesData,
+      }))
+    ),
+    ...bulkActionsList$.map(
+      map((bulkActionList) => ({
+        type: 'bulkAction' as const,
+        data: bulkActionList,
+      }))
+    ),
+    ...entityLevelActionList$.map(
+      map((entityLevelActionList) => ({
+        type: 'action' as const,
+        data: entityLevelActionList,
+      }))
+    )
+  ).pipe(
+    withLatestFrom(data.entitiesSrc.srcContext),
+    scan(
+      (acc, [action, context]) => {
+        if (action.type === 'fetchedData') {
+          const areIncomingEntitiesLoaded = action.data.isLoaded;
+
+          const incomingEntities = (action.data.result ?? []).map((entity) => {
+            const previousEntity =
+              acc.result.entities.find(
+                (entityData) =>
+                  entityIdSelector(entityData.entity) ==
+                  entityIdSelector(entity)
+              ) ??
+              acc.result.outOfContextEntities.find(
+                (entityData) =>
+                  entityIdSelector(entityData.entity) ==
+                  entityIdSelector(entity)
+              );
+            return {
+              id: entityIdSelector(entity),
+              entity,
+              status: {
+                ...previousEntity?.status,
+              } satisfies MethodStatus<
+                TEntityLevelActionsKeys | TBulkActionsKeys
+              >,
+            };
+          });
+          const incomingEntitiesWithMergedStatus = incomingEntities.length
+            ? incomingEntities
+            : acc.result.entities;
+
+          const previousEntitiesWithStatus = areIncomingEntitiesLoaded
+            ? acc.result.entities.filter(
+                (entity) => Object.keys(entity.status).length > 0
+              )
+            : [];
+
+          const outOfContextEntities = [
+            ...previousEntitiesWithStatus,
+            ...acc.result.outOfContextEntities,
+          ].filter((outOfContextEntity) => {
+            return !incomingEntitiesWithMergedStatus.some(
+              (incomingEntity) =>
+                entityIdSelector(incomingEntity.entity) ==
+                entityIdSelector(outOfContextEntity.entity)
+            );
+          });
+
+          return {
+            ...acc,
+            ...action.data,
+            result: {
+              entities: incomingEntitiesWithMergedStatus,
+              outOfContextEntities,
+              context,
+            },
+          };
+        }
+        if (action.type === 'action') {
+          return applyActionOnEntities({
+            acc,
+            actionByEntity: action.data,
+            context,
+          });
+        }
+        if (action.type === 'bulkAction') {
+          return applyBulkActionOnEntities({
+            acc,
+            bulkAction: action.data,
+            context,
+          });
+        }
+        return acc;
+      },
+      {
+        error: undefined,
+        hasError: false,
+        isLoaded: false,
+        isLoading: true,
+        result: {
+          entities: [],
+          outOfContextEntities: [],
+          context: undefined,
+        },
+      } satisfies StatedEntities<
+        TData,
+        TEntityLevelActionsKeys,
+        SrcContext
+      > as StatedEntities<
         TData,
         TEntityLevelActionsKeys | TBulkActionsKeys,
-        SrcContext,
-        TSelectors['entityLevel'] extends Function
-          ? ReturnType<TSelectors['entityLevel']>
-          : undefined,
-        TSelectors['storeLevel'] extends Function
-          ? ReturnType<TSelectors['storeLevel']>
-          : undefined
-      > = merge(
-        entitiesData$.pipe(
-          map((entitiesData) => ({
-            type: 'fetchedData' as const,
-            data: entitiesData,
-          }))
-        ),
-        ...bulkActionsList$.map(
-          map((bulkActionList) => ({
-            type: 'bulkAction' as const,
-            data: bulkActionList,
-          }))
-        ),
-        ...entityLevelActionList$.map(
-          map((entityLevelActionList) => ({
-            type: 'action' as const,
-            data: entityLevelActionList,
-          }))
-        )
-      ).pipe(
-        withLatestFrom(data.entitiesSrc.srcContext),
-        scan(
-          (acc, [action, context]) => {
-            if (action.type === 'fetchedData') {
-              const areIncomingEntitiesLoaded = action.data.isLoaded;
+        SrcContext
+      > // satisfies apply an as const effect
+    ),
+    applySelectors<
+      TData,
+      SrcContext,
+      TEntityLevelActionsKeys | TBulkActionsKeys,
+      TEntityLevelActions,
+      TSelectors
+    >(data.selectors), // apply selectors
+    shareReplay(1)
+  );
 
-              const incomingEntities = (action.data.result ?? []).map(
-                (entity) => {
-                  const previousEntity =
-                    acc.result.entities.find(
-                      (entityData) =>
-                        entityIdSelector(entityData.entity) ==
-                        entityIdSelector(entity)
-                    ) ??
-                    acc.result.outOfContextEntities.find(
-                      (entityData) =>
-                        entityIdSelector(entityData.entity) ==
-                        entityIdSelector(entity)
-                    );
-                  return {
-                    id: entityIdSelector(entity),
-                    entity,
-                    status: {
-                      ...previousEntity?.status,
-                    } satisfies MethodStatus<
-                      TEntityLevelActionsKeys | TBulkActionsKeys
-                    >,
-                  };
-                }
-              );
-              const incomingEntitiesWithMergedStatus = incomingEntities.length
-                ? incomingEntities
-                : acc.result.entities;
+  return {
+    data: finalResult,
+  };
+};
 
-              const previousEntitiesWithStatus = areIncomingEntitiesLoaded
-                ? acc.result.entities.filter(
-                    (entity) => Object.keys(entity.status).length > 0
-                  )
-                : [];
-
-              const outOfContextEntities = [
-                ...previousEntitiesWithStatus,
-                ...acc.result.outOfContextEntities,
-              ].filter((outOfContextEntity) => {
-                return !incomingEntitiesWithMergedStatus.some(
-                  (incomingEntity) =>
-                    entityIdSelector(incomingEntity.entity) ==
-                    entityIdSelector(outOfContextEntity.entity)
-                );
-              });
-
-              return {
-                ...acc,
-                ...action.data,
-                result: {
-                  entities: incomingEntitiesWithMergedStatus,
-                  outOfContextEntities,
-                  context,
-                },
-              };
-            }
-            if (action.type === 'action') {
-              return applyActionOnEntities({
-                acc,
-                actionByEntity: action.data,
-                context,
-              });
-            }
-            if (action.type === 'bulkAction') {
-              return applyBulkActionOnEntities({
-                acc,
-                bulkAction: action.data,
-                context,
-              });
-            }
-            return acc;
-          },
-          {
-            error: undefined,
-            hasError: false,
-            isLoaded: false,
-            isLoading: true,
-            result: {
-              entities: [],
-              outOfContextEntities: [],
-              context: undefined,
-            },
-          } satisfies StatedEntities<
-            TData,
-            TEntityLevelActionsKeys,
-            SrcContext
-          > as StatedEntities<
-            TData,
-            TEntityLevelActionsKeys | TBulkActionsKeys,
-            SrcContext
-          > // satisfies apply an as const effect
-        ),
-        applySelectors<
-          TData,
-          SrcContext,
-          TEntityLevelActionsKeys | TBulkActionsKeys,
-          TEntityLevelActions,
-          TSelectors
-        >(data.selectors), // apply selectors
-        shareReplay(1)
-      );
-
-      return {
-        data: finalResult,
-      };
-    };
+export const DataListStore = new InjectionToken('Store', {
+  providedIn: 'root',
+  factory: () => {
+    return dataListStoreFn;
   },
 });
 
