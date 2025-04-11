@@ -35,6 +35,7 @@ import {
   updateEntity,
 } from './store-helper';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { storeV3 } from './storev3';
 
 type Pagination = {
   page: number;
@@ -70,174 +71,176 @@ export class DataListComponent {
 
   protected readonly selectedEntities$ = new BehaviorSubject<DataItem[]>([]);
 
-  protected readonly dataList = inject(DataListStore)<
-    DataItem,
-    Pagination,
-    ActionsName
-  >()({
-    entitiesSrc: entitiesSource<DataItem, ActionsName>()({
-      srcContext: this.pagination$,
-      query: (srcContext) => this.dataListService.getDataList$(srcContext),
-      initialData: [],
-    }),
-    entityIdSelector: (item) => item.id ?? item.optimisticId,
-    entityLevelAction: {
-      update: entityLevelAction<DataItem>()({
-        src: () => this.updateItem$,
-        optimisticEntity: (actionSrc) => actionSrc.entity,
-        api: ({ data }) => {
-          return this.dataListService.updateItem(data);
-        },
-        operator: switchMap,
-      }),
-      create: entityLevelAction<DataItem>()({
-        src: () => this.createItem$,
-        api: ({ data }) => this.dataListService.addItem(data),
-        operator: switchMap,
-      }),
-      delete: entityLevelAction<DataItem>()({
-        src: () => this.deleteItem$,
-        api: ({ data }) => this.dataListService.deleteItem(data.id),
-        operator: exhaustMap,
-      }),
-    },
-    reducer: {
-      create: {
-        onLoaded: (data) => {
-          if (data.context.page !== 1) {
-            return addOrReplaceEntityIn(data, {
-              target: 'outOfContextEntities',
-            });
-          }
-          return addOrReplaceEntityIn(data, {
-            target: 'entities',
-          });
-        },
-      },
-      delete: {
-        onLoaded: (data) => {
-          return updateEntity(data, ({ entity, status }) => ({
-            entity: {
-              ...entity,
-              ui: {
-                ...entity.ui,
-                disappearIn$: this.remainingTimeBeforeDisappear$(),
-              },
-            },
-            status: {
-              ...status,
-              delete: {
-                isLoading: false,
-                isLoaded: true,
-                hasError: false,
-                error: null,
-              },
-            },
-          }));
-        },
-      },
-    },
-    delayedReducer: {
-      delete: [
-        {
-          notifier: () =>
-            race(this.pagination$.pipe(skip(1)), timer(this.DISAPPEAR_TIMEOUT)),
-          reducer: {
-            onLoaded: (data) => {
-              return removedEntity(data);
-            },
-          },
-        },
-      ],
-    },
-    bulkActions: {
-      bulkUpdate: bulkAction({
-        src: () => this.bulkUpdate$,
-        api: ({ data }) => {
-          return this.dataListService.bulkUpdate(data);
-        },
-        operator: concatMap,
-      }),
-      bulkDelete: bulkAction({
-        src: () => this.bulkDelete$,
-        api: ({ data }) => {
-          return this.dataListService.bulkDelete(data);
-        },
-        operator: concatMap,
-      }),
-    },
-    bulkReducer: {
-      bulkDelete: {
-        onLoaded: (data) => {
-          const result = updateBulkEntities(data, ({ entity, status }) => ({
-            entity: {
-              ...entity,
-              ui: {
-                ...entity.ui,
-                disappearIn$: this.remainingTimeBeforeDisappear$(),
-              },
-            },
-            status: {
-              ...status,
-              bulkDelete: {
-                isLoading: false,
-                isLoaded: true,
-                hasError: false,
-                error: null,
-              },
-            },
-          }));
-          return result;
-        },
-      },
-    },
-    bulkDelayedReducer: {
-      bulkDelete: [
-        {
-          notifier: () =>
-            race(this.pagination$.pipe(skip(1)), timer(this.DISAPPEAR_TIMEOUT)),
-          reducer: {
-            onLoaded: (data) => {
-              return removedBulkEntities(data);
-            },
-          },
-        },
-      ],
-    },
-    selectors: {
-      entityLevel: ({ status }) => {
-        return {
-          isProcessing: hasStatus({ status, state: 'isLoading' }),
-          hasError: hasStatus({ status, state: 'hasError' }),
-          errors: extractAllErrors(status),
-        };
-      },
-      storeLevel: ({ entities, outOfContextEntities }) => {
-        const allEntities = [...entities, ...outOfContextEntities];
-        return {
-          hasProcessingItem: entities.some((entity) =>
-            hasProcessingItem(entity)
-          ),
-          totalProcessingItems: totalProcessingItems(allEntities),
-          totalUpdatedItems:
-            countEntitiesWithStatusByAction({
-              entities: allEntities,
-              actionName: 'update',
-              state: 'isLoaded',
-            }) +
-            countEntitiesWithStatusByAction({
-              entities: allEntities,
-              actionName: 'bulkUpdate',
-              state: 'isLoaded',
-            }),
-        };
-      },
-    },
-  });
+  // protected readonly dataList = inject(DataListStore)<
+  //   DataItem,
+  //   Pagination,
+  //   ActionsName
+  // >()({
+  //   entitiesSrc: entitiesSource<DataItem, ActionsName>()({
+  //     srcContext: this.pagination$,
+  //     query: (srcContext) => this.dataListService.getDataList$(srcContext),
+  //     initialData: [],
+  //   }),
+  //   entityIdSelector: (item) => item.id ?? item.optimisticId,
+  //   entityLevelAction: {
+  //     update: entityLevelAction<DataItem>()({
+  //       src: () => this.updateItem$,
+  //       optimisticEntity: (actionSrc) => actionSrc.entity,
+  //       api: ({ data }) => {
+  //         return this.dataListService.updateItem(data);
+  //       },
+  //       operator: switchMap,
+  //     }),
+  //     create: entityLevelAction<DataItem>()({
+  //       src: () => this.createItem$,
+  //       api: ({ data }) => this.dataListService.addItem(data),
+  //       operator: switchMap,
+  //     }),
+  //     delete: entityLevelAction<DataItem>()({
+  //       src: () => this.deleteItem$,
+  //       api: ({ data }) => this.dataListService.deleteItem(data.id),
+  //       operator: exhaustMap,
+  //     }),
+  //   },
+  //   reducer: {
+  //     create: {
+  //       onLoaded: (data) => {
+  //         if (data.context.page !== 1) {
+  //           return addOrReplaceEntityIn(data, {
+  //             target: 'outOfContextEntities',
+  //           });
+  //         }
+  //         return addOrReplaceEntityIn(data, {
+  //           target: 'entities',
+  //         });
+  //       },
+  //     },
+  //     delete: {
+  //       onLoaded: (data) => {
+  //         return updateEntity(data, ({ entity, status }) => ({
+  //           entity: {
+  //             ...entity,
+  //             ui: {
+  //               ...entity.ui,
+  //               disappearIn$: this.remainingTimeBeforeDisappear$(),
+  //             },
+  //           },
+  //           status: {
+  //             ...status,
+  //             delete: {
+  //               isLoading: false,
+  //               isLoaded: true,
+  //               hasError: false,
+  //               error: null,
+  //             },
+  //           },
+  //         }));
+  //       },
+  //     },
+  //   },
+  //   delayedReducer: {
+  //     delete: [
+  //       {
+  //         notifier: () =>
+  //           race(this.pagination$.pipe(skip(1)), timer(this.DISAPPEAR_TIMEOUT)),
+  //         reducer: {
+  //           onLoaded: (data) => {
+  //             return removedEntity(data);
+  //           },
+  //         },
+  //       },
+  //     ],
+  //   },
+  //   bulkActions: {
+  //     bulkUpdate: bulkAction({
+  //       src: () => this.bulkUpdate$,
+  //       api: ({ data }) => {
+  //         return this.dataListService.bulkUpdate(data);
+  //       },
+  //       operator: concatMap,
+  //     }),
+  //     bulkDelete: bulkAction({
+  //       src: () => this.bulkDelete$,
+  //       api: ({ data }) => {
+  //         return this.dataListService.bulkDelete(data);
+  //       },
+  //       operator: concatMap,
+  //     }),
+  //   },
+  //   bulkReducer: {
+  //     bulkDelete: {
+  //       onLoaded: (data) => {
+  //         const result = updateBulkEntities(data, ({ entity, status }) => ({
+  //           entity: {
+  //             ...entity,
+  //             ui: {
+  //               ...entity.ui,
+  //               disappearIn$: this.remainingTimeBeforeDisappear$(),
+  //             },
+  //           },
+  //           status: {
+  //             ...status,
+  //             bulkDelete: {
+  //               isLoading: false,
+  //               isLoaded: true,
+  //               hasError: false,
+  //               error: null,
+  //             },
+  //           },
+  //         }));
+  //         return result;
+  //       },
+  //     },
+  //   },
+  //   bulkDelayedReducer: {
+  //     bulkDelete: [
+  //       {
+  //         notifier: () =>
+  //           race(this.pagination$.pipe(skip(1)), timer(this.DISAPPEAR_TIMEOUT)),
+  //         reducer: {
+  //           onLoaded: (data) => {
+  //             return removedBulkEntities(data);
+  //           },
+  //         },
+  //       },
+  //     ],
+  //   },
+  //   selectors: {
+  //     entityLevel: ({ status }) => {
+  //       return {
+  //         isProcessing: hasStatus({ status, state: 'isLoading' }),
+  //         hasError: hasStatus({ status, state: 'hasError' }),
+  //         errors: extractAllErrors(status),
+  //       };
+  //     },
+  //     storeLevel: ({ entities, outOfContextEntities }) => {
+  //       const allEntities = [...entities, ...outOfContextEntities];
+  //       return {
+  //         hasProcessingItem: entities.some((entity) =>
+  //           hasProcessingItem(entity)
+  //         ),
+  //         totalProcessingItems: totalProcessingItems(allEntities),
+  //         totalUpdatedItems:
+  //           countEntitiesWithStatusByAction({
+  //             entities: allEntities,
+  //             actionName: 'update',
+  //             state: 'isLoaded',
+  //           }) +
+  //           countEntitiesWithStatusByAction({
+  //             entities: allEntities,
+  //             actionName: 'bulkUpdate',
+  //             state: 'isLoaded',
+  //           }),
+  //       };
+  //     },
+  //   },
+  // });
+
+  protected readonly dataList = storeV3;
 
   constructor() {
     this.dataList.data.pipe(takeUntilDestroyed()).subscribe((data) => {
-      console.log('dataList', data);
+      console.log('dataList', data.result);
     });
   }
 

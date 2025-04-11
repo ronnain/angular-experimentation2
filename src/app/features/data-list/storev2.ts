@@ -15,6 +15,7 @@ import {
   withLatestFrom,
 } from 'rxjs';
 import { statedStream } from '../../util/stated-stream/stated-stream';
+import { DataListMainTypeScope } from './storev3';
 
 export type Operator = <T, R>(
   fn: (value: T) => Observable<R>
@@ -38,7 +39,7 @@ export type BulkReducerParams<TData, TContext, MethodName extends string> = {
   context: TContext;
 } & ContextualEntities<TData, MethodName>;
 
-type StatedData<T> = {
+export type StatedData<T> = {
   readonly isLoading: boolean;
   readonly isLoaded: boolean;
   readonly hasError: boolean;
@@ -92,17 +93,17 @@ type EntityWithStatusWithSelectors<
   status: MethodStatus<MethodName>;
   selectors: TEntitySelectors;
 };
-type MethodStatus<MethodName extends string> = Partial<
+export type MethodStatus<MethodName extends string> = Partial<
   Record<MethodName, EntityStatus>
 >;
 
-type EntityReducerConfig<TData, TContext, MethodName extends string> = {
+export type EntityReducerConfig<TData, TContext, MethodName extends string> = {
   entityStatedData: StatedData<TData>;
   reducer: StatedDataReducer<TData, TContext, MethodName> | undefined;
   entityIdSelector: IdSelector<TData>;
 };
 
-type EntityStateByMethodObservable<TData, TContext> = Observable<
+export type EntityStateByMethodObservable<TData, TContext> = Observable<
   Record<
     MethodName,
     {
@@ -126,7 +127,11 @@ export type ContextualEntities<TData, MethodName extends string> = {
   outOfContextEntities: EntityWithStatus<TData, MethodName>[];
 };
 
-type StatedEntities<TData, MethodName extends string, TContext> = StatedData<
+export type StatedEntities<
+  TData,
+  MethodName extends string,
+  TContext
+> = StatedData<
   ContextualEntities<TData, MethodName> & {
     context: TContext | undefined;
   }
@@ -189,21 +194,11 @@ export function entityLevelAction<TData>() {
   ) => config;
 }
 
-type EntitiesSource<TData, TEntitiesSrc, ActionNames extends string> =
-  | {
-      srcContext: Observable<TEntitiesSrc>;
-      query: (srcContext: TEntitiesSrc) => Observable<TData[]>;
-      initialData: TData[] | undefined;
-    }
-  | {
-      srcContext: TData[];
-    }
-  | {
-      srcContext: TData[];
-      reducer: (
-        srcContext: TEntitiesSrc
-      ) => Observable<EntityWithStatus<TData, ActionNames>[]>;
-    };
+type EntitiesSource<TData, TEntitiesSrc, ActionNames extends string> = {
+  srcContext: Observable<TEntitiesSrc>;
+  query: (srcContext: TEntitiesSrc) => Observable<TData[]>;
+  initialData: TData[] | undefined;
+};
 
 export function entitiesSource<TData, ActionNames extends string>() {
   return <TEntitiesSrc>(
@@ -227,7 +222,7 @@ export type BulkActionConfig<TSrc, TData> = {
   operator: Operator; // Use concatMap or exhaustMap as default (switchMap and mergeMap are not recommended), because, it ait is trigger a second time during the loading phase and if the list of the selected Id change, the removed selected id will be display as loading (it may be fixed)
 };
 
-type FinalResult<
+export type FinalResult<
   TData,
   TEntityLevelActionsKeys extends string,
   TContext,
@@ -473,7 +468,7 @@ export const DataListStore = new InjectionToken('Store', {
         const entitiesData$ = data.entitiesSrc.srcContext.pipe(
           switchMap((srcContextValue) =>
             statedStream(
-              data.entitiesSrc.api(srcContextValue),
+              data.entitiesSrc.query(srcContextValue),
               data.entitiesSrc.initialData
             )
           ),
@@ -625,52 +620,70 @@ export const DataListStore = new InjectionToken('Store', {
   },
 });
 
-function applySelectors<
-  TData,
-  SrcContext,
-  MethodKeys extends string,
-  TEntityLevelActions extends Record<
-    string,
-    EntityLevelActionConfig<SrcContext, TData>
-  >,
-  TSelectors extends Selectors<TData, MethodKeys, SrcContext>
->(selectors?: TSelectors) {
-  return map((acc: StatedEntities<TData, MethodKeys, SrcContext>) => ({
-    ...acc,
-    result: {
-      ...acc.result,
-      entities: acc.result.entities.map((entityData) => ({
-        ...entityData,
-        selectors: selectors?.entityLevel?.({
-          ...entityData,
-          context: acc.result.context,
-        }) as TSelectors['entityLevel'] extends Function
-          ? ReturnType<TSelectors['entityLevel']>
-          : undefined,
-      })),
-      outOfContextEntities: acc.result.outOfContextEntities.map(
-        (entityData) => ({
+export type WithSelectors<TMainConfig extends DataListMainTypeScope> = {
+  // todo make it optional
+  entityLevel?: (
+    params: EntityWithStatus<TMainConfig['entity'], TMainConfig['actions']> & {
+      context: TMainConfig['pagination'];
+    }
+  ) => Record<string, unknown>;
+  storeLevel?: (
+    params: ContextualEntities<
+      TMainConfig['entity'],
+      TMainConfig['actions']
+    > & {
+      context: TMainConfig['pagination'];
+    }
+  ) => Record<string, unknown>;
+};
+type ErrorMessage<T extends string> = T;
+export function applySelectors<
+  TMainConfig extends DataListMainTypeScope,
+  TEntitySelectors,
+  TEntitiesSelectors
+>(selectors?: WithSelectors<TMainConfig>) {
+  return map(
+    (
+      acc: StatedEntities<
+        TMainConfig['entity'],
+        TMainConfig['actions'],
+        TMainConfig['pagination']
+      >
+    ) => ({
+      ...acc,
+      result: {
+        ...acc.result,
+        entities: acc.result.entities.map((entityData) => ({
           ...entityData,
           selectors: selectors?.entityLevel?.({
             ...entityData,
             context: acc.result.context,
-          }) as TSelectors['entityLevel'] extends Function
-            ? ReturnType<TSelectors['entityLevel']>
-            : undefined,
-        })
-      ),
-      selectors: selectors?.storeLevel?.({
-        context: acc.result.context,
-        entities: acc.result.entities,
-        outOfContextEntities: acc.result.outOfContextEntities,
-      }) as TSelectors['storeLevel'] extends Function
-        ? ReturnType<TSelectors['storeLevel']>
-        : undefined,
-    },
-  }));
+          }) as TEntitySelectors,
+        })),
+        outOfContextEntities: acc.result.outOfContextEntities.map(
+          (entityData) => ({
+            ...entityData,
+            selectors: selectors?.entityLevel?.({
+              ...entityData,
+              context: acc.result.context,
+            }) as TEntitySelectors,
+          })
+        ),
+        selectors: selectors?.storeLevel?.({
+          context: acc.result.context,
+          entities: acc.result.entities,
+          outOfContextEntities: acc.result.outOfContextEntities,
+        }) as TEntitiesSelectors,
+      },
+    })
+  );
 }
 
-function applyActionOnEntities<TData, SrcContext, MethodName extends string>({
+export function applyActionOnEntities<
+  TData,
+  SrcContext,
+  MethodName extends string
+>({
   acc,
   actionByEntity,
   context,
@@ -977,7 +990,7 @@ function replaceEntityIn<TData, MethodName extends string>({
   });
 }
 
-function connectAssociatedDelayedReducer$<
+export function connectAssociatedDelayedReducer$<
   TDataConnect,
   SrcContext,
   MethodName extends string
