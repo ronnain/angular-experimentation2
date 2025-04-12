@@ -4,7 +4,6 @@ import { DataItem, DataListService } from './data-list.service';
 import { CommonModule } from '@angular/common';
 import {
   BehaviorSubject,
-  concatMap,
   exhaustMap,
   interval,
   map,
@@ -17,32 +16,36 @@ import {
   timer,
 } from 'rxjs';
 import {
-  bulkAction,
-  entityLevelAction,
-  DataListStore,
-  entitiesSource,
-} from './storev2';
-import {
   addOrReplaceEntityIn,
   countEntitiesWithStatusByAction,
   extractAllErrors,
   hasProcessingItem,
   hasStatus,
-  removedBulkEntities,
   removedEntity,
   totalProcessingItems,
-  updateBulkEntities,
   updateEntity,
 } from './store-helper';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { storeV3 } from './storev3';
+import {
+  action,
+  DataListStoreType,
+  store,
+  withActions,
+  withEntities,
+  withSelectors,
+} from './storev3';
 
 type Pagination = {
   page: number;
   pageSize: number;
 };
 
-type ActionsName = 'update' | 'create' | 'delete' | 'bulkUpdate' | 'bulkDelete';
+type MyDataListStoreType = DataListStoreType<{
+  // autocompletion is enabled
+  entity: DataItem;
+  pagination: Pagination;
+  actions: 'update' | 'delete' | 'create';
+}>;
 
 @Component({
   selector: 'app-data-list',
@@ -70,6 +73,113 @@ export class DataListComponent {
   private readonly bulkDelete$ = new Subject<DataItem[]>();
 
   protected readonly selectedEntities$ = new BehaviorSubject<DataItem[]>([]);
+
+  protected readonly dataList = store<MyDataListStoreType>()(
+    withEntities<MyDataListStoreType>()({
+      src: () => this.pagination$,
+      query: ({ data }) => this.dataListService.getDataList$(data),
+      entityIdSelector: (entity) => entity.id ?? entity.optimisticId,
+    }),
+    withActions<MyDataListStoreType>()({
+      update: action<MyDataListStoreType>()({
+        src: () => this.updateItem$,
+        query: ({ data }) => {
+          return this.dataListService.updateItem(data);
+        },
+        operator: switchMap,
+      }),
+      create: action<MyDataListStoreType>()({
+        src: () => this.createItem$,
+        query: ({ data }) => this.dataListService.addItem(data),
+        operator: switchMap,
+        reducer: {
+          onLoaded: (data) => {
+            if (data.context.page !== 1) {
+              return addOrReplaceEntityIn(data, {
+                target: 'outOfContextEntities',
+              });
+            }
+            return addOrReplaceEntityIn(data, {
+              target: 'entities',
+            });
+          },
+        },
+      }),
+      delete: action<MyDataListStoreType>()({
+        src: () => this.deleteItem$,
+        query: ({ data }) => this.dataListService.deleteItem(data.id),
+        operator: exhaustMap,
+        reducer: {
+          onLoaded: (data) => {
+            return updateEntity(data, ({ entity, status }) => ({
+              entity: {
+                ...entity,
+                ui: {
+                  ...entity.ui,
+                  disappearIn$: this.remainingTimeBeforeDisappear$(),
+                },
+              },
+              status: {
+                ...status,
+                delete: {
+                  isLoading: false,
+                  isLoaded: true,
+                  hasError: false,
+                  error: null,
+                },
+              },
+            }));
+          },
+        },
+        delayedReducer: [
+          {
+            notifier: () =>
+              race(
+                this.pagination$.pipe(skip(1)),
+                timer(this.DISAPPEAR_TIMEOUT)
+              ),
+            reducer: {
+              onLoaded: (data) => {
+                return removedEntity(data);
+              },
+            },
+          },
+        ],
+      }),
+    }),
+    withSelectors<MyDataListStoreType>()({
+      entityLevel: ({ status }) => {
+        return {
+          isProcessing: hasStatus({
+            status,
+            state: 'isLoading',
+          }),
+          hasError: hasStatus({ status, state: 'hasError' }),
+          errors: extractAllErrors(status),
+        };
+      },
+      storeLevel: ({ entities, outOfContextEntities }) => {
+        const allEntities = [...entities, ...outOfContextEntities];
+        return {
+          hasProcessingItem: entities.some((entity) =>
+            hasProcessingItem(entity)
+          ),
+          totalProcessingItems: totalProcessingItems(allEntities),
+          totalUpdatedItems:
+            countEntitiesWithStatusByAction({
+              entities: allEntities,
+              actionName: 'update',
+              state: 'isLoaded',
+            }) + 0,
+          // countEntitiesWithStatusByAction({
+          //   entities: allEntities,
+          //   actionName: 'bulkUpdate',
+          //   state: 'isLoaded',
+          // }),
+        };
+      },
+    })
+  );
 
   // protected readonly dataList = inject(DataListStore)<
   //   DataItem,
@@ -236,10 +346,8 @@ export class DataListComponent {
   //   },
   // });
 
-  protected readonly dataList = storeV3;
-
   constructor() {
-    this.dataList.data.pipe(takeUntilDestroyed()).subscribe((data) => {
+    this.dataList.data$.pipe(takeUntilDestroyed()).subscribe((data) => {
       console.log('dataList', data.result);
     });
   }

@@ -17,6 +17,11 @@ import { Merge } from '../../util/types/merge';
 import {
   applyActionOnEntities,
   applySelectors,
+  BulkActionConfig,
+  bulkConnectAssociatedDelayedReducer$,
+  BulkDelayedReducer,
+  BulkReducerConfig,
+  BulkStateByMethodObservable,
   connectAssociatedDelayedReducer$,
   ContextualEntities,
   DelayedReducer,
@@ -37,29 +42,20 @@ import { statedStream } from '../../util/stated-stream/stated-stream';
 import { Prettify } from '../../util/types/prettify';
 
 export type DataListMainTypeScope = any extends {
-  entity: any; // todo rename entityType
-  pagination?: any;
+  entity: any; // todo rename to entityType
+  pagination?: any; // todo rename to srcContext
   actions: string;
+  bulkActions?: string;
   selectors?: any;
 }
   ? {
-      entity: unknown;
+      entity: object;
       pagination?: unknown;
       actions: string;
+      bulkActions?: string;
     }
   : never;
-type DataListStoreType<T extends DataListMainTypeScope> = T;
-type MyDataListStoreType = DataListStoreType<{
-  // autocompletion is enabled
-  entity: {
-    id: string;
-    name: string;
-  };
-  pagination: {
-    page: number;
-  };
-  actions: 'update' | 'delete';
-}>;
+export type DataListStoreType<T extends DataListMainTypeScope> = T;
 
 type WithEntities<TMainConfig extends DataListMainTypeScope> =
   (TMainConfig['pagination'] extends undefined ? {} : {}) & {
@@ -71,7 +67,7 @@ type WithEntities<TMainConfig extends DataListMainTypeScope> =
     entityIdSelector: IdSelector<TMainConfig['entity']>;
   };
 
-function withEntities<TMainConfig extends DataListMainTypeScope>() {
+export function withEntities<TMainConfig extends DataListMainTypeScope>() {
   return (config: WithEntities<TMainConfig>) => ({ entitiesSrc: config });
 }
 
@@ -92,7 +88,7 @@ type ActionConfig<TSrc, TMainConfig extends DataListMainTypeScope> = {
   >[];
 };
 
-function action<TMainConfig extends DataListMainTypeScope>() {
+export function action<TMainConfig extends DataListMainTypeScope>() {
   return <TSrc>(
     config: TMainConfig['actions'] extends undefined
       ? {}
@@ -100,15 +96,43 @@ function action<TMainConfig extends DataListMainTypeScope>() {
   ) => config as ActionConfig<TSrc, TMainConfig>;
 }
 
+type BulkActionConfig<TSrc, TMainConfig extends DataListMainTypeScope> = {
+  src: () => Observable<TSrc>;
+  query: (params: { data: TSrc }) => Observable<TMainConfig['entity'][]>;
+  operator: Operator; //Use concatMap or exhaustMap as default (switchMap and mergeMap are not recommended), because, it ait is trigger a second time during the loading phase and if the list of the selected Id change, the removed selected id will be display as loading (it may be fixed)
+  // todo pass an array (of an object with reducer and delayedreducer) that can enable to use reusable reducer
+  reducer?: StatedDataReducer<
+    TMainConfig['entity'],
+    TMainConfig['pagination'],
+    TMainConfig['actions']
+  >;
+  delayedReducer?: BulkDelayedReducer<TMainConfig>[];
+};
+
+export function withBulkAction<TMainConfig extends DataListMainTypeScope>() {
+  return <TSrc>(
+    config: TMainConfig['actions'] extends undefined
+      ? {}
+      : BulkActionConfig<TSrc, TMainConfig>
+  ) => config as BulkActionConfig<TSrc, TMainConfig>;
+}
+
+type WithBulkActions<TMainConfig extends DataListMainTypeScope> = {
+  [key in NonNullable<TMainConfig['bulkActions']>]: BulkActionConfig<
+    any,
+    TMainConfig
+  >;
+};
+
 type WithActions<TMainConfig extends DataListMainTypeScope> = {
   [key in TMainConfig['actions']]: ActionConfig<any, TMainConfig>;
 };
 
-function withActions<TMainConfig extends DataListMainTypeScope>() {
+export function withActions<TMainConfig extends DataListMainTypeScope>() {
   return (config: WithActions<TMainConfig>) => ({ actions: config });
 }
 
-function withSelectors<TMainConfig extends DataListMainTypeScope>() {
+export function withSelectors<TMainConfig extends DataListMainTypeScope>() {
   return <
     TEntitySelectorsKeys extends keyof ReturnType<TEntitySelectorsFn>,
     TEntitySelectorsFn extends (
@@ -181,7 +205,7 @@ type MergePlugins<
     : never
   : Acc;
 
-function store<TMainConfig extends DataListMainTypeScope>() {
+export function store<TMainConfig extends DataListMainTypeScope>() {
   return <
     Plugins extends readonly (
       | {
@@ -223,6 +247,7 @@ function store<TMainConfig extends DataListMainTypeScope>() {
     const configBase = base as {
       entitiesSrc: WithEntities<TMainConfig>;
       actions: WithActions<TMainConfig>;
+      bulkActions: WithBulkActions<TMainConfig>;
       selectors: WithSelectors<TMainConfig>;
     };
 
@@ -301,52 +326,50 @@ function store<TMainConfig extends DataListMainTypeScope>() {
       ];
     }, [] as EntityStateByMethodObservable<TMainConfig['entity'], TMainConfig['pagination']>);
 
-    // const bulkActionsList$: BulkStateByMethodObservable<TData, any> =
-    //   Object.entries(
-    //     (data.bulkActions ?? {}) as Record<string, BulkActionConfig<any, TData>>
-    //   ).reduce((acc, [methodName, groupByData]) => {
-    //     const src$ = groupByData.src();
-    //     const operatorFn = groupByData.operator;
-    //     const api = groupByData.api;
-    //     const reducer = data.bulkReducer?.[methodName as TBulkActionsKeys];
-    //     const delayedReducer =
-    //       data.bulkDelayedReducer?.[methodName as TBulkActionsKeys] || [];
+    const bulkActionsList$: BulkStateByMethodObservable<TMainConfig> =
+      Object.entries(
+        (configBase.bulkActions ?? {}) as Record<
+          string,
+          BulkActionConfig<any, TMainConfig>
+        >
+      ).reduce((acc, [methodName, groupByData]) => {
+        const src$ = groupByData.src();
+        const operatorFn = groupByData.operator;
+        const api = groupByData.query;
+        const reducer = groupByData.reducer;
+        const delayedReducer = groupByData.delayedReducer ?? [];
 
-    //     const bulkActions$ = src$.pipe(
-    //       operatorFn((entities) => {
-    //         return statedStream(api({ data: entities }), entities).pipe(
-    //           map(
-    //             (entitiesStatedData) =>
-    //               ({
-    //                 entitiesStatedData,
-    //                 reducer,
-    //                 entityIdSelector,
-    //               } satisfies BulkReducerConfig<TData, SrcContext, MethodName>)
-    //           ),
-    //           switchMap((bulkReducerConfig) =>
-    //             bulkConnectAssociatedDelayedReducer$<
-    //               TData,
-    //               SrcContext,
-    //               MethodName
-    //             >({
-    //               bulkReducerConfig,
-    //               delayedReducer,
-    //               events,
-    //             })
-    //           )
-    //         );
-    //       })
-    //     );
+        const bulkActions$ = src$.pipe(
+          operatorFn((entities) => {
+            return statedStream(api({ data: entities }), entities).pipe(
+              map(
+                (entitiesStatedData) =>
+                  ({
+                    entitiesStatedData,
+                    reducer,
+                    entityIdSelector,
+                  } satisfies BulkReducerConfig<TMainConfig>)
+              ),
+              switchMap((bulkReducerConfig) =>
+                bulkConnectAssociatedDelayedReducer$<TMainConfig>({
+                  bulkReducerConfig,
+                  delayedReducer,
+                  events,
+                })
+              )
+            );
+          })
+        );
 
-    //     return [
-    //       ...acc,
-    //       bulkActions$.pipe(
-    //         map((bulkReducerConfig) => ({
-    //           [methodName]: bulkReducerConfig,
-    //         }))
-    //       ),
-    //     ];
-    //   }, [] as BulkStateByMethodObservable<TData, SrcContext>);
+        return [
+          ...acc,
+          bulkActions$.pipe(
+            map((bulkReducerConfig) => ({
+              [methodName]: bulkReducerConfig,
+            }))
+          ),
+        ];
+      }, [] as BulkStateByMethodObservable<TMainConfig>);
 
     const entitiesData$ = configBase.entitiesSrc.src().pipe(
       switchMap((srcContextValue) =>
@@ -361,7 +384,7 @@ function store<TMainConfig extends DataListMainTypeScope>() {
     // I choose to merge the entitiesData$ and the entityLevelActionList$, that's enable to add some items even if entities are not loaded yet
     const finalResult: FinalResult<
       TMainConfig['entity'],
-      TMainConfig['actions'], //  | TBulkActionsKeys// todo for bulk
+      TMainConfig['actions'] & TMainConfig['bulkActions'], //  | TBulkActionsKeys// todo for bulk
       TMainConfig['pagination'],
       TEntitySelectors,
       TEntitiesSelectors
@@ -372,12 +395,12 @@ function store<TMainConfig extends DataListMainTypeScope>() {
           data: entitiesData,
         }))
       ),
-      // ...bulkActionsList$.map(
-      //   map((bulkActionList) => ({
-      //     type: 'bulkAction' as const,
-      //     data: bulkActionList,
-      //   }))
-      // ),
+      ...bulkActionsList$.map(
+        map((bulkActionList) => ({
+          type: 'bulkAction' as const,
+          data: bulkActionList,
+        }))
+      ),
       ...entityLevelActionList$.map(
         map((entityLevelActionList) => ({
           type: 'action' as const,
@@ -491,79 +514,10 @@ function store<TMainConfig extends DataListMainTypeScope>() {
     return {
       data$: finalResult,
     } as {
-      ['prefer to subscribe to the data$ property using the async pipe like: @let data = data$ | async;']: never;
+      /**
+       * prefer to subscribe to the data$ property using the async pipe like: @let data = data$ | async;
+       */
       data$: Observable<ObservedValueOf<typeof finalResult>>;
     };
   };
 }
-// todo improve the selectors are loosed
-export const storeV3 = store<MyDataListStoreType>()(
-  withEntities<MyDataListStoreType>()({
-    src: () =>
-      of({
-        page: 1,
-      }),
-    query: ({ data }) => of([{ id: 'test', name: 'test' }]),
-    entityIdSelector: (entity) => entity.id,
-  }),
-  withActions<MyDataListStoreType>()({
-    update: action<MyDataListStoreType>()({
-      src: () => of({ id: 'test', name: 'test' }),
-      query: ({ data }) => of({ id: 'test', name: 'test' }),
-      operator: switchMap,
-      reducer: {
-        onLoaded: (data) => {
-          data.entities;
-          return {
-            entities: data.entities,
-            outOfContextEntities: data.outOfContextEntities,
-          };
-        },
-      },
-      delayedReducer: [
-        {
-          notifier: () => timer(1000),
-          reducer: {
-            onLoaded: (data) => {
-              return {
-                entities: data.entities,
-                outOfContextEntities: data.outOfContextEntities,
-              };
-            },
-          },
-        },
-      ],
-    }),
-    delete: action<MyDataListStoreType>()({
-      src: () => of({ id: 'test' }),
-      query: ({ data }) => of({ id: 'test', name: 'test' }),
-      operator: switchMap,
-    }),
-  }),
-  withSelectors<MyDataListStoreType>()({
-    entityLevel: (entityWithStatus) => {
-      return {
-        hasError: Object.values(entityWithStatus.status).some(
-          (entityStatus) => entityStatus?.hasError
-        ),
-        hasError2: Object.values(entityWithStatus.status).some(
-          (entityStatus) => entityStatus?.hasError
-        ),
-      };
-    },
-    storeLevel: (contextualEntities) => {
-      return {
-        hasErrorStore: Object.values(contextualEntities.entities).some(
-          (entityWithStatus) =>
-            Object.values(entityWithStatus.status).some(
-              (entityStatus) => entityStatus?.hasError
-            )
-        ),
-      };
-    },
-  })
-);
-storeV3.data$.subscribe((value) => {
-  value.result.selectors.hasErrorStore;
-  value.result.entities[0].selectors.hasError;
-});

@@ -1,4 +1,4 @@
-@let data= dataList.data | async;
+@let data= dataList.data$ | async;
 <div class="bg-gray-50 min-h-screen">
   <div class="p-4">
     <div class="mb-4">
@@ -132,7 +132,7 @@
     <div class="bg-white p-4 rounded shadow my-8">
       <h2 class="font-bold">Out Of context Entities</h2>
       <div class="relative overflow-x-auto">
-        <table *ngIf="dataList.data | async as data" class="table table-zebra">
+        <table *ngIf="dataList.data$ | async as data" class="table table-zebra">
           <thead class="">
             <tr>
               <th scope="col" class="">ID</th>
