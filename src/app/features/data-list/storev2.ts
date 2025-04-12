@@ -16,6 +16,7 @@ import {
 } from 'rxjs';
 import { statedStream } from '../../util/stated-stream/stated-stream';
 import { DataListMainTypeScope } from './storev3';
+import { Prettify } from '../../util/types/prettify';
 
 export type Operator = <T, R>(
   fn: (value: T) => Observable<R>
@@ -28,7 +29,7 @@ export type IdSelector<TData> = (entity: TData) => string | number;
 export type ReducerParams<TData, TContext, MethodName extends string> = {
   id: string | number;
   status: EntityStatus;
-  entityWithStatus: EntityWithStatus<TData, MethodName>; // todo check why there is still status here ?
+  entityWithStatus: Prettify<EntityWithStatus<TData, MethodName>>; // todo check why there is still status here ?
   entityIdSelector: IdSelector<TData>;
   context: TContext;
 } & ContextualEntities<TData, MethodName>;
@@ -48,7 +49,7 @@ export type StatedData<T> = {
 };
 
 export type Reducer<TData, TContext, MethodName extends string> = (
-  data: ReducerParams<TData, TContext, MethodName>
+  data: Prettify<ReducerParams<TData, TContext, MethodName>>
 ) => ContextualEntities<TData, MethodName>;
 
 export type StatedDataReducer<TData, TContext, MethodName extends string> = {
@@ -79,7 +80,7 @@ type BulkStatedDataReducerWithoutOnLoading<
   MethodName extends string
 > = Omit<BulkStatedDataReducer<TData, TContext, MethodName>, 'onLoading'>;
 
-export type EntityStatus = Omit<StatedData<unknown>, 'result'>;
+export type EntityStatus = Prettify<Omit<StatedData<unknown>, 'result'>>;
 export type EntityWithStatus<TData, MethodName extends string> = {
   entity: TData;
   status: MethodStatus<MethodName>;
@@ -123,8 +124,8 @@ type BulkStateByMethodObservable<TData, TContext> = Observable<
 >[];
 
 export type ContextualEntities<TData, MethodName extends string> = {
-  entities: EntityWithStatus<TData, MethodName>[];
-  outOfContextEntities: EntityWithStatus<TData, MethodName>[];
+  entities: Prettify<EntityWithStatus<TData, MethodName>>[];
+  outOfContextEntities: Prettify<EntityWithStatus<TData, MethodName>>[];
 };
 
 export type StatedEntities<

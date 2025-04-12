@@ -199,14 +199,14 @@ function store<TMainConfig extends DataListMainTypeScope>() {
       ? ReturnType<
           NonNullable<MergePlugins<Plugins>['selectors']['entityLevel']>
         >
-      : {},
+      : undefined,
     TEntitiesSelectors extends MergePlugins<Plugins> extends {
       selectors?: any;
     }
       ? ReturnType<
           NonNullable<MergePlugins<Plugins>['selectors']['storeLevel']>
         >
-      : {}
+      : null
   >(
     ...plugins: Plugins
   ) => {
@@ -511,6 +511,7 @@ export const storeV3 = store<MyDataListStoreType>()(
       operator: switchMap,
       reducer: {
         onLoaded: (data) => {
+          data.entities;
           return {
             entities: data.entities,
             outOfContextEntities: data.outOfContextEntities,
