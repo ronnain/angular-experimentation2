@@ -4,6 +4,7 @@ import {
   merge,
   mergeMap,
   Observable,
+  ObservedValueOf,
   of,
   scan,
   share,
@@ -490,7 +491,7 @@ function store<TMainConfig extends DataListMainTypeScope>() {
     return {
       data: finalResult,
     } as {
-      data: Prettify<typeof finalResult>;
+      data: Observable<ObservedValueOf<typeof finalResult>>;
     };
   };
 }

@@ -145,10 +145,12 @@ type StatedEntitiesWithSelectors<
   TEntitySelectors,
   TStoreSelectors
 > = StatedData<
-  ContextualEntitiesWithSelectors<TData, MethodName, TEntitySelectors> & {
-    context: TContext | undefined;
-    selectors: TStoreSelectors;
-  }
+  Prettify<
+    ContextualEntitiesWithSelectors<TData, MethodName, TEntitySelectors> & {
+      context: TContext | undefined;
+      selectors: Prettify<TStoreSelectors>;
+    }
+  >
 >;
 
 type ContextualEntitiesWithSelectors<
@@ -156,15 +158,11 @@ type ContextualEntitiesWithSelectors<
   MethodName extends string,
   TEntitySelectors
 > = {
-  entities: EntityWithStatusWithSelectors<
-    TData,
-    MethodName,
-    TEntitySelectors
+  entities: Prettify<
+    EntityWithStatusWithSelectors<TData, MethodName, TEntitySelectors>
   >[];
-  outOfContextEntities: EntityWithStatusWithSelectors<
-    TData,
-    MethodName,
-    TEntitySelectors
+  outOfContextEntities: Prettify<
+    EntityWithStatusWithSelectors<TData, MethodName, TEntitySelectors>
   >[];
 };
 
@@ -230,12 +228,14 @@ export type FinalResult<
   TEntitySelectors,
   TStoreSelectors
 > = Observable<
-  StatedEntitiesWithSelectors<
-    TData,
-    TEntityLevelActionsKeys,
-    TContext,
-    TEntitySelectors,
-    TStoreSelectors
+  Prettify<
+    StatedEntitiesWithSelectors<
+      TData,
+      TEntityLevelActionsKeys,
+      TContext,
+      TEntitySelectors,
+      TStoreSelectors
+    >
   >
 >;
 
