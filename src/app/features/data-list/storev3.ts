@@ -33,6 +33,7 @@ import {
   WithSelectors,
 } from './storev2';
 import { statedStream } from '../../util/stated-stream/stated-stream';
+import { Prettify } from '../../util/types/prettify';
 
 export type DataListMainTypeScope = any extends {
   entity: any; // todo rename entityType
@@ -95,7 +96,7 @@ function action<TMainConfig extends DataListMainTypeScope>() {
     config: TMainConfig['actions'] extends undefined
       ? {}
       : ActionConfig<TSrc, TMainConfig>
-  ) => config;
+  ) => config as ActionConfig<TSrc, TMainConfig>;
 }
 
 type WithActions<TMainConfig extends DataListMainTypeScope> = {
@@ -193,24 +194,18 @@ function store<TMainConfig extends DataListMainTypeScope>() {
         }
     )[],
     TEntitySelectors extends MergePlugins<Plugins> extends {
-      selectors?: {
-        entityLevel: infer TSelectors;
-      };
+      selectors?: any;
     }
-      ? TSelectors extends NonNullable<
-          WithSelectors<TMainConfig>['entityLevel']
+      ? ReturnType<
+          NonNullable<MergePlugins<Plugins>['selectors']['entityLevel']>
         >
-        ? ReturnType<TSelectors>
-        : {}
       : {},
     TEntitiesSelectors extends MergePlugins<Plugins> extends {
-      selectors?: {
-        storeLevel: infer TSelectors;
-      };
+      selectors?: any;
     }
-      ? TSelectors extends NonNullable<WithSelectors<TMainConfig>['storeLevel']>
-        ? ReturnType<TSelectors>
-        : {}
+      ? ReturnType<
+          NonNullable<MergePlugins<Plugins>['selectors']['storeLevel']>
+        >
       : {}
   >(
     ...plugins: Plugins
@@ -494,6 +489,8 @@ function store<TMainConfig extends DataListMainTypeScope>() {
 
     return {
       data: finalResult,
+    } as {
+      data: Prettify<typeof finalResult>;
     };
   };
 }
@@ -546,6 +543,9 @@ export const storeV3 = store<MyDataListStoreType>()(
         hasError: Object.values(entityWithStatus.status).some(
           (entityStatus) => entityStatus?.hasError
         ),
+        hasError2: Object.values(entityWithStatus.status).some(
+          (entityStatus) => entityStatus?.hasError
+        ),
       };
     },
     storeLevel: (contextualEntities) => {
@@ -560,3 +560,7 @@ export const storeV3 = store<MyDataListStoreType>()(
     },
   })
 );
+storeV3.data.subscribe((value) => {
+  value.result.selectors.hasErrorStore;
+  value.result.entities[0].selectors.hasError;
+});
