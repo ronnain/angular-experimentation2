@@ -489,9 +489,10 @@ function store<TMainConfig extends DataListMainTypeScope>() {
     );
 
     return {
-      data: finalResult,
+      data$: finalResult,
     } as {
-      data: Observable<ObservedValueOf<typeof finalResult>>;
+      ['prefer to subscribe to the data$ property using the async pipe like: @let data = data$ | async;']: never;
+      data$: Observable<ObservedValueOf<typeof finalResult>>;
     };
   };
 }
@@ -562,7 +563,7 @@ export const storeV3 = store<MyDataListStoreType>()(
     },
   })
 );
-storeV3.data.subscribe((value) => {
+storeV3.data$.subscribe((value) => {
   value.result.selectors.hasErrorStore;
   value.result.entities[0].selectors.hasError;
 });
