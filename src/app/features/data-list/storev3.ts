@@ -31,6 +31,7 @@ import {
   EntityLevelActionConfig,
   EntityReducerConfig,
   EntityStateByMethodObservable,
+  EntityStatus,
   EntityWithStatus,
   FinalResult,
   IdSelector,
@@ -488,11 +489,18 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
             };
           }
           if (action.type === 'action') {
-            return applyActionOnEntities({
+            const result = applyActionOnEntities({
               acc,
               actionByEntity: action.data,
               context,
             });
+            applyActionEvent({
+              acc,
+              actionByEntity: action.data,
+              context,
+              actionEvents,
+            });
+            return result;
           }
           if (action.type === 'bulkAction') {
             return applyBulkActionOnEntities({
@@ -535,9 +543,8 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
 }
 
 type ActionSubjectEvent<TMainConfig extends DataListMainTypeScope> = {
-  statusType: 'loading' | 'loaded' | 'error';
+  status: EntityStatus;
   context: TMainConfig['pagination'];
-  actionSrc: any;
   entityWithStatus: EntityWithStatus<TMainConfig>;
 };
 
@@ -556,4 +563,47 @@ function createActionEventSubjects<
     acc[name] = new Subject<ActionSubjectEvent<TMainConfig>>();
     return acc;
   }, {} as Record<TMainConfig['actions'], Subject<ActionSubjectEvent<TMainConfig>>>);
+}
+
+function applyActionEvent<TMainConfig extends DataListMainTypeScope>({
+  acc,
+  actionByEntity,
+  context,
+  actionEvents,
+}: {
+  acc: StatedEntities<TMainConfig>;
+  actionByEntity: Record<
+    string,
+    {
+      [x: string]: EntityReducerConfig<TMainConfig>;
+    }
+  >;
+  context: TMainConfig['pagination'];
+  actionEvents: Record<
+    TMainConfig['actions'],
+    Subject<ActionSubjectEvent<TMainConfig>>
+  >;
+}) {
+  const methodName = Object.keys(actionByEntity)[0];
+  const entityId = Object.keys(actionByEntity[methodName])[0];
+  const {
+    entityStatedData: { error, hasError, isLoaded, isLoading, result },
+    reducer,
+    entityIdSelector,
+  } = actionByEntity[methodName][entityId];
+
+  const entityWithStatus = [
+    ...acc.result.entities,
+    ...acc.result.outOfContextEntities,
+  ].find((entity) => entityIdSelector(entity.entity) == entityId);
+
+  if (!entityWithStatus) {
+    return;
+  }
+
+  actionEvents[methodName as TMainConfig['actions']].next({
+    status: { error, hasError, isLoaded, isLoading },
+    context,
+    entityWithStatus,
+  });
 }
