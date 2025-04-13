@@ -10,12 +10,13 @@ import {
   scan,
   share,
   shareReplay,
+  Subject,
   switchMap,
   tap,
   withLatestFrom,
 } from 'rxjs';
 import { statedStream } from '../../util/stated-stream/stated-stream';
-import { DataListMainTypeScope } from './storev3';
+import { ActionSubjectEvent, DataListMainTypeScope } from './storev3';
 import { Prettify } from '../../util/types/prettify';
 
 export type Operator = <T, R>(
@@ -727,4 +728,49 @@ export function bulkConnectAssociatedDelayedReducer$<
     return merge(of(bulkReducerConfig), ...onErrorDelayedReducer$);
   }
   return of(bulkReducerConfig);
+}
+
+/// events
+
+export function emitActionEvent<TMainConfig extends DataListMainTypeScope>({
+  acc,
+  actionByEntity,
+  context,
+  actionEvents,
+}: {
+  acc: StatedEntities<TMainConfig>;
+  actionByEntity: Record<
+    string,
+    {
+      [x: string]: EntityReducerConfig<TMainConfig>;
+    }
+  >;
+  context: TMainConfig['pagination'];
+  actionEvents: Record<
+    TMainConfig['actions'],
+    Subject<ActionSubjectEvent<TMainConfig>>
+  >;
+}) {
+  const methodName = Object.keys(actionByEntity)[0];
+  const entityId = Object.keys(actionByEntity[methodName])[0];
+  const {
+    entityStatedData: { error, hasError, isLoaded, isLoading, result },
+    reducer,
+    entityIdSelector,
+  } = actionByEntity[methodName][entityId];
+
+  const entityWithStatus = [
+    ...acc.result.entities,
+    ...acc.result.outOfContextEntities,
+  ].find((entity) => entityIdSelector(entity.entity) == entityId);
+
+  if (!entityWithStatus) {
+    return;
+  }
+
+  actionEvents[methodName as TMainConfig['actions']].next({
+    status: { error, hasError, isLoaded, isLoading },
+    context,
+    entityWithStatus,
+  });
 }

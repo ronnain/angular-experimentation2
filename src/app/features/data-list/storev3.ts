@@ -17,6 +17,7 @@ import {
 } from 'rxjs';
 import { Merge } from '../../util/types/merge';
 import {
+  emitActionEvent,
   applyActionOnEntities,
   applyBulkActionOnEntities,
   applySelectors,
@@ -494,7 +495,7 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
               actionByEntity: action.data,
               context,
             });
-            applyActionEvent({
+            emitActionEvent({
               acc,
               actionByEntity: action.data,
               context,
@@ -542,7 +543,7 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
   };
 }
 
-type ActionSubjectEvent<TMainConfig extends DataListMainTypeScope> = {
+export type ActionSubjectEvent<TMainConfig extends DataListMainTypeScope> = {
   status: EntityStatus;
   context: TMainConfig['pagination'];
   entityWithStatus: EntityWithStatus<TMainConfig>;
@@ -563,47 +564,4 @@ function createActionEventSubjects<
     acc[name] = new Subject<ActionSubjectEvent<TMainConfig>>();
     return acc;
   }, {} as Record<TMainConfig['actions'], Subject<ActionSubjectEvent<TMainConfig>>>);
-}
-
-function applyActionEvent<TMainConfig extends DataListMainTypeScope>({
-  acc,
-  actionByEntity,
-  context,
-  actionEvents,
-}: {
-  acc: StatedEntities<TMainConfig>;
-  actionByEntity: Record<
-    string,
-    {
-      [x: string]: EntityReducerConfig<TMainConfig>;
-    }
-  >;
-  context: TMainConfig['pagination'];
-  actionEvents: Record<
-    TMainConfig['actions'],
-    Subject<ActionSubjectEvent<TMainConfig>>
-  >;
-}) {
-  const methodName = Object.keys(actionByEntity)[0];
-  const entityId = Object.keys(actionByEntity[methodName])[0];
-  const {
-    entityStatedData: { error, hasError, isLoaded, isLoading, result },
-    reducer,
-    entityIdSelector,
-  } = actionByEntity[methodName][entityId];
-
-  const entityWithStatus = [
-    ...acc.result.entities,
-    ...acc.result.outOfContextEntities,
-  ].find((entity) => entityIdSelector(entity.entity) == entityId);
-
-  if (!entityWithStatus) {
-    return;
-  }
-
-  actionEvents[methodName as TMainConfig['actions']].next({
-    status: { error, hasError, isLoaded, isLoading },
-    context,
-    entityWithStatus,
-  });
 }
