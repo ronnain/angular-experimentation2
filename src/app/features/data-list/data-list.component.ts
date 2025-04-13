@@ -4,6 +4,7 @@ import { DataItem, DataListService } from './data-list.service';
 import { CommonModule } from '@angular/common';
 import {
   BehaviorSubject,
+  concatMap,
   exhaustMap,
   interval,
   map,
@@ -21,16 +22,20 @@ import {
   extractAllErrors,
   hasProcessingItem,
   hasStatus,
+  removedBulkEntities,
   removedEntity,
   totalProcessingItems,
+  updateBulkEntities,
   updateEntity,
 } from './store-helper';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   action,
+  bulkAction,
   DataListStoreType,
   store,
   withActions,
+  withBulkActions,
   withEntities,
   withSelectors,
 } from './storev3';
@@ -45,6 +50,7 @@ type MyDataListStoreType = DataListStoreType<{
   entity: DataItem;
   pagination: Pagination;
   actions: 'update' | 'delete' | 'create';
+  bulkActions: 'bulkUpdate' | 'bulkDelete';
 }>;
 
 @Component({
@@ -83,14 +89,15 @@ export class DataListComponent {
     withActions<MyDataListStoreType>()({
       update: action<MyDataListStoreType>()({
         src: () => this.updateItem$,
-        query: ({ data }) => {
-          return this.dataListService.updateItem(data);
+        query: ({ actionSrc }) => {
+          return this.dataListService.updateItem(actionSrc);
         },
         operator: switchMap,
+        optimisticEntity: ({ actionSrc }) => actionSrc.entity,
       }),
       create: action<MyDataListStoreType>()({
         src: () => this.createItem$,
-        query: ({ data }) => this.dataListService.addItem(data),
+        query: ({ actionSrc }) => this.dataListService.addItem(actionSrc),
         operator: switchMap,
         reducer: {
           onLoaded: (data) => {
@@ -107,7 +114,7 @@ export class DataListComponent {
       }),
       delete: action<MyDataListStoreType>()({
         src: () => this.deleteItem$,
-        query: ({ data }) => this.dataListService.deleteItem(data.id),
+        query: ({ actionSrc }) => this.dataListService.deleteItem(actionSrc.id),
         operator: exhaustMap,
         reducer: {
           onLoaded: (data) => {
@@ -147,6 +154,59 @@ export class DataListComponent {
         ],
       }),
     }),
+    withBulkActions<MyDataListStoreType>()({
+      bulkUpdate: bulkAction<MyDataListStoreType>()({
+        src: () => this.bulkUpdate$,
+        query: ({ data }) => {
+          return this.dataListService.bulkUpdate(data);
+        },
+        operator: concatMap,
+      }),
+      bulkDelete: bulkAction<MyDataListStoreType>()({
+        src: () => this.bulkDelete$,
+        query: ({ data }) => {
+          return this.dataListService.bulkDelete(data);
+        },
+        operator: concatMap,
+        reducer: {
+          onLoaded: (data) => {
+            const result = updateBulkEntities(data, ({ entity, status }) => ({
+              entity: {
+                ...entity,
+                ui: {
+                  ...entity.ui,
+                  disappearIn$: this.remainingTimeBeforeDisappear$(),
+                },
+              },
+              status: {
+                ...status,
+                bulkDelete: {
+                  isLoading: false,
+                  isLoaded: true,
+                  hasError: false,
+                  error: null,
+                },
+              },
+            }));
+            return result;
+          },
+        },
+        delayedReducer: [
+          {
+            notifier: () =>
+              race(
+                this.pagination$.pipe(skip(1)),
+                timer(this.DISAPPEAR_TIMEOUT)
+              ),
+            reducer: {
+              onLoaded: (data) => {
+                return removedBulkEntities(data);
+              },
+            },
+          },
+        ],
+      }),
+    }),
     withSelectors<MyDataListStoreType>()({
       entityLevel: ({ status }) => {
         return {
@@ -170,185 +230,20 @@ export class DataListComponent {
               entities: allEntities,
               actionName: 'update',
               state: 'isLoaded',
-            }) + 0,
-          // countEntitiesWithStatusByAction({
-          //   entities: allEntities,
-          //   actionName: 'bulkUpdate',
-          //   state: 'isLoaded',
-          // }),
+            }) +
+            countEntitiesWithStatusByAction({
+              entities: allEntities,
+              actionName: 'bulkUpdate',
+              state: 'isLoaded',
+            }),
         };
       },
     })
   );
 
-  // protected readonly dataList = inject(DataListStore)<
-  //   DataItem,
-  //   Pagination,
-  //   ActionsName
-  // >()({
-  //   entitiesSrc: entitiesSource<DataItem, ActionsName>()({
-  //     srcContext: this.pagination$,
-  //     query: (srcContext) => this.dataListService.getDataList$(srcContext),
-  //     initialData: [],
-  //   }),
-  //   entityIdSelector: (item) => item.id ?? item.optimisticId,
-  //   entityLevelAction: {
-  //     update: entityLevelAction<DataItem>()({
-  //       src: () => this.updateItem$,
-  //       optimisticEntity: (actionSrc) => actionSrc.entity,
-  //       api: ({ data }) => {
-  //         return this.dataListService.updateItem(data);
-  //       },
-  //       operator: switchMap,
-  //     }),
-  //     create: entityLevelAction<DataItem>()({
-  //       src: () => this.createItem$,
-  //       api: ({ data }) => this.dataListService.addItem(data),
-  //       operator: switchMap,
-  //     }),
-  //     delete: entityLevelAction<DataItem>()({
-  //       src: () => this.deleteItem$,
-  //       api: ({ data }) => this.dataListService.deleteItem(data.id),
-  //       operator: exhaustMap,
-  //     }),
-  //   },
-  //   reducer: {
-  //     create: {
-  //       onLoaded: (data) => {
-  //         if (data.context.page !== 1) {
-  //           return addOrReplaceEntityIn(data, {
-  //             target: 'outOfContextEntities',
-  //           });
-  //         }
-  //         return addOrReplaceEntityIn(data, {
-  //           target: 'entities',
-  //         });
-  //       },
-  //     },
-  //     delete: {
-  //       onLoaded: (data) => {
-  //         return updateEntity(data, ({ entity, status }) => ({
-  //           entity: {
-  //             ...entity,
-  //             ui: {
-  //               ...entity.ui,
-  //               disappearIn$: this.remainingTimeBeforeDisappear$(),
-  //             },
-  //           },
-  //           status: {
-  //             ...status,
-  //             delete: {
-  //               isLoading: false,
-  //               isLoaded: true,
-  //               hasError: false,
-  //               error: null,
-  //             },
-  //           },
-  //         }));
-  //       },
-  //     },
-  //   },
-  //   delayedReducer: {
-  //     delete: [
-  //       {
-  //         notifier: () =>
-  //           race(this.pagination$.pipe(skip(1)), timer(this.DISAPPEAR_TIMEOUT)),
-  //         reducer: {
-  //           onLoaded: (data) => {
-  //             return removedEntity(data);
-  //           },
-  //         },
-  //       },
-  //     ],
-  //   },
-  //   bulkActions: {
-  //     bulkUpdate: bulkAction({
-  //       src: () => this.bulkUpdate$,
-  //       api: ({ data }) => {
-  //         return this.dataListService.bulkUpdate(data);
-  //       },
-  //       operator: concatMap,
-  //     }),
-  //     bulkDelete: bulkAction({
-  //       src: () => this.bulkDelete$,
-  //       api: ({ data }) => {
-  //         return this.dataListService.bulkDelete(data);
-  //       },
-  //       operator: concatMap,
-  //     }),
-  //   },
-  //   bulkReducer: {
-  //     bulkDelete: {
-  //       onLoaded: (data) => {
-  //         const result = updateBulkEntities(data, ({ entity, status }) => ({
-  //           entity: {
-  //             ...entity,
-  //             ui: {
-  //               ...entity.ui,
-  //               disappearIn$: this.remainingTimeBeforeDisappear$(),
-  //             },
-  //           },
-  //           status: {
-  //             ...status,
-  //             bulkDelete: {
-  //               isLoading: false,
-  //               isLoaded: true,
-  //               hasError: false,
-  //               error: null,
-  //             },
-  //           },
-  //         }));
-  //         return result;
-  //       },
-  //     },
-  //   },
-  //   bulkDelayedReducer: {
-  //     bulkDelete: [
-  //       {
-  //         notifier: () =>
-  //           race(this.pagination$.pipe(skip(1)), timer(this.DISAPPEAR_TIMEOUT)),
-  //         reducer: {
-  //           onLoaded: (data) => {
-  //             return removedBulkEntities(data);
-  //           },
-  //         },
-  //       },
-  //     ],
-  //   },
-  //   selectors: {
-  //     entityLevel: ({ status }) => {
-  //       return {
-  //         isProcessing: hasStatus({ status, state: 'isLoading' }),
-  //         hasError: hasStatus({ status, state: 'hasError' }),
-  //         errors: extractAllErrors(status),
-  //       };
-  //     },
-  //     storeLevel: ({ entities, outOfContextEntities }) => {
-  //       const allEntities = [...entities, ...outOfContextEntities];
-  //       return {
-  //         hasProcessingItem: entities.some((entity) =>
-  //           hasProcessingItem(entity)
-  //         ),
-  //         totalProcessingItems: totalProcessingItems(allEntities),
-  //         totalUpdatedItems:
-  //           countEntitiesWithStatusByAction({
-  //             entities: allEntities,
-  //             actionName: 'update',
-  //             state: 'isLoaded',
-  //           }) +
-  //           countEntitiesWithStatusByAction({
-  //             entities: allEntities,
-  //             actionName: 'bulkUpdate',
-  //             state: 'isLoaded',
-  //           }),
-  //       };
-  //     },
-  //   },
-  // });
-
   constructor() {
     this.dataList.data$.pipe(takeUntilDestroyed()).subscribe((data) => {
-      console.log('dataList', data.result);
+      console.log('dataList', data.result.selectors);
     });
   }
 

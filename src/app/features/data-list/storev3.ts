@@ -16,12 +16,13 @@ import {
 import { Merge } from '../../util/types/merge';
 import {
   applyActionOnEntities,
+  applyBulkActionOnEntities,
   applySelectors,
-  BulkActionConfig,
   bulkConnectAssociatedDelayedReducer$,
   BulkDelayedReducer,
   BulkReducerConfig,
   BulkStateByMethodObservable,
+  BulkStatedDataReducer,
   connectAssociatedDelayedReducer$,
   ContextualEntities,
   DelayedReducer,
@@ -71,22 +72,34 @@ export function withEntities<TMainConfig extends DataListMainTypeScope>() {
   return (config: WithEntities<TMainConfig>) => ({ entitiesSrc: config });
 }
 
-type ActionConfig<TSrc, TMainConfig extends DataListMainTypeScope> = {
-  src: () => Observable<TSrc>;
-  query: (params: { data: TSrc }) => Observable<TMainConfig['entity']>;
-  operator: Operator; // Use switchMap as default, mergeMap is not recommended
-  // todo pass an array (of an object with reducer and delayedreducer) that can enable to use reusable reducer
-  reducer?: StatedDataReducer<
-    TMainConfig['entity'],
-    TMainConfig['pagination'],
-    TMainConfig['actions']
-  >;
-  delayedReducer?: DelayedReducer<
-    NoInfer<TMainConfig['entity']>,
-    TMainConfig['pagination'],
-    TMainConfig['actions']
-  >[];
-};
+type ActionConfig<TSrc, TMainConfig extends DataListMainTypeScope> = Merge<
+  {
+    src: () => Observable<TSrc>;
+    query: (params: { actionSrc: TSrc }) => Observable<TMainConfig['entity']>;
+    /**
+     * Use switchMap as default, mergeMap is not recommended
+     */
+    operator: Operator;
+    // todo pass an array (of an object with reducer and delayedreducer) that can enable to use reusable reducer
+    reducer?: StatedDataReducer<
+      TMainConfig['entity'],
+      TMainConfig['pagination'],
+      TMainConfig['actions']
+    >;
+    delayedReducer?: DelayedReducer<
+      NoInfer<TMainConfig['entity']>,
+      TMainConfig['pagination'],
+      TMainConfig['actions']
+    >[];
+  },
+  TSrc extends TMainConfig['entity']
+    ? {}
+    : {
+        optimisticEntity: (params: {
+          actionSrc: TSrc;
+        }) => TMainConfig['entity'];
+      }
+>;
 
 export function action<TMainConfig extends DataListMainTypeScope>() {
   return <TSrc>(
@@ -94,27 +107,6 @@ export function action<TMainConfig extends DataListMainTypeScope>() {
       ? {}
       : ActionConfig<TSrc, TMainConfig>
   ) => config as ActionConfig<TSrc, TMainConfig>;
-}
-
-type BulkActionConfig<TSrc, TMainConfig extends DataListMainTypeScope> = {
-  src: () => Observable<TSrc>;
-  query: (params: { data: TSrc }) => Observable<TMainConfig['entity'][]>;
-  operator: Operator; //Use concatMap or exhaustMap as default (switchMap and mergeMap are not recommended), because, it ait is trigger a second time during the loading phase and if the list of the selected Id change, the removed selected id will be display as loading (it may be fixed)
-  // todo pass an array (of an object with reducer and delayedreducer) that can enable to use reusable reducer
-  reducer?: StatedDataReducer<
-    TMainConfig['entity'],
-    TMainConfig['pagination'],
-    TMainConfig['actions']
-  >;
-  delayedReducer?: BulkDelayedReducer<TMainConfig>[];
-};
-
-export function withBulkAction<TMainConfig extends DataListMainTypeScope>() {
-  return <TSrc>(
-    config: TMainConfig['actions'] extends undefined
-      ? {}
-      : BulkActionConfig<TSrc, TMainConfig>
-  ) => config as BulkActionConfig<TSrc, TMainConfig>;
 }
 
 type WithBulkActions<TMainConfig extends DataListMainTypeScope> = {
@@ -132,13 +124,34 @@ export function withActions<TMainConfig extends DataListMainTypeScope>() {
   return (config: WithActions<TMainConfig>) => ({ actions: config });
 }
 
+export function bulkAction<TMainConfig extends DataListMainTypeScope>() {
+  return <TSrc>(
+    config: TMainConfig['bulkActions'] extends undefined
+      ? {}
+      : BulkActionConfig<TSrc, TMainConfig>
+  ) => config as BulkActionConfig<TSrc, TMainConfig>;
+}
+
+type BulkActionConfig<TSrc, TMainConfig extends DataListMainTypeScope> = {
+  src: () => Observable<TSrc>;
+  query: (params: { data: TSrc }) => Observable<TMainConfig['entity'][]>;
+  operator: Operator; //Use concatMap or exhaustMap as default (switchMap and mergeMap are not recommended), because, it ait is trigger a second time during the loading phase and if the list of the selected Id change, the removed selected id will be display as loading (it may be fixed)
+  // todo pass an array (of an object with reducer and delayedreducer) that can enable to use reusable reducer
+  reducer?: BulkStatedDataReducer<TMainConfig>;
+  delayedReducer?: BulkDelayedReducer<TMainConfig>[];
+};
+
+export function withBulkActions<TMainConfig extends DataListMainTypeScope>() {
+  return (config: WithBulkActions<TMainConfig>) => ({ bulkActions: config });
+}
+
 export function withSelectors<TMainConfig extends DataListMainTypeScope>() {
   return <
     TEntitySelectorsKeys extends keyof ReturnType<TEntitySelectorsFn>,
     TEntitySelectorsFn extends (
       params: EntityWithStatus<
         TMainConfig['entity'],
-        TMainConfig['actions']
+        TMainConfig['actions'] | NonNullable<TMainConfig['bulkActions']>
       > & {
         context: TMainConfig['pagination'];
       }
@@ -147,7 +160,7 @@ export function withSelectors<TMainConfig extends DataListMainTypeScope>() {
     TStoreSelectorsFn extends (
       params: ContextualEntities<
         TMainConfig['entity'],
-        TMainConfig['actions']
+        TMainConfig['actions'] | NonNullable<TMainConfig['bulkActions']>
       > & {
         context: TMainConfig['pagination'];
       }
@@ -172,33 +185,17 @@ type StorePlugin =
       actions: any;
     }
   | {
+      bulkActions: any;
+    }
+  | {
       selectors: any;
     };
 
 type MergePlugins<
-  Plugins extends readonly (
-    | {
-        entitiesSrc: any;
-      }
-    | {
-        actions: any;
-      }
-    | {
-        selectors: any;
-      }
-  )[],
+  Plugins extends readonly StorePlugin[],
   Acc = {}
 > = Plugins extends [infer First, ...infer Rest]
-  ? First extends
-      | {
-          entitiesSrc: any;
-        }
-      | {
-          actions: any;
-        }
-      | {
-          selectors: any;
-        }
+  ? First extends StorePlugin
     ? Rest extends StorePlugin[]
       ? MergePlugins<Rest, Merge<Acc, First>>
       : Merge<Acc, First>
@@ -217,6 +214,9 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
       | {
           selectors: WithSelectors<TMainConfig>;
         }
+      | {
+          bulkActions: WithBulkActions<TMainConfig>;
+        }
     )[],
     TEntitySelectors extends MergePlugins<Plugins> extends {
       selectors?: any;
@@ -231,7 +231,7 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
       ? ReturnType<
           NonNullable<MergePlugins<Plugins>['selectors']['storeLevel']>
         >
-      : null
+      : undefined
   >(
     ...plugins: Plugins
   ) => {
@@ -268,6 +268,10 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
       const api = groupByData.query; // todo rename variable
       const reducer = groupByData.reducer;
       const delayedReducer = groupByData.delayedReducer || [];
+      const optimisticEntity =
+        'optimisticEntity' in groupByData
+          ? groupByData.optimisticEntity
+          : undefined;
 
       const actionByEntity$: Observable<{
         [x: string]: {
@@ -282,11 +286,19 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
           entityIdSelector: IdSelector<TMainConfig['entity']>;
         };
       }> = src$().pipe(
-        groupBy((entity) => entityIdSelector(entity)),
+        groupBy((actionSrc) =>
+          entityIdSelector(
+            optimisticEntity ? optimisticEntity({ actionSrc }) : actionSrc
+          )
+        ),
         mergeMap((groupedEntityById$) => {
           return groupedEntityById$.pipe(
-            operatorFn((entity) => {
-              return statedStream(api({ data: entity }), entity).pipe(
+            operatorFn((actionSrc) => {
+              const entity = optimisticEntity
+                ? optimisticEntity({ actionSrc })
+                : actionSrc;
+
+              return statedStream(api({ actionSrc }), entity).pipe(
                 map((entityStatedData) => ({
                   [entityIdSelector(entity)]: {
                     entityStatedData,
@@ -326,13 +338,12 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
       ];
     }, [] as EntityStateByMethodObservable<TMainConfig['entity'], TMainConfig['pagination']>);
 
+    const bulkActionsEntries = Object.entries(configBase.bulkActions ?? {}) as [
+      NonNullable<TMainConfig['bulkActions']>,
+      BulkActionConfig<any, TMainConfig>
+    ][];
     const bulkActionsList$: BulkStateByMethodObservable<TMainConfig> =
-      Object.entries(
-        (configBase.bulkActions ?? {}) as Record<
-          string,
-          BulkActionConfig<any, TMainConfig>
-        >
-      ).reduce((acc, [methodName, groupByData]) => {
+      bulkActionsEntries.reduce((acc, [methodName, groupByData]) => {
         const src$ = groupByData.src();
         const operatorFn = groupByData.operator;
         const api = groupByData.query;
@@ -364,11 +375,18 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
         return [
           ...acc,
           bulkActions$.pipe(
-            map((bulkReducerConfig) => ({
-              [methodName]: bulkReducerConfig,
-            }))
+            map(
+              (bulkReducerConfig) =>
+                ({
+                  [methodName]: bulkReducerConfig,
+                } as Record<
+                  // todo check to remove this as, maybe transform the Record to an object in the type
+                  NonNullable<TMainConfig['bulkActions']>,
+                  BulkReducerConfig<TMainConfig>
+                >)
+            )
           ),
-        ];
+        ] satisfies BulkStateByMethodObservable<TMainConfig>;
       }, [] as BulkStateByMethodObservable<TMainConfig>);
 
     const entitiesData$ = configBase.entitiesSrc.src().pipe(
@@ -384,7 +402,7 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
     // I choose to merge the entitiesData$ and the entityLevelActionList$, that's enable to add some items even if entities are not loaded yet
     const finalResult: FinalResult<
       TMainConfig['entity'],
-      TMainConfig['actions'] & TMainConfig['bulkActions'], //  | TBulkActionsKeys// todo for bulk
+      TMainConfig['actions'] | NonNullable<TMainConfig['bulkActions']>,
       TMainConfig['pagination'],
       TEntitySelectors,
       TEntitiesSelectors
@@ -433,7 +451,8 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
                   status: {
                     ...previousEntity?.status,
                   } satisfies MethodStatus<
-                    TMainConfig['actions'] // | TBulkActionsKeys // todo bulk
+                    | TMainConfig['actions']
+                    | NonNullable<TMainConfig['bulkActions']>
                   >,
                 };
               }
@@ -470,19 +489,20 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
             };
           }
           if (action.type === 'action') {
+            debugger;
             return applyActionOnEntities({
               acc,
               actionByEntity: action.data,
               context,
             });
           }
-          // if (action.type === 'bulkAction') { // todo bulk
-          //   return applyBulkActionOnEntities({
-          //     acc,
-          //     bulkAction: action.data,
-          //     context,
-          //   });
-          // }
+          if (action.type === 'bulkAction') {
+            return applyBulkActionOnEntities({
+              acc,
+              bulkAction: action.data,
+              context,
+            });
+          }
           return acc;
         },
         {

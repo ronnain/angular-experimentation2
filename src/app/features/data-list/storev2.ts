@@ -68,7 +68,7 @@ export type BulkReducer<TMainConfig extends DataListMainTypeScope> = (
   NonNullable<TMainConfig['bulkActions']>
 >;
 
-type BulkStatedDataReducer<TMainConfig extends DataListMainTypeScope> = {
+export type BulkStatedDataReducer<TMainConfig extends DataListMainTypeScope> = {
   onLoading?: BulkReducer<TMainConfig>;
   onLoaded?: BulkReducer<TMainConfig>;
   onError?: BulkReducer<TMainConfig>;
@@ -125,11 +125,12 @@ export type BulkReducerConfig<TMainConfig extends DataListMainTypeScope> = {
 
 export type BulkStateByMethodObservable<
   TMainConfig extends DataListMainTypeScope
-> = TMainConfig['bulkActions'] extends string
-  ? Observable<
-      Record<TMainConfig['bulkActions'], BulkReducerConfig<TMainConfig>>
-    >[]
-  : never[];
+> = Observable<
+  Record<
+    NonNullable<TMainConfig['bulkActions']>,
+    BulkReducerConfig<TMainConfig>
+  >
+>[];
 
 export type ContextualEntities<TData, MethodName extends string> = {
   entities: Prettify<EntityWithStatus<TData, MethodName>>[];
@@ -482,7 +483,9 @@ export function applyActionOnEntities<
   return acc;
 }
 
-function applyBulkActionOnEntities<TMainConfig extends DataListMainTypeScope>({
+export function applyBulkActionOnEntities<
+  TMainConfig extends DataListMainTypeScope
+>({
   acc,
   bulkAction,
   context,
@@ -736,7 +739,7 @@ export function bulkConnectAssociatedDelayedReducer$<
   bulkReducerConfig: BulkReducerConfig<TMainConfig>;
   delayedReducer: BulkDelayedReducer<TMainConfig>[] | undefined;
   events: any;
-}) {
+}): Observable<BulkReducerConfig<TMainConfig>> {
   const { isLoading, isLoaded, hasError } =
     bulkReducerConfig.entitiesStatedData;
   // debugger;
