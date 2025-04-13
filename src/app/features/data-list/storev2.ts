@@ -359,6 +359,7 @@ export function applyActionOnEntities<
     hasError,
     error,
   };
+  debugger;
 
   const customReducer = isLoading
     ? reducer?.onLoading

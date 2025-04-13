@@ -76,9 +76,15 @@ export function withEntities<TMainConfig extends DataListMainTypeScope>() {
   return (config: WithEntities<TMainConfig>) => ({ entitiesSrc: config });
 }
 
-type ActionConfig<TSrc, TMainConfig extends DataListMainTypeScope> = Merge<
+type ActionConfig<
+  TSrc,
+  TMainConfig extends DataListMainTypeScope,
+  FromStoreEvents extends boolean
+> = Merge<
   {
-    src: () => Observable<TSrc>;
+    src: FromStoreEvents extends true
+      ? (params: { storeEvents: StoreEvents<TMainConfig> }) => Observable<TSrc>
+      : () => Observable<TSrc>;
     query: (params: { actionSrc: TSrc }) => Observable<TMainConfig['entity']>;
     /**
      * Use switchMap as default, mergeMap is not recommended
@@ -95,17 +101,24 @@ type ActionConfig<TSrc, TMainConfig extends DataListMainTypeScope> = Merge<
          * When the actionSrc data is not matching the entity type, this function is mandatory in order to know how to update optimistically the entity and to know which entity is affected.
          */
         optimisticEntity: (params: {
-          actionSrc: TSrc;
+          actionSrc: NoInfer<TSrc>;
         }) => TMainConfig['entity'];
       }
 >;
 
 export function action<TMainConfig extends DataListMainTypeScope>() {
-  return <TSrc>(
-    config: TMainConfig['actions'] extends undefined
-      ? {}
-      : ActionConfig<TSrc, TMainConfig>
-  ) => config as ActionConfig<TSrc, TMainConfig>;
+  return <TSrc>(config: ActionConfig<TSrc, TMainConfig, false>) => config;
+}
+
+/**
+ * When using storeEvents, the type of the action source must be explicitly defined.
+ * Otherwise, TS will not be able to infer the type of the action source correctly.
+ */
+export function actionFromStoreEvent<
+  TMainConfig extends DataListMainTypeScope,
+  TSrc
+>() {
+  return (config: ActionConfig<TSrc, TMainConfig, true>) => config;
 }
 
 type WithBulkActions<TMainConfig extends DataListMainTypeScope> = {
@@ -116,7 +129,7 @@ type WithBulkActions<TMainConfig extends DataListMainTypeScope> = {
 };
 
 type WithActions<TMainConfig extends DataListMainTypeScope> = {
-  [key in TMainConfig['actions']]: ActionConfig<any, TMainConfig>;
+  [key in TMainConfig['actions']]: ActionConfig<any, TMainConfig, true>;
 };
 
 export function withActions<TMainConfig extends DataListMainTypeScope>() {
@@ -243,6 +256,7 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
         >
       : undefined
   >(
+    // todo transform to a function that have the storeEvents as parameter and return the plugins ?
     ...plugins: Plugins
   ) => {
     let base = {};
@@ -265,7 +279,7 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
 
     const actionEvents = createActionEventSubjects<TMainConfig>(configBase);
 
-    const events = {
+    const storeEvents: StoreEvents<TMainConfig> = {
       action: actionEvents,
     };
 
@@ -273,7 +287,7 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
       Object.entries(
         (configBase.actions ?? {}) as Record<
           string,
-          ActionConfig<any, TMainConfig>
+          ActionConfig<any, TMainConfig, true>
         >
       ).reduce((acc, [methodName, groupByData]) => {
         const src$ = groupByData.src;
@@ -292,7 +306,7 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
             reducer: StatedDataReducer<TMainConfig> | undefined;
             entityIdSelector: IdSelector<TMainConfig>;
           };
-        }> = src$().pipe(
+        }> = src$({ storeEvents }).pipe(
           groupBy((actionSrc) =>
             entityIdSelector(
               optimisticEntity ? optimisticEntity({ actionSrc }) : actionSrc
@@ -317,7 +331,7 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
                     connectAssociatedDelayedReducer$<TMainConfig>({
                       entityReducerConfigWithMethod,
                       delayedReducer,
-                      events,
+                      events: storeEvents,
                       entityIdSelector,
                     })
                   )
@@ -371,7 +385,7 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
                 bulkConnectAssociatedDelayedReducer$<TMainConfig>({
                   bulkReducerConfig,
                   delayedReducer,
-                  events,
+                  events: storeEvents,
                 })
               )
             );
@@ -532,13 +546,13 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
 
     return {
       data$: finalResult,
-      events,
+      events: storeEvents,
     } as {
       /**
        * prefer to subscribe to the data$ property using the async pipe like: @let data = data$ | async;
        */
       data$: Observable<ObservedValueOf<typeof finalResult>>;
-      events: typeof events;
+      events: typeof storeEvents;
     };
   };
 }
@@ -549,6 +563,13 @@ export type ActionSubjectEvent<TMainConfig extends DataListMainTypeScope> = {
   entityWithStatus: EntityWithStatus<TMainConfig>;
 };
 
+export type StoreEvents<TMainConfig extends DataListMainTypeScope> = {
+  action: Record<
+    TMainConfig['actions'],
+    Subject<ActionSubjectEvent<TMainConfig>>
+  >;
+};
+
 function createActionEventSubjects<
   TMainConfig extends DataListMainTypeScope
 >(configBase: {
@@ -557,7 +578,7 @@ function createActionEventSubjects<
   return Object.entries(
     (configBase.actions ?? {}) as Record<
       TMainConfig['actions'],
-      ActionConfig<any, TMainConfig>
+      ActionConfig<any, TMainConfig, true>
     >
   ).reduce((acc, [actionName, actionConfig]) => {
     const name = actionName as TMainConfig['actions'];

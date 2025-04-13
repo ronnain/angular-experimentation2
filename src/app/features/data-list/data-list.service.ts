@@ -89,7 +89,7 @@ export class DataListService {
     status: 'error' | 'success';
   }) {
     if (status === 'error') {
-      return timer(5000).pipe(
+      return timer(2000).pipe(
         map(() => {
           throw new Error(`Error updating item ${entity.name}, please retry`);
         })
@@ -101,6 +101,20 @@ export class DataListService {
       )
     );
     return of(entity).pipe(delay(2000));
+  }
+
+  getItemById(itemId: DataItem['id']) {
+    return this.dataList$.pipe(
+      take(1),
+      map((dataList) => {
+        const item = dataList.find((dataItem) => dataItem.id === itemId);
+        if (!item) {
+          throw new Error(`failed to find the item ${itemId}`);
+        }
+        return item;
+      }),
+      delay(2000)
+    );
   }
 
   bulkUpdate({

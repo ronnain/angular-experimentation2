@@ -5,15 +5,20 @@ import { CommonModule } from '@angular/common';
 import {
   BehaviorSubject,
   concatMap,
+  delay,
   exhaustMap,
+  filter,
   interval,
   map,
+  Observable,
+  of,
   race,
   skip,
   startWith,
   Subject,
   switchMap,
   takeWhile,
+  tap,
   timer,
 } from 'rxjs';
 import {
@@ -31,6 +36,8 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   action,
+  actionFromStoreEvent,
+  ActionSubjectEvent,
   bulkAction,
   DataListStoreType,
   store,
@@ -49,7 +56,7 @@ type MyDataListStoreType = DataListStoreType<{
   // autocompletion is enabled
   entity: DataItem;
   pagination: Pagination;
-  actions: 'update' | 'delete' | 'create';
+  actions: 'update' | 'delete' | 'create' | 'refresh';
   bulkActions: 'bulkUpdate' | 'bulkDelete';
 }>;
 
@@ -155,6 +162,31 @@ export class DataListComponent {
             },
           },
         ],
+      }),
+      // toto mettre le delay 0 à tous les storeEvents pour attendre de l'action en cours soit bien fini
+      // todo mettre les storeEvents dans les delayed pour permettre de supprimer tous les status une fois rafraîchi sauf si un event est arrivé avant et dans ce cas jsute upprimer le statu refrash?
+      refresh: actionFromStoreEvent<
+        MyDataListStoreType,
+        ActionSubjectEvent<MyDataListStoreType>
+      >()({
+        src: ({ storeEvents }) =>
+          storeEvents.action.update.pipe(
+            tap({
+              next: (data) => console.log('[update] data', data),
+            }),
+            filter((storeEvent) => storeEvent.status.hasError),
+            tap({
+              next: (data) => console.log('[update go] data', data),
+            }),
+            delay(0)
+          ),
+        operator: switchMap,
+        query: ({ actionSrc }) => {
+          return this.dataListService.getItemById(
+            actionSrc.entityWithStatus.entity.id
+          );
+        },
+        optimisticEntity: ({ actionSrc }) => actionSrc.entityWithStatus.entity,
       }),
     }),
     withBulkActions<MyDataListStoreType>()({
