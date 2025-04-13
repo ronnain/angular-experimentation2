@@ -249,6 +249,12 @@ export class DataListComponent {
     this.dataList.data$.pipe(takeUntilDestroyed()).subscribe((data) => {
       console.log('dataList', data.result.selectors);
     });
+
+    this.dataList.events.action.update
+      .pipe(takeUntilDestroyed())
+      .subscribe((data) => {
+        console.log('update events', data);
+      });
   }
 
   previousPage() {

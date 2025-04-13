@@ -9,7 +9,9 @@ import {
   scan,
   share,
   shareReplay,
+  Subject,
   switchMap,
+  tap,
   timer,
   withLatestFrom,
 } from 'rxjs';
@@ -65,7 +67,7 @@ type WithEntities<TMainConfig extends DataListMainTypeScope> =
       data: TMainConfig['pagination'];
     }) => Observable<TMainConfig['entity'][]>;
     initialData?: TMainConfig['entity'][];
-    entityIdSelector: IdSelector<TMainConfig['entity']>;
+    entityIdSelector: IdSelector<TMainConfig>;
   };
 
 export function withEntities<TMainConfig extends DataListMainTypeScope>() {
@@ -81,16 +83,8 @@ type ActionConfig<TSrc, TMainConfig extends DataListMainTypeScope> = Merge<
      */
     operator: Operator;
     // todo pass an array (of an object with reducer and delayedreducer) that can enable to use reusable reducer
-    reducer?: StatedDataReducer<
-      TMainConfig['entity'],
-      TMainConfig['pagination'],
-      TMainConfig['actions']
-    >;
-    delayedReducer?: DelayedReducer<
-      NoInfer<TMainConfig['entity']>,
-      TMainConfig['pagination'],
-      TMainConfig['actions']
-    >[];
+    reducer?: StatedDataReducer<TMainConfig>;
+    delayedReducer?: DelayedReducer<TMainConfig>[];
   },
   TSrc extends TMainConfig['entity']
     ? {}
@@ -169,19 +163,13 @@ export function withSelectors<TMainConfig extends DataListMainTypeScope>() {
   return <
     TEntitySelectorsKeys extends keyof ReturnType<TEntitySelectorsFn>,
     TEntitySelectorsFn extends (
-      params: EntityWithStatus<
-        TMainConfig['entity'],
-        TMainConfig['actions'] | NonNullable<TMainConfig['bulkActions']>
-      > & {
+      params: EntityWithStatus<TMainConfig> & {
         context: TMainConfig['pagination'];
       }
     ) => Record<TEntitySelectorsKeys, unknown>,
     TStoreSelectorsKeys extends keyof ReturnType<TStoreSelectorsFn>,
     TStoreSelectorsFn extends (
-      params: ContextualEntities<
-        TMainConfig['entity'],
-        TMainConfig['actions'] | NonNullable<TMainConfig['bulkActions']>
-      > & {
+      params: ContextualEntities<TMainConfig> & {
         context: TMainConfig['pagination'];
       }
     ) => Record<TStoreSelectorsKeys, unknown>
@@ -272,91 +260,80 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
     };
 
     const entityIdSelector = configBase.entitiesSrc.entityIdSelector;
-    const events = {}; // todo
 
-    const entityLevelActionList$: EntityStateByMethodObservable<
-      TMainConfig['entity'],
-      any
-    > = Object.entries(
-      (configBase.actions ?? {}) as Record<
-        string,
-        ActionConfig<any, TMainConfig>
-      >
-    ).reduce((acc, [methodName, groupByData]) => {
-      const src$ = groupByData.src;
-      const operatorFn = groupByData.operator;
-      const api = groupByData.query; // todo rename variable
-      const reducer = groupByData.reducer;
-      const delayedReducer = groupByData.delayedReducer || [];
-      const optimisticEntity =
-        'optimisticEntity' in groupByData
-          ? groupByData.optimisticEntity
-          : undefined;
+    const actionEvents = createActionEventSubjects<TMainConfig>(configBase);
 
-      const actionByEntity$: Observable<{
-        [x: string]: {
-          entityStatedData: StatedData<TMainConfig['entity']>;
-          reducer:
-            | StatedDataReducer<
-                TMainConfig['entity'],
-                TMainConfig['pagination'],
-                TMainConfig['actions']
-              >
-            | undefined;
-          entityIdSelector: IdSelector<TMainConfig['entity']>;
-        };
-      }> = src$().pipe(
-        groupBy((actionSrc) =>
-          entityIdSelector(
-            optimisticEntity ? optimisticEntity({ actionSrc }) : actionSrc
-          )
-        ),
-        mergeMap((groupedEntityById$) => {
-          return groupedEntityById$.pipe(
-            operatorFn((actionSrc) => {
-              const entity = optimisticEntity
-                ? optimisticEntity({ actionSrc })
-                : actionSrc;
+    const events = {
+      action: actionEvents,
+    };
 
-              return statedStream(api({ actionSrc }), entity).pipe(
-                map((entityStatedData) => ({
-                  [entityIdSelector(entity)]: {
-                    entityStatedData,
-                    reducer,
-                    entityIdSelector,
-                  } satisfies EntityReducerConfig<
-                    TMainConfig['entity'],
-                    TMainConfig['pagination'],
-                    TMainConfig['actions']
-                  >,
-                })),
-                switchMap((entityReducerConfigWithMethod) =>
-                  connectAssociatedDelayedReducer$<
-                    TMainConfig['entity'],
-                    TMainConfig['pagination'],
-                    TMainConfig['actions']
-                  >({
-                    entityReducerConfigWithMethod,
-                    delayedReducer,
-                    events,
-                    entityIdSelector,
-                  })
-                )
-              );
-            })
-          );
-        })
-      );
+    const entityLevelActionList$: EntityStateByMethodObservable<TMainConfig> =
+      Object.entries(
+        (configBase.actions ?? {}) as Record<
+          string,
+          ActionConfig<any, TMainConfig>
+        >
+      ).reduce((acc, [methodName, groupByData]) => {
+        const src$ = groupByData.src;
+        const operatorFn = groupByData.operator;
+        const api = groupByData.query; // todo rename variable
+        const reducer = groupByData.reducer;
+        const delayedReducer = groupByData.delayedReducer || [];
+        const optimisticEntity =
+          'optimisticEntity' in groupByData
+            ? groupByData.optimisticEntity
+            : undefined;
 
-      return [
-        ...acc,
-        actionByEntity$.pipe(
-          map((groupedEntityById) => ({
-            [methodName]: groupedEntityById,
-          }))
-        ),
-      ];
-    }, [] as EntityStateByMethodObservable<TMainConfig['entity'], TMainConfig['pagination']>);
+        const actionByEntity$: Observable<{
+          [x: string]: {
+            entityStatedData: StatedData<TMainConfig['entity']>;
+            reducer: StatedDataReducer<TMainConfig> | undefined;
+            entityIdSelector: IdSelector<TMainConfig>;
+          };
+        }> = src$().pipe(
+          groupBy((actionSrc) =>
+            entityIdSelector(
+              optimisticEntity ? optimisticEntity({ actionSrc }) : actionSrc
+            )
+          ),
+          mergeMap((groupedEntityById$) => {
+            return groupedEntityById$.pipe(
+              operatorFn((actionSrc) => {
+                const entity = optimisticEntity
+                  ? optimisticEntity({ actionSrc })
+                  : actionSrc;
+
+                return statedStream(api({ actionSrc }), entity).pipe(
+                  map((entityStatedData) => ({
+                    [entityIdSelector(entity)]: {
+                      entityStatedData,
+                      reducer,
+                      entityIdSelector,
+                    } satisfies EntityReducerConfig<TMainConfig>,
+                  })),
+                  switchMap((entityReducerConfigWithMethod) =>
+                    connectAssociatedDelayedReducer$<TMainConfig>({
+                      entityReducerConfigWithMethod,
+                      delayedReducer,
+                      events,
+                      entityIdSelector,
+                    })
+                  )
+                );
+              })
+            );
+          })
+        );
+
+        return [
+          ...acc,
+          actionByEntity$.pipe(
+            map((groupedEntityById) => ({
+              [methodName]: groupedEntityById,
+            }))
+          ),
+        ];
+      }, [] as EntityStateByMethodObservable<TMainConfig>);
 
     const bulkActionsEntries = Object.entries(configBase.bulkActions ?? {}) as [
       NonNullable<TMainConfig['bulkActions']>,
@@ -428,9 +405,7 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
 
     // I choose to merge the entitiesData$ and the entityLevelActionList$, that's enable to add some items even if entities are not loaded yet
     const finalResult: FinalResult<
-      TMainConfig['entity'],
-      TMainConfig['actions'] | NonNullable<TMainConfig['bulkActions']>,
-      TMainConfig['pagination'],
+      TMainConfig,
       TEntitySelectors,
       TEntitiesSelectors
     > = merge(
@@ -477,10 +452,7 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
                   entity,
                   status: {
                     ...previousEntity?.status,
-                  } satisfies MethodStatus<
-                    | TMainConfig['actions']
-                    | NonNullable<TMainConfig['bulkActions']>
-                  >,
+                  } satisfies MethodStatus<TMainConfig>,
                 };
               }
             );
@@ -516,7 +488,6 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
             };
           }
           if (action.type === 'action') {
-            debugger;
             return applyActionOnEntities({
               acc,
               actionByEntity: action.data,
@@ -542,15 +513,7 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
             outOfContextEntities: [],
             context: undefined,
           },
-        } satisfies StatedEntities<
-          TMainConfig['entity'],
-          TMainConfig['actions'],
-          TMainConfig['pagination']
-        > as StatedEntities<
-          TMainConfig['entity'],
-          TMainConfig['actions'],
-          TMainConfig['pagination']
-        > // satisfies apply an as const effect
+        } satisfies StatedEntities<TMainConfig> as StatedEntities<TMainConfig> // satisfies apply an as const effect
       ),
       applySelectors<TMainConfig, TEntitySelectors, TEntitiesSelectors>(
         configBase.selectors
@@ -560,11 +523,37 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
 
     return {
       data$: finalResult,
+      events,
     } as {
       /**
        * prefer to subscribe to the data$ property using the async pipe like: @let data = data$ | async;
        */
       data$: Observable<ObservedValueOf<typeof finalResult>>;
+      events: typeof events;
     };
   };
+}
+
+type ActionSubjectEvent<TMainConfig extends DataListMainTypeScope> = {
+  statusType: 'loading' | 'loaded' | 'error';
+  context: TMainConfig['pagination'];
+  actionSrc: any;
+  entityWithStatus: EntityWithStatus<TMainConfig>;
+};
+
+function createActionEventSubjects<
+  TMainConfig extends DataListMainTypeScope
+>(configBase: {
+  actions: WithActions<TMainConfig>;
+}): Record<TMainConfig['actions'], Subject<ActionSubjectEvent<TMainConfig>>> {
+  return Object.entries(
+    (configBase.actions ?? {}) as Record<
+      TMainConfig['actions'],
+      ActionConfig<any, TMainConfig>
+    >
+  ).reduce((acc, [actionName, actionConfig]) => {
+    const name = actionName as TMainConfig['actions'];
+    acc[name] = new Subject<ActionSubjectEvent<TMainConfig>>();
+    return acc;
+  }, {} as Record<TMainConfig['actions'], Subject<ActionSubjectEvent<TMainConfig>>>);
 }

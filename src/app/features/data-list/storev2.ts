@@ -24,24 +24,23 @@ export type Operator = <T, R>(
 
 type MethodName = string;
 
-export type IdSelector<TData> = (entity: TData) => string | number;
+export type IdSelector<TMainConfig extends DataListMainTypeScope> = (
+  entity: TMainConfig['entity']
+) => string | number;
 
-export type ReducerParams<TData, TContext, MethodName extends string> = {
+export type ReducerParams<TMainConfig extends DataListMainTypeScope> = {
   id: string | number;
   status: EntityStatus;
-  entityWithStatus: Prettify<EntityWithStatus<TData, MethodName>>; // todo check why there is still status here ?
-  entityIdSelector: IdSelector<TData>;
-  context: TContext;
-} & ContextualEntities<TData, MethodName>;
+  entityWithStatus: Prettify<EntityWithStatus<TMainConfig>>; // todo check why there is still status here ?
+  entityIdSelector: IdSelector<TMainConfig>;
+  context: TMainConfig['pagination'];
+} & ContextualEntities<TMainConfig>;
 
 export type BulkReducerParams<TMainConfig extends DataListMainTypeScope> = {
-  bulkEntities: EntityWithStatus<TMainConfig['entity'], MethodName>[];
-  entityIdSelector: IdSelector<TMainConfig['entity']>;
+  bulkEntities: EntityWithStatus<TMainConfig>[];
+  entityIdSelector: IdSelector<TMainConfig>;
   context: TMainConfig['pagination'];
-} & ContextualEntities<
-  TMainConfig['entity'],
-  NonNullable<TMainConfig['bulkActions']>
->;
+} & ContextualEntities<TMainConfig>;
 
 export type StatedData<T> = {
   readonly isLoading: boolean;
@@ -51,22 +50,19 @@ export type StatedData<T> = {
   readonly result: T;
 };
 
-export type Reducer<TData, TContext, MethodName extends string> = (
-  data: Prettify<ReducerParams<TData, TContext, MethodName>>
-) => ContextualEntities<TData, MethodName>;
+export type Reducer<TMainConfig extends DataListMainTypeScope> = (
+  data: Prettify<ReducerParams<TMainConfig>>
+) => ContextualEntities<TMainConfig>;
 
-export type StatedDataReducer<TData, TContext, MethodName extends string> = {
-  onLoading?: Reducer<TData, TContext, MethodName>;
-  onLoaded?: Reducer<TData, TContext, MethodName>;
-  onError?: Reducer<TData, TContext, MethodName>;
+export type StatedDataReducer<TMainConfig extends DataListMainTypeScope> = {
+  onLoading?: Reducer<TMainConfig>;
+  onLoaded?: Reducer<TMainConfig>;
+  onError?: Reducer<TMainConfig>;
 };
 
 export type BulkReducer<TMainConfig extends DataListMainTypeScope> = (
   data: BulkReducerParams<TMainConfig>
-) => ContextualEntities<
-  TMainConfig['entity'],
-  NonNullable<TMainConfig['bulkActions']>
->;
+) => ContextualEntities<TMainConfig>;
 
 export type BulkStatedDataReducer<TMainConfig extends DataListMainTypeScope> = {
   onLoading?: BulkReducer<TMainConfig>;
@@ -75,44 +71,44 @@ export type BulkStatedDataReducer<TMainConfig extends DataListMainTypeScope> = {
 };
 
 type StatedDataReducerWithoutOnLoading<
-  TData,
-  TContext,
-  MethodName extends string
-> = Omit<StatedDataReducer<TData, TContext, MethodName>, 'onLoading'>;
+  TMainConfig extends DataListMainTypeScope
+> = Omit<StatedDataReducer<TMainConfig>, 'onLoading'>;
 
 type BulkStatedDataReducerWithoutOnLoading<
   TMainConfig extends DataListMainTypeScope
 > = Omit<BulkStatedDataReducer<TMainConfig>, 'onLoading'>;
 
 export type EntityStatus = Prettify<Omit<StatedData<unknown>, 'result'>>;
-export type EntityWithStatus<TData, MethodName extends string> = {
-  entity: TData;
-  status: MethodStatus<MethodName>;
+export type EntityWithStatus<TMainConfig extends DataListMainTypeScope> = {
+  entity: TMainConfig['entity'];
+  status: MethodStatus<TMainConfig>;
 };
-type EntityWithStatusWithSelectors<
-  TData,
-  MethodName extends string,
-  TEntitySelectors
-> = {
-  entity: TData;
-  status: MethodStatus<MethodName>;
-  selectors: TEntitySelectors;
-};
-export type MethodStatus<MethodName extends string> = Partial<
-  Record<MethodName, EntityStatus>
+type EntityWithStatusWithSelectors<TMainConfig extends DataListMainTypeScope> =
+  {
+    entity: TMainConfig['entity'];
+    status: MethodStatus<TMainConfig>;
+    selectors: any;
+  };
+export type MethodStatus<TMainConfig extends DataListMainTypeScope> = Partial<
+  Record<
+    TMainConfig['actions'] | NonNullable<TMainConfig['bulkActions']>,
+    EntityStatus
+  >
 >;
 
-export type EntityReducerConfig<TData, TContext, MethodName extends string> = {
-  entityStatedData: StatedData<TData>;
-  reducer: StatedDataReducer<TData, TContext, MethodName> | undefined;
-  entityIdSelector: IdSelector<TData>;
+export type EntityReducerConfig<TMainConfig extends DataListMainTypeScope> = {
+  entityStatedData: StatedData<TMainConfig['entity']>;
+  reducer: StatedDataReducer<TMainConfig> | undefined;
+  entityIdSelector: IdSelector<TMainConfig>;
 };
 
-export type EntityStateByMethodObservable<TData, TContext> = Observable<
+export type EntityStateByMethodObservable<
+  TMainConfig extends DataListMainTypeScope
+> = Observable<
   Record<
     MethodName,
     {
-      [x: string]: EntityReducerConfig<TData, TContext, MethodName>;
+      [x: string]: EntityReducerConfig<TMainConfig>;
     }
   >
 >[];
@@ -120,7 +116,7 @@ export type EntityStateByMethodObservable<TData, TContext> = Observable<
 export type BulkReducerConfig<TMainConfig extends DataListMainTypeScope> = {
   entitiesStatedData: StatedData<TMainConfig['entity'][]>;
   reducer: BulkStatedDataReducer<TMainConfig> | undefined;
-  entityIdSelector: IdSelector<TMainConfig['entity']>;
+  entityIdSelector: IdSelector<TMainConfig>;
 };
 
 export type BulkStateByMethodObservable<
@@ -132,31 +128,26 @@ export type BulkStateByMethodObservable<
   >
 >[];
 
-export type ContextualEntities<TData, MethodName extends string> = {
-  entities: Prettify<EntityWithStatus<TData, MethodName>>[];
-  outOfContextEntities: Prettify<EntityWithStatus<TData, MethodName>>[];
+export type ContextualEntities<TMainConfig extends DataListMainTypeScope> = {
+  entities: Prettify<EntityWithStatus<TMainConfig>>[];
+  outOfContextEntities: Prettify<EntityWithStatus<TMainConfig>>[];
 };
 
-export type StatedEntities<
-  TData,
-  MethodName extends string,
-  TContext
-> = StatedData<
-  ContextualEntities<TData, MethodName> & {
-    context: TContext | undefined;
-  }
->;
+export type StatedEntities<TMainConfig extends DataListMainTypeScope> =
+  StatedData<
+    ContextualEntities<TMainConfig> & {
+      context: TMainConfig['pagination'] | undefined;
+    }
+  >;
 
 type StatedEntitiesWithSelectors<
-  TData,
-  MethodName extends string,
-  TContext,
+  TMainConfig extends DataListMainTypeScope,
   TEntitySelectors,
   TStoreSelectors
 > = StatedData<
   Prettify<
-    ContextualEntitiesWithSelectors<TData, MethodName, TEntitySelectors> & {
-      context: TContext | undefined;
+    ContextualEntitiesWithSelectors<TMainConfig> & {
+      context: TMainConfig['pagination'] | undefined;
       /**
        * Selectors that are used to select the entities in the store
        */
@@ -166,20 +157,14 @@ type StatedEntitiesWithSelectors<
 >;
 
 type ContextualEntitiesWithSelectors<
-  TData,
-  MethodName extends string,
-  TEntitySelectors
+  TMainConfig extends DataListMainTypeScope
 > = {
-  entities: Prettify<
-    EntityWithStatusWithSelectors<TData, MethodName, TEntitySelectors>
-  >[];
-  outOfContextEntities: Prettify<
-    EntityWithStatusWithSelectors<TData, MethodName, TEntitySelectors>
-  >[];
+  entities: Prettify<EntityWithStatusWithSelectors<TMainConfig>>[];
+  outOfContextEntities: Prettify<EntityWithStatusWithSelectors<TMainConfig>>[];
 };
 
-export type DelayedReducer<TData, TContext, MethodName extends string> = {
-  reducer: StatedDataReducerWithoutOnLoading<TData, TContext, MethodName>;
+export type DelayedReducer<TMainConfig extends DataListMainTypeScope> = {
+  reducer: StatedDataReducerWithoutOnLoading<TMainConfig>;
   notifier: (events: any) => Observable<unknown>; // it can be used to removed an entity from the lists after a certain time or a certain trigger
 };
 
@@ -234,32 +219,24 @@ export type BulkActionConfig<TSrc, TData> = {
 };
 
 export type FinalResult<
-  TData,
-  TEntityLevelActionsKeys extends string,
-  TContext,
+  TMainConfig extends DataListMainTypeScope,
   TEntitySelectors,
   TStoreSelectors
 > = Observable<
   Prettify<
-    StatedEntitiesWithSelectors<
-      TData,
-      TEntityLevelActionsKeys,
-      TContext,
-      TEntitySelectors,
-      TStoreSelectors
-    >
+    StatedEntitiesWithSelectors<TMainConfig, TEntitySelectors, TStoreSelectors>
   >
 >;
 
-type Selectors<TData, MethodName extends string, TContext> = {
+type Selectors<TMainConfig extends DataListMainTypeScope> = {
   entityLevel?: (
-    params: EntityWithStatus<TData, MethodName> & {
-      context: TContext | undefined;
+    params: EntityWithStatus<TMainConfig> & {
+      context: TMainConfig['pagination'] | undefined;
     }
   ) => Record<string, unknown>;
   storeLevel?: (
-    params: ContextualEntities<TData, MethodName> & {
-      context: TContext | undefined;
+    params: ContextualEntities<TMainConfig> & {
+      context: TMainConfig['pagination'] | undefined;
     }
   ) => Record<string, unknown>;
 };
@@ -276,15 +253,12 @@ type Selectors<TData, MethodName extends string, TContext> = {
 export type WithSelectors<TMainConfig extends DataListMainTypeScope> = {
   // todo make it optional
   entityLevel?: (
-    params: EntityWithStatus<TMainConfig['entity'], TMainConfig['actions']> & {
+    params: EntityWithStatus<TMainConfig> & {
       context: TMainConfig['pagination'];
     }
   ) => Record<string, unknown>;
   storeLevel?: (
-    params: ContextualEntities<
-      TMainConfig['entity'],
-      TMainConfig['actions']
-    > & {
+    params: ContextualEntities<TMainConfig> & {
       context: TMainConfig['pagination'];
     }
   ) => Record<string, unknown>;
@@ -295,61 +269,51 @@ export function applySelectors<
   TEntitySelectors,
   TEntitiesSelectors
 >(selectors?: WithSelectors<TMainConfig>) {
-  return map(
-    (
-      acc: StatedEntities<
-        TMainConfig['entity'],
-        TMainConfig['actions'],
-        TMainConfig['pagination']
-      >
-    ) => ({
-      ...acc,
-      result: {
-        ...acc.result,
-        entities: acc.result.entities.map((entityData) => ({
+  return map((acc: StatedEntities<TMainConfig>) => ({
+    ...acc,
+    result: {
+      ...acc.result,
+      entities: acc.result.entities.map((entityData) => ({
+        ...entityData,
+        selectors: selectors?.entityLevel?.({
+          ...entityData,
+          context: acc.result.context,
+        }) as TEntitySelectors,
+      })),
+      outOfContextEntities: acc.result.outOfContextEntities.map(
+        (entityData) => ({
           ...entityData,
           selectors: selectors?.entityLevel?.({
             ...entityData,
             context: acc.result.context,
           }) as TEntitySelectors,
-        })),
-        outOfContextEntities: acc.result.outOfContextEntities.map(
-          (entityData) => ({
-            ...entityData,
-            selectors: selectors?.entityLevel?.({
-              ...entityData,
-              context: acc.result.context,
-            }) as TEntitySelectors,
-          })
-        ),
-        selectors: selectors?.storeLevel?.({
-          context: acc.result.context,
-          entities: acc.result.entities,
-          outOfContextEntities: acc.result.outOfContextEntities,
-        }) as TEntitiesSelectors,
-      },
-    })
-  );
+        })
+      ),
+      selectors: selectors?.storeLevel?.({
+        context: acc.result.context,
+        entities: acc.result.entities,
+        outOfContextEntities: acc.result.outOfContextEntities,
+      }) as TEntitiesSelectors,
+    },
+  }));
 }
 
 export function applyActionOnEntities<
-  TData,
-  SrcContext,
-  MethodName extends string
+  TMainConfig extends DataListMainTypeScope
 >({
   acc,
   actionByEntity,
   context,
 }: {
-  acc: StatedEntities<TData, MethodName, SrcContext>;
+  acc: StatedEntities<TMainConfig>;
   actionByEntity: Record<
     string,
     {
-      [x: string]: EntityReducerConfig<TData, SrcContext, MethodName>;
+      [x: string]: EntityReducerConfig<TMainConfig>;
     }
   >;
-  context: SrcContext;
-}): StatedEntities<TData, MethodName, SrcContext> {
+  context: TMainConfig['pagination'];
+}): StatedEntities<TMainConfig> {
   const methodName = Object.keys(actionByEntity)[0];
   const entityId = Object.keys(actionByEntity[methodName])[0];
   const {
@@ -367,14 +331,15 @@ export function applyActionOnEntities<
       (entityData) =>
         entityData.entity && entityIdSelector(entityData.entity) == entityId
     );
-  const updatedEntityValue: TData | undefined = previousEntityWithStatus?.entity
-    ? {
-        ...previousEntityWithStatus.entity,
-        ...incomingEntityValue,
-      }
-    : incomingEntityValue;
+  const updatedEntityValue: TMainConfig['entity'] | undefined =
+    previousEntityWithStatus?.entity
+      ? {
+          ...previousEntityWithStatus.entity,
+          ...incomingEntityValue,
+        }
+      : incomingEntityValue;
 
-  const updatedEntity: EntityWithStatus<TData, MethodName> = {
+  const updatedEntity: EntityWithStatus<TMainConfig> = {
     ...previousEntityWithStatus,
     entity: updatedEntityValue,
     status: {
@@ -385,7 +350,7 @@ export function applyActionOnEntities<
         hasError,
         error,
       },
-    } as MethodStatus<MethodName>,
+    } as MethodStatus<TMainConfig>,
   };
   const incomingMethodStatus: EntityStatus = {
     isLoading,
@@ -490,22 +455,13 @@ export function applyBulkActionOnEntities<
   bulkAction,
   context,
 }: {
-  acc: StatedEntities<
-    TMainConfig['entity'],
-    NonNullable<TMainConfig['bulkActions']> &
-      NonNullable<TMainConfig['actions']>,
-    TMainConfig['pagination']
-  >;
+  acc: StatedEntities<TMainConfig>;
   bulkAction: Record<
     NonNullable<TMainConfig['bulkActions']>,
     BulkReducerConfig<TMainConfig>
   >;
   context: TMainConfig['pagination'];
-}): StatedEntities<
-  TMainConfig['entity'],
-  NonNullable<TMainConfig['bulkActions']> & NonNullable<TMainConfig['actions']>,
-  TMainConfig['pagination']
-> {
+}): StatedEntities<TMainConfig> {
   const methodName = Object.keys(bulkAction)[0] as NonNullable<
     TMainConfig['bulkActions']
   > &
@@ -533,31 +489,28 @@ export function applyBulkActionOnEntities<
       )
     );
 
-  const updatedEntities: EntityWithStatus<
-    TMainConfig['entity'],
-    NonNullable<TMainConfig['bulkActions']> &
-      NonNullable<TMainConfig['actions']>
-  >[] = previousEntitiesWithStatus.map((previousEntityWithStatus) => {
-    return {
-      entity: {
-        ...previousEntityWithStatus.entity,
-        ...incomingEntitiesValue.find(
-          (selectedEntity) =>
-            entityIdSelector(selectedEntity) ===
-            entityIdSelector(previousEntityWithStatus.entity)
-        ),
-      },
-      status: {
-        ...previousEntityWithStatus.status,
-        [methodName]: {
-          isLoading,
-          isLoaded,
-          hasError,
-          error,
+  const updatedEntities: EntityWithStatus<TMainConfig>[] =
+    previousEntitiesWithStatus.map((previousEntityWithStatus) => {
+      return {
+        entity: {
+          ...previousEntityWithStatus.entity,
+          ...incomingEntitiesValue.find(
+            (selectedEntity) =>
+              entityIdSelector(selectedEntity) ===
+              entityIdSelector(previousEntityWithStatus.entity)
+          ),
         },
-      },
-    };
-  });
+        status: {
+          ...previousEntityWithStatus.status,
+          [methodName]: {
+            isLoading,
+            isLoaded,
+            hasError,
+            error,
+          },
+        },
+      };
+    });
 
   const customReducer = (
     isLoading
@@ -636,16 +589,16 @@ export function applyBulkActionOnEntities<
   return acc;
 }
 
-function replaceEntityIn<TData, MethodName extends string>({
+function replaceEntityIn<TMainConfig extends DataListMainTypeScope>({
   entities,
   entityId,
   updatedEntity,
   entityIdSelector,
 }: {
-  entities: EntityWithStatus<TData, MethodName>[];
+  entities: EntityWithStatus<TMainConfig>[];
   entityId: string; // todo remove this field and use only the entityIdSelector
-  updatedEntity: EntityWithStatus<TData, MethodName>;
-  entityIdSelector: IdSelector<TData>;
+  updatedEntity: EntityWithStatus<TMainConfig>;
+  entityIdSelector: IdSelector<TMainConfig>;
 }) {
   return entities?.map((entityData) => {
     if (entityIdSelector(entityData.entity) != entityId) {
@@ -657,9 +610,7 @@ function replaceEntityIn<TData, MethodName extends string>({
 }
 
 export function connectAssociatedDelayedReducer$<
-  TDataConnect,
-  SrcContext,
-  MethodName extends string
+  TMainConfig extends DataListMainTypeScope
 >({
   entityReducerConfigWithMethod,
   delayedReducer,
@@ -668,12 +619,10 @@ export function connectAssociatedDelayedReducer$<
 }: {
   entityReducerConfigWithMethod: Record<
     string,
-    EntityReducerConfig<TDataConnect, SrcContext, MethodName>
+    EntityReducerConfig<TMainConfig>
   >;
-  delayedReducer:
-    | DelayedReducer<TDataConnect, SrcContext, MethodName>[]
-    | undefined;
-  entityIdSelector: IdSelector<TDataConnect>;
+  delayedReducer: DelayedReducer<TMainConfig>[] | undefined;
+  entityIdSelector: IdSelector<TMainConfig>;
   events: any;
 }) {
   const id = Object.keys(entityReducerConfigWithMethod)[0];
@@ -694,11 +643,7 @@ export function connectAssociatedDelayedReducer$<
                 entityStatedData: entityReducerConfig.entityStatedData,
                 reducer,
                 entityIdSelector,
-              } satisfies EntityReducerConfig<
-                TDataConnect,
-                SrcContext,
-                MethodName
-              >,
+              } satisfies EntityReducerConfig<TMainConfig>,
             }))
           );
         }) ?? [];
@@ -716,11 +661,7 @@ export function connectAssociatedDelayedReducer$<
                 entityStatedData: entityReducerConfig.entityStatedData,
                 reducer,
                 entityIdSelector,
-              } satisfies EntityReducerConfig<
-                TDataConnect,
-                SrcContext,
-                MethodName
-              >,
+              } satisfies EntityReducerConfig<TMainConfig>,
             }))
           );
         }) ?? [];

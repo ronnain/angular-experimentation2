@@ -1,9 +1,10 @@
 import { EntityStatus, EntityWithStatus, IdSelector } from './storev2';
+import { DataListMainTypeScope } from './storev3';
 
 export function removedEntityFrom<
-  TData,
-  Entity extends EntityWithStatus<TData, string>,
-  Entities extends EntityWithStatus<TData, string>[]
+  TMainConfig extends DataListMainTypeScope,
+  Entity extends EntityWithStatus<TMainConfig>,
+  Entities extends EntityWithStatus<TMainConfig>[]
 >(
   {
     entities,
@@ -14,7 +15,7 @@ export function removedEntityFrom<
     entityWithStatus: Entity;
     entities: Entities;
     outOfContextEntities: Entities;
-    entityIdSelector: IdSelector<TData>;
+    entityIdSelector: IdSelector<TMainConfig>;
   },
   {
     from,
@@ -45,9 +46,9 @@ export function removedEntityFrom<
 }
 
 export function removedEntity<
-  TData,
-  Entity extends EntityWithStatus<TData, string>,
-  Entities extends EntityWithStatus<TData, string>[]
+  TMainConfig extends DataListMainTypeScope,
+  Entity extends EntityWithStatus<TMainConfig>,
+  Entities extends EntityWithStatus<TMainConfig>[]
 >({
   entities,
   entityIdSelector,
@@ -57,7 +58,7 @@ export function removedEntity<
   entityWithStatus: Entity;
   entities: Entities;
   outOfContextEntities: Entities;
-  entityIdSelector: IdSelector<TData>;
+  entityIdSelector: IdSelector<TMainConfig>;
 }) {
   return {
     entities: entities.filter((entityWithStatusData) => {
@@ -78,9 +79,9 @@ export function removedEntity<
 }
 
 export function updateEntity<
-  TData,
-  Entity extends EntityWithStatus<TData, string>,
-  Entities extends EntityWithStatus<TData, string>[]
+  TMainConfig extends DataListMainTypeScope,
+  Entity extends EntityWithStatus<TMainConfig>,
+  Entities extends EntityWithStatus<TMainConfig>[]
 >(
   {
     entities,
@@ -91,7 +92,7 @@ export function updateEntity<
     entityWithStatus: Entity;
     entities: Entities;
     outOfContextEntities: Entities;
-    entityIdSelector: IdSelector<TData>;
+    entityIdSelector: IdSelector<TMainConfig>;
   },
   callBack: (entityWithStatus: Entity) => Entity
 ) {
@@ -119,9 +120,9 @@ export function updateEntity<
 
 // add or replace entity in entities or outOfContextEntities and filter out the entity from the other one
 export function addOrReplaceEntityIn<
-  TData,
-  Entity extends EntityWithStatus<TData, string>,
-  Entities extends EntityWithStatus<TData, string>[]
+  TMainConfig extends DataListMainTypeScope,
+  Entity extends EntityWithStatus<TMainConfig>,
+  Entities extends EntityWithStatus<TMainConfig>[]
 >(
   {
     entities,
@@ -132,7 +133,7 @@ export function addOrReplaceEntityIn<
     entityWithStatus: Entity;
     entities: Entities;
     outOfContextEntities: Entities;
-    entityIdSelector: IdSelector<TData>;
+    entityIdSelector: IdSelector<TMainConfig>;
   },
   {
     target,
@@ -172,8 +173,8 @@ export function addOrReplaceEntityIn<
 
 /// bulk
 export function removedBulkEntities<
-  TData,
-  Entities extends EntityWithStatus<TData, string>[]
+  TMainConfig extends DataListMainTypeScope,
+  Entities extends EntityWithStatus<TMainConfig>[]
 >({
   entities,
   entityIdSelector,
@@ -183,7 +184,7 @@ export function removedBulkEntities<
   bulkEntities: Entities;
   entities: Entities;
   outOfContextEntities: Entities;
-  entityIdSelector: IdSelector<TData>;
+  entityIdSelector: IdSelector<TMainConfig>;
 }) {
   return {
     entities: entities.filter((entityWithStatusData) => {
@@ -207,14 +208,11 @@ export function removedBulkEntities<
 
 //! the callback function can add more status methods than the existing one
 export function updateBulkEntities<
-  TData,
-  TActionKeys extends keyof TEntityWithStatus['status'] extends string
-    ? keyof TEntityWithStatus['status']
-    : never,
-  TEntityWithStatus extends EntityWithStatus<TData, TActionKeys>,
+  TMainConfig extends DataListMainTypeScope,
+  TEntityWithStatus extends EntityWithStatus<TMainConfig>,
   TCallBack extends (
     entityWithStatus: TEntityWithStatus
-  ) => EntityWithStatus<TData, TActionKeys>
+  ) => EntityWithStatus<TMainConfig>
 >(
   {
     bulkEntities,
@@ -225,7 +223,7 @@ export function updateBulkEntities<
     bulkEntities: TEntityWithStatus[];
     entities: TEntityWithStatus[];
     outOfContextEntities: TEntityWithStatus[];
-    entityIdSelector: IdSelector<TData>;
+    entityIdSelector: IdSelector<TMainConfig>;
   },
   callBack: TCallBack
 ) {
@@ -259,22 +257,24 @@ export function updateBulkEntities<
 }
 
 export function hasProcessingItem<
-  TData,
-  TEntityWithStatus extends EntityWithStatus<TData, string>
+  TMainConfig extends DataListMainTypeScope,
+  TEntityWithStatus extends EntityWithStatus<TMainConfig>
 >(entity: TEntityWithStatus): boolean {
   return Object.values(entity.status).some(
+    //@ts-ignore // todo check why this typing is not working
     (entityStatus) => entityStatus?.isLoading
   );
 }
 
 export function totalProcessingItems<
-  TData,
-  TEntityWithStatus extends EntityWithStatus<TData, string>
+  TMainConfig extends DataListMainTypeScope,
+  TEntityWithStatus extends EntityWithStatus<TMainConfig>
 >(entities: TEntityWithStatus[]): number {
   return entities.reduce(
     (acc, entity) =>
       acc +
       Object.values(entity.status).filter(
+        //@ts-ignore // todo check why this typing is not working
         (entityStatus) => entityStatus?.isLoading
       ).length,
     0
@@ -282,18 +282,15 @@ export function totalProcessingItems<
 }
 
 export function countEntitiesWithStatusByAction<
-  TData,
-  TActionKeys extends keyof TEntityWithStatus['status'] extends string
-    ? keyof TEntityWithStatus['status']
-    : never,
-  TEntityWithStatus extends EntityWithStatus<TData, TActionKeys>
+  TMainConfig extends DataListMainTypeScope,
+  TEntityWithStatus extends EntityWithStatus<TMainConfig>
 >({
   entities,
   actionName,
   state,
 }: {
   entities: TEntityWithStatus[];
-  actionName: TActionKeys;
+  actionName: TMainConfig['actions'] | TMainConfig['bulkActions'];
   state: keyof EntityStatus;
 }): number {
   return entities.reduce(
