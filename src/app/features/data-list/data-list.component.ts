@@ -75,7 +75,10 @@ export class DataListComponent {
     status: 'error' | 'success';
   }>();
   private readonly deleteItem$ = new Subject<DataItem>();
-  private readonly bulkUpdate$ = new Subject<DataItem[]>();
+  private readonly bulkUpdate$ = new Subject<{
+    entities: DataItem[];
+    statusRequest: 'success' | 'error';
+  }>();
   private readonly bulkDelete$ = new Subject<DataItem[]>();
 
   protected readonly selectedEntities$ = new BehaviorSubject<DataItem[]>([]);
@@ -157,15 +160,16 @@ export class DataListComponent {
     withBulkActions<MyDataListStoreType>()({
       bulkUpdate: bulkAction<MyDataListStoreType>()({
         src: () => this.bulkUpdate$,
-        query: ({ data }) => {
-          return this.dataListService.bulkUpdate(data);
+        query: ({ actionSrc }) => {
+          return this.dataListService.bulkUpdate(actionSrc);
         },
         operator: concatMap,
+        optimisticEntities: ({ actionSrc }) => actionSrc.entities,
       }),
       bulkDelete: bulkAction<MyDataListStoreType>()({
         src: () => this.bulkDelete$,
-        query: ({ data }) => {
-          return this.dataListService.bulkDelete(data);
+        query: ({ actionSrc }) => {
+          return this.dataListService.bulkDelete(actionSrc);
         },
         operator: concatMap,
         reducer: {
@@ -299,7 +303,10 @@ export class DataListComponent {
   }
 
   protected bulkUpdate() {
-    this.bulkUpdate$.next(this.selectedEntities$.value);
+    this.bulkUpdate$.next({
+      entities: this.selectedEntities$.value,
+      statusRequest: 'success',
+    });
     this.resetSelectedEntities();
   }
 

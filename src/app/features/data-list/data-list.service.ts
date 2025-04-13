@@ -103,13 +103,31 @@ export class DataListService {
     return of(entity).pipe(delay(2000));
   }
 
-  bulkUpdate(data: DataItem[]) {
+  bulkUpdate({
+    entities,
+    statusRequest,
+  }: {
+    entities: DataItem[];
+    statusRequest: 'success' | 'error';
+  }) {
+    if (statusRequest === 'error') {
+      return timer(5000).pipe(
+        map(() => {
+          throw new Error(
+            `Error updating entities: ${entities.map(
+              (e) => e.id + '/'
+            )}, please retry`
+          );
+        })
+      );
+    }
     this.dataList$.next(
       this.dataList$.value.map(
-        (dataItem) => data.find((item) => item.id === dataItem.id) || dataItem
+        (dataItem) =>
+          entities.find((item) => item.id === dataItem.id) || dataItem
       )
     );
-    return of(data).pipe(delay(5000));
+    return of(entities).pipe(delay(5000));
   }
 
   bulkDelete(data: DataItem[]) {

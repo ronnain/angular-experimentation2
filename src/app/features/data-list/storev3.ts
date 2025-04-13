@@ -95,6 +95,9 @@ type ActionConfig<TSrc, TMainConfig extends DataListMainTypeScope> = Merge<
   TSrc extends TMainConfig['entity']
     ? {}
     : {
+        /**
+         * When the actionSrc data is not matching the entity type, this function is mandatory in order to know how to update optimistically the entity and to know which entity is affected.
+         */
         optimisticEntity: (params: {
           actionSrc: TSrc;
         }) => TMainConfig['entity'];
@@ -132,14 +135,31 @@ export function bulkAction<TMainConfig extends DataListMainTypeScope>() {
   ) => config as BulkActionConfig<TSrc, TMainConfig>;
 }
 
-type BulkActionConfig<TSrc, TMainConfig extends DataListMainTypeScope> = {
-  src: () => Observable<TSrc>;
-  query: (params: { data: TSrc }) => Observable<TMainConfig['entity'][]>;
-  operator: Operator; //Use concatMap or exhaustMap as default (switchMap and mergeMap are not recommended), because, it ait is trigger a second time during the loading phase and if the list of the selected Id change, the removed selected id will be display as loading (it may be fixed)
-  // todo pass an array (of an object with reducer and delayedreducer) that can enable to use reusable reducer
-  reducer?: BulkStatedDataReducer<TMainConfig>;
-  delayedReducer?: BulkDelayedReducer<TMainConfig>[];
-};
+type BulkActionConfig<
+  TActionSrc,
+  TMainConfig extends DataListMainTypeScope
+> = Merge<
+  {
+    src: () => Observable<TActionSrc>;
+    query: (params: {
+      actionSrc: TActionSrc;
+    }) => Observable<TMainConfig['entity'][]>;
+    operator: Operator; //Use concatMap or exhaustMap as default (switchMap and mergeMap are not recommended), because, it ait is trigger a second time during the loading phase and if the list of the selected Id change, the removed selected id will be display as loading (it may be fixed)
+    // todo pass an array (of an object with reducer and delayedreducer) that can enable to use reusable reducer
+    reducer?: BulkStatedDataReducer<TMainConfig>;
+    delayedReducer?: BulkDelayedReducer<TMainConfig>[];
+  },
+  TActionSrc extends TMainConfig['entity'][]
+    ? {}
+    : {
+        /**
+         * When the actionSrc data is not matching the entities type, this function is mandatory in order to know how to update optimistically the entities and to know which entities are affected.
+         */
+        optimisticEntities: (params: {
+          actionSrc: TActionSrc;
+        }) => TMainConfig['entity'][];
+      }
+>;
 
 export function withBulkActions<TMainConfig extends DataListMainTypeScope>() {
   return (config: WithBulkActions<TMainConfig>) => ({ bulkActions: config });
@@ -349,10 +369,17 @@ export function store<TMainConfig extends DataListMainTypeScope>() {
         const api = groupByData.query;
         const reducer = groupByData.reducer;
         const delayedReducer = groupByData.delayedReducer ?? [];
+        const optimisticEntities =
+          'optimisticEntities' in groupByData
+            ? groupByData.optimisticEntities
+            : undefined;
 
         const bulkActions$ = src$.pipe(
-          operatorFn((entities) => {
-            return statedStream(api({ data: entities }), entities).pipe(
+          operatorFn((actionSrc) => {
+            const entities = optimisticEntities
+              ? optimisticEntities({ actionSrc })
+              : actionSrc;
+            return statedStream(api({ actionSrc }), entities).pipe(
               map(
                 (entitiesStatedData) =>
                   ({
