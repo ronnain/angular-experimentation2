@@ -36,8 +36,6 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   action,
-  actionFromStoreEvent,
-  ActionSubjectEvent,
   bulkAction,
   DataListStoreType,
   store,
@@ -166,10 +164,7 @@ export class DataListComponent {
       // todo mettre le delay 0 à tous les storeEvents pour attendre de l'action en cours soit bien fini
       // todo add store events more global per action; ex: storeEvents.action.error pour regrouper toutes les erreurs des actions ?
       // todo mettre les storeEvents dans les delayed pour permettre de supprimer tous les status une fois rafraîchi sauf si un event est arrivé avant et dans ce cas jsute upprimer le statu refrash?
-      refresh: actionFromStoreEvent<
-        MyDataListStoreType,
-        ActionSubjectEvent<MyDataListStoreType>
-      >()({
+      refresh: action<MyDataListStoreType>()({
         src: ({ storeEvents }) =>
           storeEvents.action.update.pipe(
             tap({
