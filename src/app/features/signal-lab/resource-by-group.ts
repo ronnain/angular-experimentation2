@@ -1,0 +1,114 @@
+import {
+  inject,
+  resource,
+  signal,
+  ResourceOptions,
+  ResourceRef,
+  Signal,
+  effect,
+  untracked,
+  Injector,
+  InjectionToken,
+  linkedSignal,
+} from '@angular/core';
+
+export function resourceByGroup<T, R, GroupIdentifier extends string | number>({
+  groupIdentifier,
+  request,
+  loader,
+}: Omit<ResourceOptions<T, R>, 'request'> & {
+  request: () => R; // must be a mandatory field
+  groupIdentifier: (request: NonNullable<NoInfer<R>>) => GroupIdentifier;
+}): Signal<Partial<Record<GroupIdentifier, ResourceRef<T>>>> {
+  const injector = inject(Injector);
+
+  // maybe create a linkedSignal to enable to reset
+  const resourceByGroup = signal<
+    Partial<Record<GroupIdentifier, ResourceRef<T>>>
+  >({});
+
+  // this effect is used to create a mapped Resouref instance
+  effect(() => {
+    const requestValue = request();
+    if (!requestValue) {
+      return;
+    }
+    const group = groupIdentifier(requestValue);
+
+    // The effect should only trigger when the request change
+    const resourceByGroupValue = untracked(() => resourceByGroup());
+    const groupResourceRefExist = resourceByGroupValue[group];
+    if (groupResourceRefExist) {
+      // nothing to do, the resource is already bind with the request
+      return;
+    }
+
+    const filteredRequestByGroup = linkedSignal({
+      source: request,
+      computation: (incomingRequestValue, previousGroupRequestData) => {
+        if (!incomingRequestValue) {
+          return incomingRequestValue;
+        }
+        // filter the request pushs a value by comparing with the current group
+        if (groupIdentifier(incomingRequestValue) !== group) {
+          return previousGroupRequestData?.value;
+        }
+        // The request push a value that concerns the current group
+        return incomingRequestValue;
+      },
+    });
+
+    const resourceRef = createDynamicResource(injector, {
+      group,
+      resourceOptions: {
+        loader,
+        //@ts-ignore // ! Hope it is fixed in the v20, actually, the request can return undifned that will trigger the idle status
+        request: filteredRequestByGroup,
+      },
+    });
+
+    // attach a new intance of ResourceRef to the resourceByGroup
+    resourceByGroup.update((state) => ({
+      ...state,
+      [group]: resourceRef,
+    }));
+  });
+
+  return resourceByGroup.asReadonly();
+}
+
+const RESOURCE_INSTANCE_TOKEN = new InjectionToken<ResourceRef<unknown>>(
+  'Injection token used to provide a dynamically created ResourceRef instance.'
+);
+
+interface DynamicResourceConfig<T, R, GroupIdentifier extends string | number> {
+  resourceOptions: ResourceOptions<T, R>;
+  group: GroupIdentifier;
+}
+
+/**
+ * It is not possible to instantiate a resource from within an effect directly:
+ * NG0602: effect() cannot be called from within a reactive context.
+ *
+ * The workaround is to create a dynamic injection token using a factory function,
+ * which instantiates the resource using the provided configuration.
+ *
+ * Maybe their is a better way to instanciate a resource dynamically.
+ */
+function createDynamicResource<T, R, GroupIdentifier extends string | number>(
+  parentInjector: Injector,
+  resourceConfig: DynamicResourceConfig<T, R, GroupIdentifier>
+) {
+  const injector = Injector.create({
+    providers: [
+      {
+        provide: RESOURCE_INSTANCE_TOKEN,
+        useFactory: () => resource(resourceConfig.resourceOptions),
+      },
+    ],
+    parent: parentInjector,
+  });
+
+  const resourceRef = injector.get(RESOURCE_INSTANCE_TOKEN);
+  return resourceRef as ResourceRef<T>;
+}
