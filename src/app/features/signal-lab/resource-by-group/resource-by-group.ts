@@ -27,7 +27,7 @@ export function resourceByGroup<T, R, GroupIdentifier extends string | number>({
     Partial<Record<GroupIdentifier, ResourceRef<T>>>
   >({});
 
-  // this effect is used to create a mapped Resouref instance
+  // this effect is used to create a mapped ResourceRef instance
   effect(() => {
     const requestValue = request();
     if (!requestValue) {
@@ -49,7 +49,7 @@ export function resourceByGroup<T, R, GroupIdentifier extends string | number>({
         if (!incomingRequestValue) {
           return incomingRequestValue;
         }
-        // filter the request pushs a value by comparing with the current group
+        // filter the request push a value by comparing with the current group
         if (groupIdentifier(incomingRequestValue) !== group) {
           return previousGroupRequestData?.value;
         }
@@ -62,12 +62,12 @@ export function resourceByGroup<T, R, GroupIdentifier extends string | number>({
       group,
       resourceOptions: {
         loader,
-        //@ts-ignore // ! Hope it is fixed in the v20, actually, the request can return undifned that will trigger the idle status
+        //@ts-ignore // ! Hope it is fixed in the v20, actually, the request can return undefined that will trigger the idle status
         request: filteredRequestByGroup,
       },
     });
 
-    // attach a new intance of ResourceRef to the resourceByGroup
+    // attach a new instance of ResourceRef to the resourceByGroup
     resourceByGroup.update((state) => ({
       ...state,
       [group]: resourceRef,
@@ -93,7 +93,7 @@ interface DynamicResourceConfig<T, R, GroupIdentifier extends string | number> {
  * The workaround is to create a dynamic injection token using a factory function,
  * which instantiates the resource using the provided configuration.
  *
- * Maybe their is a better way to instanciate a resource dynamically.
+ * Maybe their is a better way to instantiate a resource dynamically.
  */
 function createDynamicResource<T, R, GroupIdentifier extends string | number>(
   parentInjector: Injector,

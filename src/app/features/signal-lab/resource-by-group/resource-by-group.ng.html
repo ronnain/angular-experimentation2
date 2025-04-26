@@ -41,7 +41,10 @@
               @for(user of usersState.state().users; track user.id) {
               <tr>
                 <td>{{ user.id }}</td>
-                <td>{{ user.name }}</td>
+                <td>
+                  {{updateById()[user.id]?.hasValue() ?
+                  updateById()[user.id]?.value()?.name : user.name }}
+                </td>
                 <td>
                   <ng-container
                     *ngTemplateOutlet="statusTemplate; context: { status: updateById()[user.id]?.status() }"
