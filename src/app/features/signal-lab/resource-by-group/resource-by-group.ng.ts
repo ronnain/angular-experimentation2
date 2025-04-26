@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import {
+  ChangeDetectionStrategy,
   Component,
   inject,
   resource,
@@ -37,6 +38,7 @@ type UsersState = ServerStateContext<{
   imports: [CommonModule],
   templateUrl: './resource-by-group.ng.html',
   styleUrls: ['./resource-by-group.ng.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class ResourceByGroupComponent {
   private readonly apiService = inject(ApiService);

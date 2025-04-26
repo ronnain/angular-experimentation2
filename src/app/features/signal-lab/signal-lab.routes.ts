@@ -6,7 +6,7 @@ export const signalLabRoutes: Route[] = [
     children: [
       {
         path: 'resource-by-group',
-        loadComponent: () => import('./resource-by-group.ng'),
+        loadComponent: () => import('./resource-by-group/resource-by-group.ng'),
       },
     ],
   },
