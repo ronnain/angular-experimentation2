@@ -16,6 +16,11 @@ type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
 
+export type ResourceByIdRef<
+  GroupIdentifier extends string | number,
+  T
+> = Signal<Prettify<Partial<Record<GroupIdentifier, ResourceRef<T>>>>>;
+
 export function resourceById<T, R, GroupIdentifier extends string | number>({
   identifier,
   request,
@@ -23,7 +28,7 @@ export function resourceById<T, R, GroupIdentifier extends string | number>({
 }: Omit<ResourceOptions<T, R>, 'request'> & {
   request: () => R; // must be a mandatory field
   identifier: (request: NonNullable<NoInfer<R>>) => GroupIdentifier;
-}): Signal<Prettify<Partial<Record<GroupIdentifier, ResourceRef<T>>>>> {
+}): ResourceByIdRef<GroupIdentifier, T> {
   const injector = inject(Injector);
 
   // maybe create a linkedSignal to enable to reset

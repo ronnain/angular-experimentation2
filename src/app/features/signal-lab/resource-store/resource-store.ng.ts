@@ -13,20 +13,24 @@ import {
   signalServerState,
   action,
 } from './resource-store';
-import { resourceById } from '../resource-by-id';
+import { resourceById, ResourceByIdRef } from '../resource-by-id';
 
 type Pagination = {
   page: number;
   pageSize: number;
 };
 
-type Actions = 'GET';
+type Actions = 'GET' | 'UPDATE';
 type ActionStatus = ResourceStatus;
 
 // Step 1: Define the state structure and actions using ServerStateContext
 type UsersState = ServerStateContext<{
   stateType: {
-    users: User[];
+    users: (User & {
+      ui?: {
+        updateStatus: ResourceStatus;
+      };
+    })[];
     status: Partial<Record<Actions, ActionStatus>>;
   };
   actions: Actions;
@@ -57,18 +61,10 @@ export default class ResourceByGroupComponent {
 
   private updateItem = signal<User | undefined>(undefined);
 
-  protected readonly updateById = resourceById({
-    request: this.updateItem,
-    identifier: (request) => request.id,
-    loader: ({ request }) => {
-      return this.apiService.updateItem(request as User);
-    },
-  });
-
   protected readonly usersState = signalServerState<UsersState>()(
     {
       GET: action<UsersState>()({
-        resource: () =>
+        resourceRef: () =>
           resource({
             request: () => this.pagination(),
             loader: ({ request }) => this.apiService.getDataList$(request),
@@ -82,6 +78,34 @@ export default class ResourceByGroupComponent {
               ? actionResource.value()
               : state.users) ?? [],
         }),
+      }),
+      UPDATE: action<UsersState>()({
+        resourceRef: () =>
+          resourceById({
+            request: this.updateItem,
+            identifier: (request) => request.id,
+            loader: ({ request }) => {
+              return this.apiService.updateItem(request as User);
+            },
+          }),
+        reducer: ({ actionResource, state }) => {
+          // do not forget to handle the error case
+          const item = actionResource.value() ?? this.updateItem();
+          const users = state.users.map((user) => {
+            if (user.id === item?.id) {
+              return {
+                ...user,
+                ui: { updateStatus: actionResource.status() },
+              };
+            }
+            return user;
+          });
+          return {
+            ...state,
+            status: { ...state.status, UPDATE: actionResource.status() },
+            users,
+          };
+        },
       }),
     },
     {

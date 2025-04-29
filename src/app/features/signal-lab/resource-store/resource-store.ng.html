@@ -38,18 +38,14 @@
               </tr>
             </thead>
             <tbody>
-              @for(user of usersState.state().users; track user.id) { @let
-              userUpdateResourceRef = updateById()[user.id];
+              @for(user of usersState.state().users; track user.id) {
               <tr>
                 <td>{{ user.id }}</td>
 
-                <td>
-                  {{userUpdateResourceRef?.hasValue() ?
-                  userUpdateResourceRef?.value()?.name : user.name }}
-                </td>
+                <td>{{user.name }}</td>
                 <td>
                   <ng-container
-                    *ngTemplateOutlet="statusTemplate; context: { status: userUpdateResourceRef?.status() }"
+                    *ngTemplateOutlet="statusTemplate; context: { status: user?.ui?.updateStatus}"
                   ></ng-container>
                 </td>
                 <td>

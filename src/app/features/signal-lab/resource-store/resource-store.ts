@@ -6,6 +6,7 @@ import {
   Signal,
   WritableSignal,
 } from '@angular/core';
+import { ResourceByIdRef } from '../resource-by-id';
 
 type Prettify<T> = {
   [K in keyof T]: T[K];
@@ -34,25 +35,35 @@ export type ServerStateContext<StateContext extends StateContextConstraints> =
 // Store events
 type StoreEvents<StateContext extends StateContextConstraints> = Record<
   StateContext['actions'],
-  WritableSignal<ResourceRef<any> | undefined>
+  WritableSignal<ActionRef<any> | undefined>
 >;
 
 type StoreEventsReadonly<StateContext extends StateContextConstraints> =
-  Prettify<
-    Record<StateContext['actions'], Signal<ResourceRef<any> | undefined>>
-  >;
+  Prettify<Record<StateContext['actions'], Signal<ActionRef<any> | undefined>>>;
+
+type SimpleAction<LoaderResponseValue> = ResourceRef<LoaderResponseValue>;
+
+type GroupByAction<LoaderResponseValue> = ResourceByIdRef<
+  string | number,
+  LoaderResponseValue
+>;
 
 // Action
+type ActionRef<LoaderResponseValue> =
+  | SimpleAction<LoaderResponseValue>
+  | GroupByAction<LoaderResponseValue>;
+
 type Action<
   LoaderResponseValue,
   StateContext extends StateContextConstraints
 > = {
-  resource: (params: {
+  resourceRef: (params: {
     storeEvents: StoreEventsReadonly<StateContext>;
-  }) => ResourceRef<LoaderResponseValue>;
+  }) => ActionRef<LoaderResponseValue>;
   reducer: (params: {
     actionResource: ResourceRef<LoaderResponseValue>;
     state: StateContext['stateType'];
+    request?: any;
   }) => StateContext['stateType'];
 };
 
@@ -81,7 +92,7 @@ export function signalServerState<
     // Create internal action sources
     const storeEvents = entries.reduce((acc, [actionName, action]) => {
       acc[actionName as StateContext['actions']] = signal<
-        ResourceRef<any> | undefined
+        ActionRef<any> | undefined
       >(undefined);
       return acc;
     }, {} as StoreEvents<StateContext>);
@@ -89,25 +100,54 @@ export function signalServerState<
     const state = signal<StateContext['stateType']>(opts.initialState);
 
     entries.forEach(([actionName, action]) => {
-      const actionResource = action.resource({ storeEvents });
+      const actionResource = action.resourceRef({ storeEvents });
 
-      effect(() => {
-        if (actionResource.status() === ResourceStatus.Idle) {
-          // do not run the reducer when the action is invalid (idle status)
-          return;
-        }
-        state.update((state) => action.reducer({ state, actionResource }));
-      });
+      if (isResourceRef(actionResource)) {
+        effect(() => {
+          if (actionResource.status() === ResourceStatus.Idle) {
+            // do not run the reducer when the action is invalid (idle status)
+            return;
+          }
+          state.update((state) => action.reducer({ state, actionResource }));
+        });
 
-      effect(() => {
-        if (actionResource.status() === ResourceStatus.Idle) {
-          // do not emit the Idle status
-          return;
-        }
-        const signalEvent = storeEvents[actionName as StateContext['actions']];
-        console.log(actionName, actionResource, actionResource.status());
-        signalEvent.set(actionResource);
-      });
+        effect(() => {
+          if (actionResource.status() === ResourceStatus.Idle) {
+            // do not emit the Idle status
+            return;
+          }
+          const signalEvent =
+            storeEvents[actionName as StateContext['actions']];
+          console.log(actionName, actionResource, actionResource.status());
+          signalEvent.set(actionResource);
+        });
+      }
+      if (isResourceByIdRef(actionResource)) {
+        effect(() => {
+          const resourceByIdRef = actionResource();
+          console.log('resourceByIdRef', resourceByIdRef);
+          Object.entries(resourceByIdRef).forEach(([groupId, resourceRef]) => {
+            console.log('resourceRef', groupId, resourceRef);
+            debugger;
+            if (!resourceRef) {
+              return;
+            }
+            console.log('resourceRef.status()', groupId, resourceRef.status());
+
+            if (resourceRef.status() === ResourceStatus.Idle) {
+              // do not run the reducer when the action is invalid (idle status)
+              return;
+            }
+            state.update((state) =>
+              // I hope the request will be exposed that will enable to pass the request with the inferred type
+              action.reducer({
+                state,
+                actionResource: resourceRef,
+              })
+            );
+          });
+        });
+      }
     });
 
     return {
@@ -115,4 +155,16 @@ export function signalServerState<
       signalEvents: storeEvents,
     };
   };
+}
+
+function isResourceRef<DataType>(
+  action: any
+): action is SimpleAction<DataType> {
+  return 'hasValue' in action && typeof action.hasValue === 'function';
+}
+
+function isResourceByIdRef<DataType>(
+  action: any
+): action is GroupByAction<DataType> {
+  return !('hasValue' in action) && !(typeof action.hasValue === 'function');
 }
