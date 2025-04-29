@@ -12,6 +12,10 @@ import {
   linkedSignal,
 } from '@angular/core';
 
+type Prettify<T> = {
+  [K in keyof T]: T[K];
+} & {};
+
 export function resourceByGroup<T, R, GroupIdentifier extends string | number>({
   groupIdentifier,
   request,
@@ -19,7 +23,7 @@ export function resourceByGroup<T, R, GroupIdentifier extends string | number>({
 }: Omit<ResourceOptions<T, R>, 'request'> & {
   request: () => R; // must be a mandatory field
   groupIdentifier: (request: NonNullable<NoInfer<R>>) => GroupIdentifier;
-}): Signal<Partial<Record<GroupIdentifier, ResourceRef<T>>>> {
+}): Signal<Prettify<Partial<Record<GroupIdentifier, ResourceRef<T>>>>> {
   const injector = inject(Injector);
 
   // maybe create a linkedSignal to enable to reset

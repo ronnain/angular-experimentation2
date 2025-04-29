@@ -57,7 +57,7 @@ export default class ResourceByGroupComponent {
 
   private updateItem = signal<User | undefined>(undefined);
 
-  protected updateById = resourceByGroup({
+  protected readonly updateById = resourceByGroup({
     request: this.updateItem,
     groupIdentifier: (request) => request.id,
     loader: ({ request }) => {

@@ -38,21 +38,23 @@
               </tr>
             </thead>
             <tbody>
-              @for(user of usersState.state().users; track user.id) {
+              @for(user of usersState.state().users; track user.id) { @let
+              userUpdateResourceRef = updateById()[user.id];
               <tr>
                 <td>{{ user.id }}</td>
+
                 <td>
-                  {{updateById()[user.id]?.hasValue() ?
-                  updateById()[user.id]?.value()?.name : user.name }}
+                  {{userUpdateResourceRef?.hasValue() ?
+                  userUpdateResourceRef?.value()?.name : user.name }}
                 </td>
                 <td>
                   <ng-container
-                    *ngTemplateOutlet="statusTemplate; context: { status: updateById()[user.id]?.status() }"
+                    *ngTemplateOutlet="statusTemplate; context: { status: userUpdateResourceRef?.status() }"
                   ></ng-container>
                 </td>
                 <td>
                   <button (click)="updateItemFn(user)" class="action-btn blue">
-                    Update Name
+                    Update
                   </button>
                 </td>
               </tr>
