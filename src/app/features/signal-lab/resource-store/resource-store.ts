@@ -63,7 +63,9 @@ type Action<
   reducer: (params: {
     actionResource: ResourceRef<LoaderResponseValue>;
     state: StateContext['stateType'];
-    request?: any;
+    //  I hope the request will be exposed that will enable to pass the request with the inferred type
+    // request?: any;
+    groupId?: string | number; // todo only for groupBy action
   }) => StateContext['stateType'];
 };
 
@@ -125,26 +127,25 @@ export function signalServerState<
       if (isResourceByIdRef(actionResource)) {
         effect(() => {
           const resourceByIdRef = actionResource();
-          console.log('resourceByIdRef', resourceByIdRef);
           Object.entries(resourceByIdRef).forEach(([groupId, resourceRef]) => {
-            console.log('resourceRef', groupId, resourceRef);
-            debugger;
-            if (!resourceRef) {
-              return;
-            }
-            console.log('resourceRef.status()', groupId, resourceRef.status());
+            if (resourceRef) {
+              console.log(
+                'resourceRef.status()',
+                groupId,
+                resourceRef.status(),
+                resourceRef
+              );
 
-            if (resourceRef.status() === ResourceStatus.Idle) {
-              // do not run the reducer when the action is invalid (idle status)
-              return;
+              if (resourceRef.status() !== ResourceStatus.Idle) {
+                state.update((state) =>
+                  action.reducer({
+                    state,
+                    actionResource: resourceRef,
+                    groupId,
+                  })
+                );
+              }
             }
-            state.update((state) =>
-              // I hope the request will be exposed that will enable to pass the request with the inferred type
-              action.reducer({
-                state,
-                actionResource: resourceRef,
-              })
-            );
           });
         });
       }

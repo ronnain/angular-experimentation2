@@ -88,9 +88,29 @@ export default class ResourceByGroupComponent {
               return this.apiService.updateItem(request as User);
             },
           }),
-        reducer: ({ actionResource, state }) => {
+        reducer: ({ actionResource, state, groupId }) => {
+          console.log('groupId', groupId);
           // do not forget to handle the error case
-          const item = actionResource.value() ?? this.updateItem();
+          if (actionResource.status() === ResourceStatus.Error) {
+            const users = state.users.map((user) => {
+              if (user.id === groupId) {
+                return {
+                  ...user,
+                  ui: { updateStatus: actionResource.status() },
+                };
+              }
+              return user;
+            });
+            return {
+              ...state,
+              users,
+              status: { ...state.status, UPDATE: actionResource.status() },
+            };
+          }
+          const item =
+            actionResource.status() === ResourceStatus.Loading
+              ? this.updateItem()
+              : actionResource.value();
           const users = state.users.map((user) => {
             if (user.id === item?.id) {
               return {
