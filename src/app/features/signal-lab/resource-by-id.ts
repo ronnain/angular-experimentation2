@@ -16,13 +16,13 @@ type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
 
-export function resourceByGroup<T, R, GroupIdentifier extends string | number>({
-  groupIdentifier,
+export function resourceById<T, R, GroupIdentifier extends string | number>({
+  identifier,
   request,
   loader,
 }: Omit<ResourceOptions<T, R>, 'request'> & {
   request: () => R; // must be a mandatory field
-  groupIdentifier: (request: NonNullable<NoInfer<R>>) => GroupIdentifier;
+  identifier: (request: NonNullable<NoInfer<R>>) => GroupIdentifier;
 }): Signal<Prettify<Partial<Record<GroupIdentifier, ResourceRef<T>>>>> {
   const injector = inject(Injector);
 
@@ -37,7 +37,7 @@ export function resourceByGroup<T, R, GroupIdentifier extends string | number>({
     if (!requestValue) {
       return;
     }
-    const group = groupIdentifier(requestValue);
+    const group = identifier(requestValue);
 
     // The effect should only trigger when the request change
     const resourceByGroupValue = untracked(() => resourceByGroup());
@@ -54,7 +54,7 @@ export function resourceByGroup<T, R, GroupIdentifier extends string | number>({
           return incomingRequestValue;
         }
         // filter the request push a value by comparing with the current group
-        if (groupIdentifier(incomingRequestValue) !== group) {
+        if (identifier(incomingRequestValue) !== group) {
           return previousGroupRequestData?.value;
         }
         // The request push a value that concerns the current group

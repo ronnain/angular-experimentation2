@@ -12,7 +12,7 @@ import {
   ServerStateContext,
   signalServerState,
   action,
-} from './signal-server-state';
+} from './resource-store';
 import { resourceById } from '../resource-by-id';
 
 type Pagination = {
@@ -36,8 +36,8 @@ type UsersState = ServerStateContext<{
   selector: 'app-resource-by-group',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './resource-by-group.ng.html',
-  styleUrls: ['./resource-by-group.ng.css'],
+  templateUrl: './resource-store.ng.html',
+  styleUrls: ['./resource-store.ng.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class ResourceByGroupComponent {

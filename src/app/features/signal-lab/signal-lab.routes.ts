@@ -8,6 +8,10 @@ export const signalLabRoutes: Route[] = [
         path: 'resource-by-group',
         loadComponent: () => import('./resource-by-group/resource-by-group.ng'),
       },
+      {
+        path: 'resource-store',
+        loadComponent: () => import('./resource-store/resource-store.ng'),
+      },
     ],
   },
 ];
