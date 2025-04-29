@@ -1,4 +1,4 @@
-@let data= dataList.data | async;
+@let data= dataList.data$ | async;
 <div class="bg-gray-50 min-h-screen">
   <div class="p-4">
     <div class="mb-4">
@@ -50,6 +50,7 @@
         </button>
       </div>
     </div>
+
     @let selectedSelectedEntities = (selectedEntities$ | async) ?? []; @if(data
     && data.result.entities ) {
     <div class="bg-white p-4 rounded shadow mt-8">
@@ -108,7 +109,13 @@
                   (click)="updateItemTest(entityData.entity)"
                   class="text-blue-500"
                 >
-                  Edit
+                  Update
+                </button>
+                <button
+                  (click)="updateItemError(entityData.entity)"
+                  class="text-red-500"
+                >
+                  Update Error
                 </button>
                 <button
                   (click)="deleteItemTest(entityData.entity)"
@@ -132,7 +139,7 @@
     <div class="bg-white p-4 rounded shadow my-8">
       <h2 class="font-bold">Out Of context Entities</h2>
       <div class="relative overflow-x-auto">
-        <table *ngIf="dataList.data | async as data" class="table table-zebra">
+        <table *ngIf="dataList.data$ | async as data" class="table table-zebra">
           <thead class="">
             <tr>
               <th scope="col" class="">ID</th>
@@ -198,6 +205,11 @@
     >Deleting</span
   >
   <span
+    *ngIf="status.refresh?.isLoading"
+    class="bg-grey-200 text-grey-800 px-2 py-1 rounded"
+    >Refreshing</span
+  >
+  <span
     *ngIf="status.create?.isLoaded"
     class="bg-green-200 text-green-800 px-2 py-1 rounded"
     >Created</span
@@ -211,6 +223,16 @@
     *ngIf="status.delete?.isLoaded"
     class="bg-green-200 text-green-800 px-2 py-1 rounded"
     >Deleted</span
+  >
+  <span
+    *ngIf="status.refresh?.isLoaded"
+    class="bg-grey-200 text-green-800 px-2 py-1 rounded"
+    >Refreshed</span
+  >
+  <span
+    *ngIf="status.refresh?.hasError"
+    class="bg-grey-200 text-grey-800 px-2 py-1 rounded"
+    >Refresh Error</span
   >
   <span
     *ngIf="status.create?.hasError"

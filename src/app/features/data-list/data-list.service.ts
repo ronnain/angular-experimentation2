@@ -72,41 +72,76 @@ export class DataListService {
     const deletedItem = this.dataList$.value.find(
       (dataItem) => dataItem.id === itemId
     );
+    if (!deletedItem) {
+      throw new Error('failed to find the deleted item');
+    }
     this.dataList$.next(
       this.dataList$.value.filter((dataItem) => dataItem.id !== itemId)
     );
     return of(deletedItem).pipe(delay(2000));
   }
 
-  updateItem(
-    updatedItem: DataItem & {
-      updateInfo: 'error' | 'success';
-    }
-  ) {
-    if (updatedItem.updateInfo === 'error') {
-      return timer(5000).pipe(
+  updateItem({
+    entity,
+    status,
+  }: {
+    entity: DataItem;
+    status: 'error' | 'success';
+  }) {
+    if (status === 'error') {
+      return timer(2000).pipe(
         map(() => {
-          throw new Error(
-            `Error updating item ${updatedItem.name}, please retry`
-          );
+          throw new Error(`Error updating item ${entity.name}, please retry`);
         })
       );
     }
     this.dataList$.next(
       this.dataList$.value.map((dataItem) =>
-        dataItem.id === updatedItem.id ? updatedItem : dataItem
+        dataItem.id === entity.id ? entity : dataItem
       )
     );
-    return of(updatedItem).pipe(delay(2000));
+    return of(entity).pipe(delay(2000));
   }
 
-  bulkUpdate(data: DataItem[]) {
+  getItemById(itemId: DataItem['id']) {
+    return this.dataList$.pipe(
+      take(1),
+      map((dataList) => {
+        const item = dataList.find((dataItem) => dataItem.id === itemId);
+        if (!item) {
+          throw new Error(`failed to find the item ${itemId}`);
+        }
+        return item;
+      }),
+      delay(2000)
+    );
+  }
+
+  bulkUpdate({
+    entities,
+    statusRequest,
+  }: {
+    entities: DataItem[];
+    statusRequest: 'success' | 'error';
+  }) {
+    if (statusRequest === 'error') {
+      return timer(5000).pipe(
+        map(() => {
+          throw new Error(
+            `Error updating entities: ${entities.map(
+              (e) => e.id + '/'
+            )}, please retry`
+          );
+        })
+      );
+    }
     this.dataList$.next(
       this.dataList$.value.map(
-        (dataItem) => data.find((item) => item.id === dataItem.id) || dataItem
+        (dataItem) =>
+          entities.find((item) => item.id === dataItem.id) || dataItem
       )
     );
-    return of(data).pipe(delay(5000));
+    return of(entities).pipe(delay(5000));
   }
 
   bulkDelete(data: DataItem[]) {

@@ -5,18 +5,22 @@ import { CommonModule } from '@angular/common';
 import {
   BehaviorSubject,
   concatMap,
+  delay,
   exhaustMap,
+  filter,
   interval,
   map,
+  Observable,
+  of,
   race,
   skip,
   startWith,
   Subject,
   switchMap,
   takeWhile,
+  tap,
   timer,
 } from 'rxjs';
-import { bulkAction, entityLevelAction, DataListStore } from './storev2';
 import {
   addOrReplaceEntityIn,
   countEntitiesWithStatusByAction,
@@ -30,11 +34,29 @@ import {
   updateEntity,
 } from './store-helper';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import {
+  action,
+  bulkAction,
+  DataListStoreType,
+  store,
+  withActions,
+  withBulkActions,
+  withEntities,
+  withSelectors,
+} from './storev3';
 
 type Pagination = {
   page: number;
   pageSize: number;
 };
+
+type MyDataListStoreType = DataListStoreType<{
+  // autocompletion is enabled
+  entity: DataItem;
+  pagination: Pagination;
+  actions: 'update' | 'delete' | 'create' | 'refresh';
+  bulkActions: 'bulkUpdate' | 'bulkDelete';
+}>;
 
 @Component({
   selector: 'app-data-list',
@@ -53,148 +75,177 @@ export class DataListComponent {
   });
   // sources actions
   private readonly createItem$ = new Subject<DataItem>();
-  private readonly updateItem$ = new Subject<
-    DataItem & { updateInfo: 'error' | 'success' }
-  >();
+  private readonly updateItem$ = new Subject<{
+    entity: DataItem;
+    status: 'error' | 'success';
+  }>();
   private readonly deleteItem$ = new Subject<DataItem>();
-  private readonly bulkUpdate$ = new Subject<DataItem[]>();
+  private readonly bulkUpdate$ = new Subject<{
+    entities: DataItem[];
+    statusRequest: 'success' | 'error';
+  }>();
   private readonly bulkDelete$ = new Subject<DataItem[]>();
 
   protected readonly selectedEntities$ = new BehaviorSubject<DataItem[]>([]);
 
-  protected readonly dataList = inject(DataListStore)({
-    entitiesSrc: {
-      srcContext: this.pagination$,
-      api: (srcContext) => this.dataListService.getDataList$(srcContext),
-      initialData: [],
-    },
-    entityIdSelector: (item) => item.id ?? item.optimisticId,
-    entityLevelAction: {
-      update: entityLevelAction({
+  protected readonly dataList = store<MyDataListStoreType>()(
+    withEntities<MyDataListStoreType>()({
+      src: () => this.pagination$,
+      query: ({ data }) => this.dataListService.getDataList$(data),
+      entityIdSelector: (entity) => entity.id ?? entity.optimisticId,
+    }),
+    withActions<MyDataListStoreType>()({
+      update: action<MyDataListStoreType>()({
         src: () => this.updateItem$,
-        api: ({ data }) => {
-          return this.dataListService.updateItem(data);
+        query: ({ actionSrc }) => {
+          return this.dataListService.updateItem(actionSrc);
         },
         operator: switchMap,
+        optimisticEntity: ({ actionSrc }) => actionSrc.entity,
       }),
-      create: entityLevelAction({
+      create: action<MyDataListStoreType>()({
         src: () => this.createItem$,
-        api: ({ data }) => this.dataListService.addItem(data),
+        query: ({ actionSrc }) => this.dataListService.addItem(actionSrc),
         operator: switchMap,
-      }),
-      delete: entityLevelAction({
-        src: () => this.deleteItem$,
-        api: ({ data }) => this.dataListService.deleteItem(data.id),
-        operator: exhaustMap,
-      }),
-    },
-    reducer: {
-      create: {
-        onLoaded: (data) => {
-          if (data.context.page !== 1) {
+        reducer: {
+          onLoaded: (data) => {
+            if (data.context.page !== 1) {
+              return addOrReplaceEntityIn(data, {
+                target: 'outOfContextEntities',
+              });
+            }
             return addOrReplaceEntityIn(data, {
-              target: 'outOfContextEntities',
+              target: 'entities',
             });
-          }
-          return addOrReplaceEntityIn(data, {
-            target: 'entities',
-          });
-        },
-      },
-      delete: {
-        onLoaded: (data) => {
-          return updateEntity(data, ({ entity, status }) => ({
-            entity: {
-              ...entity,
-              ui: {
-                ...entity.ui,
-                disappearIn$: this.remainingTimeBeforeDisappear$(),
-              },
-            },
-            status: {
-              ...status,
-              delete: {
-                isLoading: false,
-                isLoaded: true,
-                hasError: false,
-                error: null,
-              },
-            },
-          }));
-        },
-      },
-    },
-    delayedReducer: {
-      delete: [
-        {
-          notifier: () =>
-            race(this.pagination$.pipe(skip(1)), timer(this.DISAPPEAR_TIMEOUT)),
-          reducer: {
-            onLoaded: (data) => {
-              return removedEntity(data);
-            },
           },
         },
-      ],
-    },
-    bulkActions: {
-      bulkUpdate: bulkAction({
+      }),
+      delete: action<MyDataListStoreType>()({
+        src: () => this.deleteItem$,
+        query: ({ actionSrc }) => this.dataListService.deleteItem(actionSrc.id),
+        operator: exhaustMap,
+        reducer: {
+          onLoaded: (data) => {
+            return updateEntity(data, ({ entity, status }) => ({
+              entity: {
+                ...entity,
+                ui: {
+                  ...entity.ui,
+                  disappearIn$: this.remainingTimeBeforeDisappear$(),
+                },
+              },
+              status: {
+                ...status,
+                delete: {
+                  isLoading: false,
+                  isLoaded: true,
+                  hasError: false,
+                  error: null,
+                },
+              },
+            }));
+          },
+        },
+        delayedReducer: [
+          {
+            notifier: () =>
+              race(
+                this.pagination$.pipe(skip(1)),
+                timer(this.DISAPPEAR_TIMEOUT)
+              ),
+            reducer: {
+              onLoaded: (data) => {
+                return removedEntity(data);
+              },
+            },
+          },
+        ],
+      }),
+      // todo mettre le delay 0 à tous les storeEvents pour attendre de l'action en cours soit bien fini
+      // todo add store events more global per action; ex: storeEvents.action.error pour regrouper toutes les erreurs des actions ?
+      // todo mettre les storeEvents dans les delayed pour permettre de supprimer tous les status une fois rafraîchi sauf si un event est arrivé avant et dans ce cas jsute upprimer le statu refrash?
+      refresh: action<MyDataListStoreType>()({
+        src: ({ storeEvents }) =>
+          storeEvents.action.update.pipe(
+            tap({
+              next: (data) => console.log('[update] data', data),
+            }),
+            filter((storeEvent) => storeEvent.status.hasError),
+            tap({
+              next: (data) => console.log('[update go] data', data),
+            }),
+            delay(0)
+          ),
+        operator: switchMap,
+        query: ({ actionSrc }) => {
+          return this.dataListService.getItemById(
+            actionSrc.entityWithStatus.entity.id
+          );
+        },
+        optimisticEntity: ({ actionSrc }) => actionSrc.entityWithStatus.entity,
+      }),
+    }),
+    withBulkActions<MyDataListStoreType>()({
+      bulkUpdate: bulkAction<MyDataListStoreType>()({
         src: () => this.bulkUpdate$,
-        api: ({ data }) => {
-          return this.dataListService.bulkUpdate(data);
+        query: ({ actionSrc }) => {
+          return this.dataListService.bulkUpdate(actionSrc);
         },
         operator: concatMap,
+        optimisticEntities: ({ actionSrc }) => actionSrc.entities,
       }),
-      bulkDelete: bulkAction({
+      bulkDelete: bulkAction<MyDataListStoreType>()({
         src: () => this.bulkDelete$,
-        api: ({ data }) => {
-          return this.dataListService.bulkDelete(data);
+        query: ({ actionSrc }) => {
+          return this.dataListService.bulkDelete(actionSrc);
         },
         operator: concatMap,
-      }),
-    },
-    bulkReducer: {
-      bulkDelete: {
-        onLoaded: (data) => {
-          const result = updateBulkEntities(data, ({ entity, status }) => ({
-            entity: {
-              ...entity,
-              ui: {
-                ...entity.ui,
-                disappearIn$: this.remainingTimeBeforeDisappear$(),
+        reducer: {
+          onLoaded: (data) => {
+            const result = updateBulkEntities(data, ({ entity, status }) => ({
+              entity: {
+                ...entity,
+                ui: {
+                  ...entity.ui,
+                  disappearIn$: this.remainingTimeBeforeDisappear$(),
+                },
               },
-            },
-            status: {
-              ...status,
-              bulkDelete: {
-                isLoading: false,
-                isLoaded: true,
-                hasError: false,
-                error: null,
+              status: {
+                ...status,
+                bulkDelete: {
+                  isLoading: false,
+                  isLoaded: true,
+                  hasError: false,
+                  error: null,
+                },
               },
-            },
-          }));
-          return result;
-        },
-      },
-    },
-    bulkDelayedReducer: {
-      bulkDelete: [
-        {
-          notifier: () =>
-            race(this.pagination$.pipe(skip(1)), timer(this.DISAPPEAR_TIMEOUT)),
-          reducer: {
-            onLoaded: (data) => {
-              return removedBulkEntities(data);
-            },
+            }));
+            return result;
           },
         },
-      ],
-    },
-    selectors: {
+        delayedReducer: [
+          {
+            notifier: () =>
+              race(
+                this.pagination$.pipe(skip(1)),
+                timer(this.DISAPPEAR_TIMEOUT)
+              ),
+            reducer: {
+              onLoaded: (data) => {
+                return removedBulkEntities(data);
+              },
+            },
+          },
+        ],
+      }),
+    }),
+    withSelectors<MyDataListStoreType>()({
       entityLevel: ({ status }) => {
         return {
-          isProcessing: hasStatus({ status, state: 'isLoading' }),
+          isProcessing: hasStatus({
+            status,
+            state: 'isLoading',
+          }),
           hasError: hasStatus({ status, state: 'hasError' }),
           errors: extractAllErrors(status),
         };
@@ -219,13 +270,19 @@ export class DataListComponent {
             }),
         };
       },
-    },
-  });
+    })
+  );
 
   constructor() {
-    this.dataList.data.pipe(takeUntilDestroyed()).subscribe((data) => {
-      console.log('dataList', data);
+    this.dataList.data$.pipe(takeUntilDestroyed()).subscribe((data) => {
+      console.log('dataList', data.result.selectors);
     });
+
+    this.dataList.events.action.update
+      .pipe(takeUntilDestroyed())
+      .subscribe((data) => {
+        console.log('update events', data);
+      });
   }
 
   previousPage() {
@@ -248,15 +305,20 @@ export class DataListComponent {
 
   updateItemTest(item: DataItem) {
     this.updateItem$.next({
-      ...item,
-      name: 'Item ' + Math.floor(Math.random() * (1000 - 100 + 1) + 100),
-      updateInfo: 'success',
+      entity: {
+        ...item,
+        name: 'Item ' + Math.floor(Math.random() * (1000 - 100 + 1) + 100),
+      },
+      status: 'success',
     });
   }
   updateItemError(item: DataItem) {
     this.updateItem$.next({
-      ...item,
-      updateInfo: 'error',
+      entity: {
+        ...item,
+        name: 'Item ' + Math.floor(Math.random() * (1000 - 100 + 1) + 100),
+      },
+      status: 'error',
     });
   }
 
@@ -275,7 +337,10 @@ export class DataListComponent {
   }
 
   protected bulkUpdate() {
-    this.bulkUpdate$.next(this.selectedEntities$.value);
+    this.bulkUpdate$.next({
+      entities: this.selectedEntities$.value,
+      statusRequest: 'success',
+    });
     this.resetSelectedEntities();
   }
 
