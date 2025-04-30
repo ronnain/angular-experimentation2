@@ -43,38 +43,57 @@ type StoreEventsReadonly<StateContext extends StateContextConstraints> =
 
 type SimpleAction<LoaderResponseValue> = ResourceRef<LoaderResponseValue>;
 
-type GroupByAction<LoaderResponseValue> = ResourceByIdRef<
-  string | number,
-  LoaderResponseValue
->;
+type GroupByAction<
+  LoaderResponseValue,
+  GroupIdentifier extends string | number | undefined = undefined
+> = GroupIdentifier extends string | number
+  ? ResourceByIdRef<GroupIdentifier, LoaderResponseValue>
+  : never;
 
 // Action
-type ActionRef<LoaderResponseValue> =
+type ActionRef<
+  LoaderResponseValue,
+  GroupIdentifier extends string | number | undefined = undefined
+> =
   | SimpleAction<LoaderResponseValue>
-  | GroupByAction<LoaderResponseValue>;
+  | GroupByAction<LoaderResponseValue, GroupIdentifier>;
+
+type Merge<T, U> = T & U;
 
 type Action<
   LoaderResponseValue,
-  StateContext extends StateContextConstraints
+  StateContext extends StateContextConstraints,
+  GroupIdentifier extends string | number | undefined
 > = {
   resourceRef: (params: {
     storeEvents: StoreEventsReadonly<StateContext>;
-  }) => ActionRef<LoaderResponseValue>;
-  reducer: (params: {
-    actionResource: ResourceRef<LoaderResponseValue>;
-    state: StateContext['stateType'];
-    //  I hope the request will be exposed that will enable to pass the request with the inferred type
-    // request?: any;
-    groupId?: string | number; // todo only for groupBy action
-  }) => StateContext['stateType'];
+  }) => ActionRef<LoaderResponseValue, GroupIdentifier>;
+  reducer: (
+    params: Prettify<
+      Merge<
+        {
+          actionResource: ResourceRef<LoaderResponseValue>;
+          state: StateContext['stateType'];
+          //  I hope the request will be exposed that will enable to pass the request with the inferred type
+          // request?: any;
+        },
+        GroupIdentifier extends string | number
+          ? { groupId: GroupIdentifier }
+          : {}
+      >
+    >
+  ) => StateContext['stateType'];
 };
 
 /**
  * If the action can be triggered multiples times, use the request property of the resource method
  */
 export function action<StateContext extends StateContextConstraints>() {
-  return <LoaderResponseValue>(
-    config: Action<LoaderResponseValue, StateContext>
+  return <
+    LoaderResponseValue,
+    GroupIdentifier extends string | number | undefined
+  >(
+    config: Action<LoaderResponseValue, StateContext, GroupIdentifier>
   ) => {
     return config;
   };
@@ -84,12 +103,15 @@ export function signalServerState<
   StateContext extends StateContextConstraints
 >() {
   return <
-    Actions extends Record<StateContext['actions'], Action<any, StateContext>>
+    Actions extends Record<
+      StateContext['actions'],
+      Action<any, StateContext, any>
+    >
   >(
     data: Actions,
     opts: { initialState: StateContext['stateType'] }
   ) => {
-    const entries = Object.entries<Action<any, StateContext>>(data);
+    const entries = Object.entries<Action<any, StateContext, any>>(data);
 
     // Create internal action sources
     const storeEvents = entries.reduce((acc, [actionName, action]) => {
@@ -110,7 +132,9 @@ export function signalServerState<
             // do not run the reducer when the action is invalid (idle status)
             return;
           }
-          state.update((state) => action.reducer({ state, actionResource }));
+          state.update((state) =>
+            action.reducer({ state, actionResource, groupId: undefined })
+          );
         });
 
         effect(() => {
@@ -164,8 +188,9 @@ function isResourceRef<DataType>(
   return 'hasValue' in action && typeof action.hasValue === 'function';
 }
 
-function isResourceByIdRef<DataType>(
-  action: any
-): action is GroupByAction<DataType> {
+function isResourceByIdRef<
+  DataType,
+  GroupIdentifier extends string | number = string
+>(action: any): action is GroupByAction<DataType, GroupIdentifier> {
   return !('hasValue' in action) && !(typeof action.hasValue === 'function');
 }

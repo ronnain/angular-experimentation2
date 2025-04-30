@@ -69,6 +69,7 @@ export default class ResourceByGroupComponent {
             request: () => this.pagination(),
             loader: ({ request }) => this.apiService.getDataList$(request),
           }),
+        // TODO REMOVE THE GROUPID HERE
         reducer: ({ actionResource, state }) => ({
           // do not forget to handle the error case
           ...state,
