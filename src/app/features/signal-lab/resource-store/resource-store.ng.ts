@@ -134,8 +134,17 @@ export default class ResourceByGroupComponent {
         users: [],
         status: {},
       },
+    },
+    {
+      selectors: ({ state }) =>
+        ({
+          totalUser: state.users.length,
+        } as const),
     }
   );
+
+  private testSelectors = this.usersState.selectors;
+  //      ^?
 
   protected previousPage() {
     this.pagination.update((state) => ({

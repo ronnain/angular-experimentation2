@@ -106,10 +106,20 @@ export function signalServerState<
     Actions extends Record<
       StateContext['actions'],
       Action<any, StateContext, any>
-    >
+    >,
+    SelectorsKeys extends keyof ReturnType<SelectorsFn>,
+    SelectorsFn extends (params: {
+      state: StateContext['stateType'];
+    }) => Record<SelectorsKeys, unknown>,
+    SelectorWrapper extends
+      | {
+          selectors: SelectorsFn;
+        }
+      | undefined
   >(
     data: Actions,
-    opts: { initialState: StateContext['stateType'] }
+    opts: { initialState: StateContext['stateType'] },
+    selectors?: SelectorWrapper
   ) => {
     const entries = Object.entries<Action<any, StateContext, any>>(data);
 
@@ -178,7 +188,21 @@ export function signalServerState<
     return {
       state: state.asReadonly(),
       signalEvents: storeEvents,
-    };
+      selectors: selectors?.selectors
+        ? selectors.selectors({
+            state: state(),
+          })
+        : undefined,
+    } as unknown as Merge<
+      {
+        state: StateContext['stateType'];
+        signalEvents: StoreEventsReadonly<StateContext>;
+      },
+      SelectorWrapper extends object
+        ? { selectors: ReturnType<SelectorWrapper['selectors']> }
+        : {}
+      // : { selectors: ReturnType<SelectorsFn> }
+    >;
   };
 }
 
