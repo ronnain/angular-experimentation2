@@ -6,6 +6,8 @@ type StoreContext = {
   methods?: Record<string, (...data: any[]) => unknown>;
 };
 
+// todo essayer d'ajouter des shadow type pour forcer l'utilisation de fonction
+
 // ! contrainte, les fonctions précédentes ne sont pas au courant des propriétés ajouté après, d'où le patchState
 // Avntage pas de double déclaration
 // Obligé de créer des méthodes pour passer les config "Storecontext" au suivant, sans avoir à réécrire les types
@@ -41,7 +43,6 @@ type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
 
-// todo contraindre d'avoir un state initial qui sera passé dans chaque sous fonction, surtout utile pour les reducers ?
 // typer les events ?
 
 /**
@@ -93,9 +94,9 @@ const test2 = pipe(
       test1: true,
     },
   },
-  // withState({
-  //   GetStatus: true,
-  // }),
+  withState({
+    GetStatus: true,
+  }),
   withFeature({
     state: {
       feature: true,
