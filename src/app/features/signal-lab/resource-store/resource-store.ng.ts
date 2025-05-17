@@ -61,6 +61,14 @@ export default class ResourceByGroupComponent {
 
   private updateItem = signal<User | undefined>(undefined);
 
+  // todo faire un truc du style withActions, withSelectors, ... et permettre la composition ?
+  // each function must return {action, selector, }
+  // withActions => {action: {GET, UPDATE}}
+  // selector: {totalUser}
+  // withFeature: {action: {SPECIALCALLBACK}, selector: {specialCallback}}
+  // withEntityStatus<UsersState>: {selectors: {usersWithStatus}}
+
+  // resourceStore<..?>({initialstate}, withActions(...), WithSelectors(...), withFeature(...))
   protected readonly usersState = signalServerState<UsersState>()(
     {
       GET: action<UsersState>()({
@@ -142,9 +150,6 @@ export default class ResourceByGroupComponent {
         } as const),
     }
   );
-
-  private testSelectors = this.usersState.selectors;
-  //      ^?
 
   protected previousPage() {
     this.pagination.update((state) => ({

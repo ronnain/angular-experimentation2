@@ -195,7 +195,7 @@ export function signalServerState<
         : undefined,
     } as unknown as Merge<
       {
-        state: StateContext['stateType'];
+        state: Signal<Prettify<StateContext['stateType']>>;
         signalEvents: StoreEventsReadonly<StateContext>;
       },
       SelectorWrapper extends object
