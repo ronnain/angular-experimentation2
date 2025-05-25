@@ -12,6 +12,10 @@ export const signalLabRoutes: Route[] = [
         path: 'resource-store',
         loadComponent: () => import('./resource-store/resource-store.ng'),
       },
+      {
+        path: 'pipe',
+        loadComponent: () => import('./pipe/my-signal-store.ng'),
+      },
     ],
   },
 ];
