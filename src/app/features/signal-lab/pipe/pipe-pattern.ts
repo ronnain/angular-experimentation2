@@ -5,13 +5,7 @@ declare const __StoreBrandSymbol: unique symbol;
 type StoreConstraints = {
   state?: Record<string, unknown>;
   methods?: Record<string, (...data: any[]) => unknown>;
-  // [__StoreBrandSymbol]: unknown;
-};
-
-type StoreConstraintsEmpty = {
-  state: Record<string, unknown>;
-  methods: Record<string, (...data: any[]) => unknown>;
-  // [__StoreBrandSymbol]: unknown;
+  [__StoreBrandSymbol]: unknown;
 };
 
 type StoreConfig = {
@@ -21,10 +15,10 @@ type StoreConfig = {
   methods: {
     [key: string]: (...data: any[]) => unknown;
   };
-  // [__StoreBrandSymbol]: unknown;
+  [__StoreBrandSymbol]: unknown;
 };
 
-type Feature<
+type InputOutputFn<
   Inputs extends StoreConstraints = StoreConfig,
   Outputs extends StoreConstraints = StoreConfig
 > = (store: ToMySignalStoreApi<Inputs>) => Outputs;
@@ -79,29 +73,13 @@ type Prettify<T> = {
           }),
  */
 
-type StoreConstraintsFeature<
-  InputsFeature extends StoreConstraints = StoreConstraints,
-  OutputFeature extends StoreConstraints = StoreConstraints
-> = (inputs: InputsFeature) => OutputFeature;
-
-// export function withMethods<
-//   Inputs extends StoreConstraints,
-//   MethodsKey extends keyof Inputs['methods'],
-//   Methods extends Record<MethodsKey, (...data: any[]) => unknown>
-// >(
-//   methodsFactory: (store: ToMySignalStoreApi<Inputs>) => Methods
-// ): Feature<StoreConfig, StoreConstraints & { methods: Methods }> {
-//   return <Store extends StoreConstraints>(store: Store) => {
-//     return methodsFactory(store as ToMySignalStoreApi<Store>);
-//   };
-// }
-function withMethods<
+export function withMethods<
   Inputs extends StoreConstraints,
   MethodsKey extends keyof Inputs['methods'],
   Methods extends Record<MethodsKey, (...data: any[]) => unknown>
 >(
   methodsFactory: (store: ToMySignalStoreApi<Inputs>) => Methods
-): Feature<Inputs, StoreConstraints & { methods: Methods }> {
+): InputOutputFn<Inputs, StoreConstraints & { methods: Methods }> {
   return (store) => {
     return {
       ...store,
@@ -123,44 +101,29 @@ export function withState<State extends StoreConstraints['state']>(
 }
 
 // todo try une fonction qui renvoie toutes la feature mergé en paramas
-export function withFeature<const A extends StoreConstraints>(
-  a: A
-): StoreConstraintsFeature<A>;
-export function withFeature<
-  const A extends StoreConstraints,
-  const B extends StoreConstraints
->(a: A, b: Merge<A, B>): StoreConstraintsFeature<MergeArgs<[A, B]>>;
-
-export function withFeature<
-  const Inputs extends StoreConstraints,
-  const A extends StoreConstraints
->(
-  merge: (store: Inputs) => Merge<Inputs, A>
-): StoreConstraintsFeature<MergeArgs<[Inputs, A]>>;
 export function withFeature<
   Inputs extends StoreConstraints,
-  const A extends StoreConstraints,
-  const B extends StoreConstraints
->(
-  merge: (store: Inputs) => Merge<Inputs, Merge<A, B>>
-): StoreConstraintsFeature<MergeArgs<[Inputs, A, B]>>;
+  A extends StoreConstraints
+>(a: InputOutputFn<Inputs, A>): InputOutputFn<Inputs, A>;
 export function withFeature<
   Inputs extends StoreConstraints,
-  const A extends StoreConstraints,
-  const B extends StoreConstraints,
-  const C extends StoreConstraints
+  A extends StoreConstraints,
+  B extends StoreConstraints
 >(
-  merge: (
-    store: Inputs
-  ) => StoreConstraintsFeature<Merge<Inputs, Merge<MergeArgs<[A, B]>, C>>>
-): StoreConstraintsFeature<MergeArgs<[Inputs, A, B, C]>>;
-
-export function withFeature(
-  operations: (
-    inputs: StoreConstraints
-  ) => StoreConstraintsFeature<StoreConstraints>
-): StoreConstraintsFeature<StoreConstraints> {
-  return operations as unknown as StoreConstraintsFeature<StoreConstraints>;
+  a: InputOutputFn<Inputs, A>,
+  b: InputOutputFn<A, B>
+): InputOutputFn<Inputs, MergeArgs<[A, B]>>;
+export function withFeature<
+  A extends StoreConstraints,
+  B extends StoreConstraints,
+  C extends StoreConstraints
+>(
+  a: InputOutputFn<StoreConfig, A>,
+  b: InputOutputFn<A, B>,
+  c: InputOutputFn<Merge<A, B>, C>
+): InputOutputFn<StoreConfig, MergeArgs<[A, B]>>;
+export function withFeature(operations: InputOutputFn): InputOutputFn {
+  return operations as unknown as InputOutputFn;
 }
 
 const myStore = MySignalStore(
@@ -199,30 +162,30 @@ const myStore = MySignalStore(
 );
 
 export function MySignalStore<A extends StoreConstraints>(
-  a: Feature<StoreConstraintsEmpty, A>
+  a: InputOutputFn<StoreConfig, A>
 ): ToMySignalStoreApi<A>;
 export function MySignalStore<
   A extends StoreConstraints,
   B extends StoreConstraints
 >(
-  a: Feature<StoreConstraintsEmpty, A>,
-  b: Feature<A, B>
+  a: InputOutputFn<StoreConfig, A>,
+  b: InputOutputFn<A, B>
 ): ToMySignalStoreApi<MergeArgs<[A, B]>>;
-// export function MySignalStore<
-//   const A extends StoreConstraints,
-//   const B extends StoreConstraints,
-//   const C extends StoreConstraints
-// >(
-//   a: (inputs: ToMySignalStoreApi<StoreConstraints>) => A,
-//   b: (inputs: ToMySignalStoreApi<A>) => B,
-//   c: (inputs: ToMySignalStoreApi<Merge<A, B>>) => C
-// ): ToMySignalStoreApi<MergeArgs<[A, B, C]>>;
+export function MySignalStore<
+  A extends StoreConstraints,
+  B extends StoreConstraints,
+  C extends StoreConstraints
+>(
+  a: InputOutputFn<StoreConfig, A>,
+  b: InputOutputFn<A, B>,
+  c: InputOutputFn<Merge<A, B>, C>
+): ToMySignalStoreApi<MergeArgs<[A, B, C]>>;
 /**
  * Please use withState, withMethods or withFeature
  * to add state or methods to the store
  */
 export function MySignalStore(
-  ...operations: Feature[]
+  ...operations: InputOutputFn[]
 ): ToMySignalStoreApi<StoreConstraints> {
   const mergedStateValue = operations.reduce((acc, operation) => {
     // here we just need to retrieve the state, so we don't need to pass the real store that will be used by patchState...
@@ -293,5 +256,4 @@ export function patchState<
     ...state,
     ...patchFn(state as WritableSignalValue<Store['value']>),
   }));
-  return storeInputs.value();
 }

@@ -1,14 +1,12 @@
-import { set } from 'fp-ts';
 import {
   MySignalStore,
   withState,
-  withMethods,
   patchState,
   withFeature,
+  withMethods,
 } from './pipe-pattern';
 
 const myStore = MySignalStore(
-  // (inputs) => ({})
   withState({
     user: {
       id: '1',
@@ -23,15 +21,15 @@ const myStore = MySignalStore(
   //       }));
   //     },
   //   },
-  // })
+  // }),
   withMethods((store) => ({
     setName: (name: string) => {
-      return patchState(store, (state) => ({
+      patchState(store, (state) => ({
         user: { ...state.user, name },
       }));
     },
-  }))
-  // withSelectedUser()
+  })),
+  withSelectedUser()
 );
 
 function withSelectedUser() {
@@ -41,7 +39,7 @@ function withSelectedUser() {
     }),
     withMethods((store) => ({
       setSelectedUser: (id: number) => {
-        return patchState(store, (state) => ({
+        patchState(store, () => ({
           selectedUser: id,
         }));
       },
