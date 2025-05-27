@@ -13,15 +13,6 @@ const myStore = MySignalStore(
       name: 'test',
     },
   }),
-  // (store) => ({
-  //   methods: {
-  //     setName: (name: string) => {
-  //       return patchState(store, (state) => ({
-  //         user: { ...state.user, name },
-  //       }));
-  //     },
-  //   },
-  // }),
   withMethods((store) => ({
     setName: (name: string) => {
       patchState(store, (state) => ({
@@ -29,7 +20,18 @@ const myStore = MySignalStore(
       }));
     },
   })),
-  withSelectedUser()
+  withFeature(
+    withState({
+      selectedUser: -1,
+    }),
+    withMethods((store) => ({
+      setSelectedUser: (id: number) => {
+        patchState(store, () => ({
+          selectedUser: id,
+        }));
+      },
+    }))
+  )
 );
 
 function withSelectedUser() {

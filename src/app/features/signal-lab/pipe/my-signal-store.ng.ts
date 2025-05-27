@@ -1,13 +1,5 @@
-import { CommonModule } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  inject,
-  resource,
-  ResourceStatus,
-  signal,
-} from '@angular/core';
-import { resourceById, ResourceByIdRef } from '../resource-by-id';
+import { CommonModule, JsonPipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import {
   MySignalStore,
   patchState,
@@ -15,6 +7,7 @@ import {
   withMethods,
   withState,
 } from './pipe-pattern';
+import { set } from 'fp-ts';
 
 type Pagination = {
   page: number;
@@ -24,12 +17,12 @@ type Pagination = {
 @Component({
   selector: 'app-resource-by-group',
   standalone: true,
-  imports: [CommonModule],
-  template: ``,
+  imports: [CommonModule, JsonPipe],
+  templateUrl: `./my-signal-store.ng.html`,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class ResourceByGroupComponent {
-  private readonly myStore = MySignalStore(
+  protected readonly myStore = MySignalStore(
     withState({
       user: {
         id: '1',
@@ -43,18 +36,23 @@ export default class ResourceByGroupComponent {
         }));
       },
     })),
-    withFeature((inputs) => ({
-      state: {
-        selectedUser: -1,
-      },
-      methods: {
-        setSelectedUser: (id: number) => {
-          return {
-            ...inputs.state,
-            selectedUser: id,
-          };
+    withFeature(
+      withState({
+        role: 'admin',
+      }),
+      withMethods((store) => ({
+        setRole: (role: string) => {
+          return patchState(store, (state) => ({
+            role,
+          }));
         },
-      },
-    }))
+      }))
+    )
   );
+
+  // Method to update name from input
+  protected updateName(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.myStore.methods.setName(input.value);
+  }
 }

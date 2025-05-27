@@ -8,7 +8,7 @@ type StoreConstraints = {
   [__StoreBrandSymbol]: unknown;
 };
 
-type StoreConfig = {
+type StoreDefaultConfig = {
   state: {
     [key: string]: unknown;
   };
@@ -17,11 +17,6 @@ type StoreConfig = {
   };
   [__StoreBrandSymbol]: unknown;
 };
-
-type InputOutputFn<
-  Inputs extends StoreConstraints = StoreConfig,
-  Outputs extends StoreConstraints = StoreConfig
-> = (store: ToMySignalStoreApi<Inputs>) => Outputs;
 
 // todo essayer d'ajouter des shadow type pour forcer l'utilisation de fonction
 
@@ -81,10 +76,11 @@ export function withMethods<
   methodsFactory: (store: ToMySignalStoreApi<Inputs>) => Methods
 ): InputOutputFn<Inputs, StoreConstraints & { methods: Methods }> {
   return (store) => {
+    const internalStore = store as unknown as StoreConstraints;
     return {
-      ...store,
+      ...internalStore,
       methods: {
-        ...store.methods,
+        ...internalStore.methods,
         ...methodsFactory(store),
       },
     } as unknown as StoreConstraints & {
@@ -92,12 +88,24 @@ export function withMethods<
     };
   };
 }
-export function withState<State extends StoreConstraints['state']>(
-  methodsFactory: State
-) {
-  return <Inputs extends StoreConstraints>(
-    inputs: ToMySignalStoreApi<Inputs>
-  ) => methodsFactory as unknown as StoreConstraints & { state: State };
+export function withState<
+  Inputs extends StoreConstraints,
+  State extends StoreConstraints['state']
+>(
+  state: State
+): InputOutputFn<
+  Inputs,
+  StoreConstraints & {
+    state: State;
+  }
+> {
+  return (store) => {
+    return {
+      state,
+    } as unknown as StoreConstraints & {
+      state: State;
+    };
+  };
 }
 
 // todo try une fonction qui renvoie toutes la feature mergé en paramas
@@ -118,40 +126,35 @@ export function withFeature<
   B extends StoreConstraints,
   C extends StoreConstraints
 >(
-  a: InputOutputFn<StoreConfig, A>,
+  a: InputOutputFn<StoreDefaultConfig, A>,
   b: InputOutputFn<A, B>,
   c: InputOutputFn<Merge<A, B>, C>
-): InputOutputFn<StoreConfig, MergeArgs<[A, B]>>;
-export function withFeature(operations: InputOutputFn): InputOutputFn {
-  return operations as unknown as InputOutputFn;
+): InputOutputFn<StoreDefaultConfig, MergeArgs<[A, B]>>;
+export function withFeature(...operations: InputOutputFn[]): InputOutputFn {
+  return operations.reduce((acc, operation) => {
+    return (store: ToMySignalStoreApi<StoreDefaultConfig>) => {
+      const config = operation(store);
+      if (!config) {
+        return acc(store);
+      }
+      return {
+        ...acc,
+        ...config,
+      } as StoreConstraints & {
+        state: NonNullable<StoreConstraints['state']>;
+        methods: NonNullable<StoreConstraints['methods']>;
+      };
+    };
+  });
 }
 
 const myStore = MySignalStore(
-  // (inputs) => ({
-  //   state: {
-  //     user: {
-  //       id: '1',
-  //       name: 'test',
-  //     },
-  //   },
-  //   [__StoreBrandSymbol]: Symbol('MySignalStore'),
-  // }),
   withState({
     user: {
       id: '1',
       name: 'test',
     },
   }),
-  // (store) => ({
-  //   methods: {
-  //     setName: (name: string) => {
-  //       return patchState(store, (state) => ({
-  //         user: { ...state.user, name },
-  //       }));
-  //     },
-  //   },
-  //   [__StoreBrandSymbol]: Symbol('MySignalStore'),
-  // })
   withMethods((store) => ({
     setName: (name: string) => {
       return patchState(store, (state) => ({
@@ -161,14 +164,19 @@ const myStore = MySignalStore(
   }))
 );
 
+type InputOutputFn<
+  Inputs extends StoreConstraints = StoreDefaultConfig,
+  Outputs extends StoreConstraints = StoreDefaultConfig
+> = (store: ToMySignalStoreApi<Inputs>) => Outputs;
+
 export function MySignalStore<A extends StoreConstraints>(
-  a: InputOutputFn<StoreConfig, A>
+  a: InputOutputFn<StoreDefaultConfig, A>
 ): ToMySignalStoreApi<A>;
 export function MySignalStore<
   A extends StoreConstraints,
   B extends StoreConstraints
 >(
-  a: InputOutputFn<StoreConfig, A>,
+  a: InputOutputFn<StoreDefaultConfig, A>,
   b: InputOutputFn<A, B>
 ): ToMySignalStoreApi<MergeArgs<[A, B]>>;
 export function MySignalStore<
@@ -176,7 +184,7 @@ export function MySignalStore<
   B extends StoreConstraints,
   C extends StoreConstraints
 >(
-  a: InputOutputFn<StoreConfig, A>,
+  a: InputOutputFn<StoreDefaultConfig, A>,
   b: InputOutputFn<A, B>,
   c: InputOutputFn<Merge<A, B>, C>
 ): ToMySignalStoreApi<MergeArgs<[A, B, C]>>;
@@ -187,46 +195,60 @@ export function MySignalStore<
 export function MySignalStore(
   ...operations: InputOutputFn[]
 ): ToMySignalStoreApi<StoreConstraints> {
-  const mergedStateValue = operations.reduce((acc, operation) => {
-    // here we just need to retrieve the state, so we don't need to pass the real store that will be used by patchState...
-    const config =
-      typeof operation === 'function'
-        ? operation(
-            undefined as unknown as ToMySignalStoreApi<StoreConstraints>
-          )
-        : { state: operation };
-    return {
-      ...acc,
-      ...config.state,
-    };
-  }, {} as StoreConstraints['state']);
+  const internalState = signal({});
 
-  const internalState = signal(mergedStateValue);
-  const mergedMethods = operations.reduce((acc, operation) => {
-    const config =
-      typeof operation === 'function'
-        ? operation({ value: internalState, methods: {} })
-        : undefined;
-    if (!config) {
-      return acc;
-    }
+  const mergeConfig = operations.reduce(
+    (acc, operation) => {
+      const config = operation({
+        value: internalState,
+        methods: acc?.methods ?? {},
+      } satisfies ToMySignalStoreApi<StoreDefaultConfig>);
 
-    return {
-      ...acc,
-      ...('methods' in config
-        ? config.methods
-        : (config as unknown as StoreConstraints['methods'])),
-    };
-  }, {} as StoreConstraints['methods']);
+      return {
+        ...acc,
+        state: {
+          ...acc.state,
+          ...('state' in config && config.state),
+        },
+        methods: {
+          ...acc.methods,
+          ...('methods' in config && config.methods),
+        },
+      };
+    },
+    {
+      state: {},
+      methods: {},
+    } as StoreConstraints
+  );
+
+  internalState.set(mergeConfig?.state ?? {});
+
+  // const mergedMethods = operations.reduce((acc, operation) => {
+  //   const config = operation({
+  //     value: internalState,
+  //     methods: acc?.methods ?? {},
+  //   });
+  //   if (!config) {
+  //     return acc;
+  //   }
+
+  //   return {
+  //     ...acc,
+  //     ...('methods' in config
+  //       ? config.methods
+  //       : (config as unknown as StoreConstraints['methods'])),
+  //   };
+  // }, {} as StoreConstraints['methods']);
 
   return {
     value: internalState,
-    methods: mergedMethods,
+    methods: mergeConfig.methods ?? {},
   } as any as ToMySignalStoreApi<StoreConstraints>;
 }
 
 type ToMySignalStoreApi<T extends StoreConstraints> = Prettify<{
-  value: Signal<Prettify<RemoveIndexSignature<T['state']>>>;
+  value: Signal<NonNullable<Prettify<RemoveIndexSignature<T['state']>>>>;
   methods: Prettify<RemoveIndexSignature<T['methods']>>;
 }>;
 
