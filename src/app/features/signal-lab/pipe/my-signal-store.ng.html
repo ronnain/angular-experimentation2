@@ -31,6 +31,29 @@
           />
         </div>
       </div>
+      <div class="p-4">
+        <h2 class="text-xl font-bold mb-4">
+          Current User Role: {{ myStore.value().role }}
+        </h2>
+
+        <div class="flex gap-4 mb-6">
+          <button
+            (click)="setRole('admin')"
+            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300"
+            [disabled]="myStore.value().role === 'admin'"
+          >
+            Set Admin Role
+          </button>
+
+          <button
+            (click)="setRole('customer')"
+            class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-green-300"
+            [disabled]="myStore.value().role === 'customer'"
+          >
+            Set Customer Role
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

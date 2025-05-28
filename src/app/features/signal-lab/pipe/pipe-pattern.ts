@@ -131,21 +131,26 @@ export function withFeature<
   c: InputOutputFn<Merge<A, B>, C>
 ): InputOutputFn<StoreDefaultConfig, MergeArgs<[A, B]>>;
 export function withFeature(...operations: InputOutputFn[]): InputOutputFn {
-  return operations.reduce((acc, operation) => {
-    return (store: ToMySignalStoreApi<StoreDefaultConfig>) => {
-      const config = operation(store);
-      if (!config) {
-        return acc(store);
-      }
-      return {
-        ...acc,
-        ...config,
-      } as StoreConstraints & {
-        state: NonNullable<StoreConstraints['state']>;
-        methods: NonNullable<StoreConstraints['methods']>;
-      };
-    };
-  });
+  return (store: ToMySignalStoreApi<StoreDefaultConfig>) =>
+    operations.reduce(
+      (acc, operation) => {
+        const config = operation({
+          value: store.value,
+          methods: acc.methods,
+        } satisfies ToMySignalStoreApi<StoreDefaultConfig>);
+        return {
+          ...acc,
+          ...(config.state && { state: { ...acc.state, ...config.state } }),
+          ...(config.methods && {
+            methods: { ...acc.methods, ...config.methods },
+          }),
+        };
+      },
+      {
+        state: {},
+        methods: store.methods ?? {},
+      } as StoreDefaultConfig
+    );
 }
 
 const myStore = MySignalStore(
@@ -199,6 +204,7 @@ export function MySignalStore(
 
   const mergeConfig = operations.reduce(
     (acc, operation) => {
+      debugger;
       const config = operation({
         value: internalState,
         methods: acc?.methods ?? {},
@@ -223,23 +229,6 @@ export function MySignalStore(
   );
 
   internalState.set(mergeConfig?.state ?? {});
-
-  // const mergedMethods = operations.reduce((acc, operation) => {
-  //   const config = operation({
-  //     value: internalState,
-  //     methods: acc?.methods ?? {},
-  //   });
-  //   if (!config) {
-  //     return acc;
-  //   }
-
-  //   return {
-  //     ...acc,
-  //     ...('methods' in config
-  //       ? config.methods
-  //       : (config as unknown as StoreConstraints['methods'])),
-  //   };
-  // }, {} as StoreConstraints['methods']);
 
   return {
     value: internalState,

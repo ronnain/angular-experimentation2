@@ -42,7 +42,7 @@ export default class ResourceByGroupComponent {
       }),
       withMethods((store) => ({
         setRole: (role: string) => {
-          return patchState(store, (state) => ({
+          return patchState(store, () => ({
             role,
           }));
         },
@@ -54,5 +54,9 @@ export default class ResourceByGroupComponent {
   protected updateName(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.myStore.methods.setName(input.value);
+  }
+
+  protected setRole(role: 'admin' | 'customer'): void {
+    this.myStore.methods.setRole(role);
   }
 }
