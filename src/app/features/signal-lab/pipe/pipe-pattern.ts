@@ -18,12 +18,6 @@ type StoreDefaultConfig = {
   [__StoreBrandSymbol]: unknown;
 };
 
-// todo essayer d'ajouter des shadow type pour forcer l'utilisation de fonction
-
-// ! contrainte, les fonctions précédentes ne sont pas au courant des propriétés ajouté après, d'où le patchState
-// Avntage pas de double déclaration
-// Obligé de créer des méthodes pour passer les config "Storecontext" au suivant, sans avoir à réécrire les types
-
 // NonNullable is used to remove the undefined type from the Acc initial value
 type Merge<A extends StoreConstraints, B extends StoreConstraints> = {
   state: Prettify<A['state'] & B['state']>;
@@ -49,24 +43,6 @@ type MergeArgs<
 type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
-
-// typer les events ?
-
-/**
- *  REFRESH: action<UserState>()({ // todo try to put here the storeEvents, that may enable to infer the storeevent type and get previous events
-        resource: ({ storeEvents }) =>
-          resource({
-            request: () => {
-              if (storeEvents.UPDATE()?.status() !== ResourceStatus.Error) {
-                return undefined;
-              }
-              return this.updateItem();
-            },
-            // remember: if updateItem -> request is undefined the laoder won't becalled, and the resource status will be idle
-            loader: ({ request }) =>
-              this.apiService.getItemById(request?.id ?? ''),
-          }),
- */
 
 export function withMethods<
   Inputs extends StoreConstraints,
@@ -108,7 +84,6 @@ export function withState<
   };
 }
 
-// todo try une fonction qui renvoie toutes la feature mergé en paramas
 export function withFeature<
   Inputs extends StoreConstraints,
   A extends StoreConstraints
