@@ -65,7 +65,7 @@ export type Action<
   StateContext extends StateContextConstraints,
   GroupIdentifier extends string | number | undefined
 > = {
-  resourceRef: (params: {
+  resource: (params: {
     storeEvents: StoreEventsReadonly<StateContext>;
   }) => ActionRef<LoaderResponseValue, GroupIdentifier>;
   reducer: (
@@ -88,14 +88,21 @@ export type Action<
 /**
  * If the action can be triggered multiples times, use the request property of the resource method
  */
-export function action<StateContext extends StateContextConstraints>() {
-  return <
+export function fromResource<
+  StateContext extends StateContextConstraints,
+  LoaderResponseValue,
+  GroupIdentifier extends string | number | undefined
+>(
+  resource: Action<
     LoaderResponseValue,
-    GroupIdentifier extends string | number | undefined
-  >(
-    config: Action<LoaderResponseValue, StateContext, GroupIdentifier>
-  ) => {
-    return config;
+    StateContext,
+    GroupIdentifier
+  >['resource'],
+  reducer: Action<LoaderResponseValue, StateContext, GroupIdentifier>['reducer']
+) {
+  return {
+    resource,
+    reducer,
   };
 }
 
@@ -134,7 +141,7 @@ export function signalServerState<
     const state = signal<StateContext['stateType']>(opts.initialState);
 
     entries.forEach(([actionName, action]) => {
-      const actionResource = action.resourceRef({ storeEvents });
+      const actionResource = action.resource({ storeEvents });
 
       if (isResourceRef(actionResource)) {
         effect(() => {
@@ -219,4 +226,113 @@ function isResourceByIdRef<
   GroupIdentifier extends string | number = string
 >(action: any): action is GroupByAction<DataType, GroupIdentifier> {
   return !('hasValue' in action) && !(typeof action.hasValue === 'function');
+}
+
+export function withGranularEntitiesInnerStore<
+  StateContext extends StateContextConstraints
+>() {
+  return <
+    Actions extends Record<
+      StateContext['actions'],
+      Action<any, StateContext, any>
+    >,
+    const SelectorsKeys extends keyof ReturnType<SelectorsFn>,
+    const SelectorsFn extends (params: {
+      state: StateContext['stateType'];
+    }) => Record<SelectorsKeys, unknown>,
+    SelectorWrapper extends
+      | {
+          selectors: SelectorsFn;
+        }
+      | undefined
+  >(
+    data: Actions,
+    opts: { initialState: StateContext['stateType'] },
+    selectors?: SelectorWrapper
+  ) => {
+    const entries = Object.entries<Action<any, StateContext, any>>(data);
+
+    // Create internal action sources
+    const storeEvents = entries.reduce((acc, [actionName, action]) => {
+      acc[actionName as StateContext['actions']] = signal<
+        ActionRef<any> | undefined
+      >(undefined);
+      return acc;
+    }, {} as StoreEvents<StateContext>);
+
+    const state = signal<StateContext['stateType']>(opts.initialState);
+
+    entries.forEach(([actionName, action]) => {
+      const actionResource = action.resource({ storeEvents });
+
+      if (isResourceRef(actionResource)) {
+        effect(() => {
+          if (actionResource.status() === ResourceStatus.Idle) {
+            // do not run the reducer when the action is invalid (idle status)
+            return;
+          }
+          state.update((state) =>
+            action.reducer({ state, actionResource, groupId: undefined })
+          );
+        });
+
+        effect(() => {
+          if (actionResource.status() === ResourceStatus.Idle) {
+            // do not emit the Idle status
+            return;
+          }
+          const signalEvent =
+            storeEvents[actionName as StateContext['actions']];
+          console.log(actionName, actionResource, actionResource.status());
+          signalEvent.set(actionResource);
+        });
+      }
+      if (isResourceByIdRef(actionResource)) {
+        effect(() => {
+          const resourceByIdRef = actionResource();
+          Object.entries(resourceByIdRef).forEach(([groupId, resourceRef]) => {
+            if (resourceRef) {
+              console.log(
+                'resourceRef.status()',
+                groupId,
+                resourceRef.status(),
+                resourceRef
+              );
+
+              if (resourceRef.status() !== ResourceStatus.Idle) {
+                state.update((state) =>
+                  action.reducer({
+                    state,
+                    actionResource: resourceRef,
+                    groupId,
+                  })
+                );
+              }
+            }
+          });
+        });
+      }
+    });
+
+    return {
+      state: state.asReadonly(),
+      signalEvents: storeEvents,
+      selectors: selectors?.selectors
+        ? selectors.selectors({
+            state: state(),
+          })
+        : undefined,
+    } as unknown as Prettify<
+      MergeAction<
+        {
+          state: Signal<Prettify<StateContext['stateType']>>;
+          signalEvents: StoreEventsReadonly<StateContext>;
+        },
+        SelectorWrapper extends object
+          ? { selectors: ReturnType<SelectorWrapper['selectors']> }
+          : {}
+        // : { selectors: ReturnType<SelectorsFn> }
+      >
+    >;
+  };
 }

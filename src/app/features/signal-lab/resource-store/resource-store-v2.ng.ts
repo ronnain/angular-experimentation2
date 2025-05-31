@@ -44,7 +44,7 @@ type UsersState = ServerStateContext<{
   styleUrls: ['./resource-store.ng.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export default class ResourceByGroupComponent {
+export default class ResourceByGroupV2Component {
   private readonly apiService = inject(ApiService);
 
   protected updateError = this.apiService.updateError;
@@ -90,8 +90,6 @@ export default class ResourceByGroupComponent {
         }),
       }),
       UPDATE: action<UsersState>()({
-        // triggerOn: 'imperative' store.UPDATE(), 'requestChange', 'sourceChange'
-        // source: this.updateItem,
         resourceRef: () =>
           resourceById({
             request: this.updateItem,
@@ -100,8 +98,6 @@ export default class ResourceByGroupComponent {
               return this.apiService.updateItem(request as User);
             },
           }),
-        // rename reducer par patchState ?
-        // store patchState(store, (signalState) => signalState().users()[0]().name.set('NewName') = 'test'); // won't trigger other selectors to change
         reducer: ({ actionResource, state, groupId }) => {
           console.log('groupId', groupId);
           // do not forget to handle the error case
@@ -150,12 +146,13 @@ export default class ResourceByGroupComponent {
     },
     {
       // todo try to make selector to be updated only if the part of the state it depends on changes
-      selectors: ({ state }) => ({
-        totalUser: state.users.length,
-      }),
+      selectors: ({ state }) =>
+        ({
+          totalUser: state.users.length,
+        } as const),
     }
   );
-  test = this.usersState.selectors.totalUser;
+
   protected previousPage() {
     this.pagination.update((state) => ({
       ...state,
