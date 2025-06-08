@@ -58,10 +58,10 @@ export default class ResourceByGroupComponent {
   private updateItem = signal<User | undefined>(undefined);
 
   protected readonly updateById = resourceById({
-    request: this.updateItem,
-    identifier: (request) => request.id,
-    loader: ({ request }) => {
-      return this.apiService.updateItem(request as User);
+    params: this.updateItem,
+    identifier: (params) => params.id,
+    loader: ({ params }) => {
+      return this.apiService.updateItem(params as User);
     },
   });
 
@@ -70,8 +70,8 @@ export default class ResourceByGroupComponent {
       GET: action<UsersState>()({
         resource: () =>
           resource({
-            request: () => this.pagination(),
-            loader: ({ request }) => this.apiService.getDataList$(request),
+            params: () => this.pagination(),
+            loader: ({ params }) => this.apiService.getDataList$(params),
           }),
         reducer: ({ actionResource, state }) => ({
           // do not forget to handle the error case

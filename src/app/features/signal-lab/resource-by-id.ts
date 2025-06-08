@@ -23,10 +23,10 @@ export type ResourceByIdRef<
 
 export function resourceById<T, R, GroupIdentifier extends string | number>({
   identifier,
-  request,
+  params,
   loader,
-}: Omit<ResourceOptions<T, R>, 'request'> & {
-  request: () => R; // must be a mandatory field
+}: Omit<ResourceOptions<T, R>, 'params'> & {
+  params: () => R; // must be a mandatory field
   identifier: (request: NonNullable<NoInfer<R>>) => GroupIdentifier;
 }): ResourceByIdRef<GroupIdentifier, T> {
   const injector = inject(Injector);
@@ -38,7 +38,7 @@ export function resourceById<T, R, GroupIdentifier extends string | number>({
 
   // this effect is used to create a mapped ResourceRef instance
   effect(() => {
-    const requestValue = request();
+    const requestValue = params();
     if (!requestValue) {
       return;
     }
@@ -53,7 +53,7 @@ export function resourceById<T, R, GroupIdentifier extends string | number>({
     }
 
     const filteredRequestByGroup = linkedSignal({
-      source: request,
+      source: params,
       computation: (incomingRequestValue, previousGroupRequestData) => {
         if (!incomingRequestValue) {
           return incomingRequestValue;
@@ -71,8 +71,8 @@ export function resourceById<T, R, GroupIdentifier extends string | number>({
       group,
       resourceOptions: {
         loader,
-        //@ts-ignore // ! Hope it is fixed in the v20, actually, the request can return undefined that will trigger the idle status
-        request: filteredRequestByGroup,
+        //@ts-ignore
+        params: filteredRequestByGroup,
       },
     });
 

@@ -73,14 +73,14 @@
           <button
             class="btn"
             (click)="previousPage()"
-            [disabled]="usersState.state().status.GET === 2"
+            [disabled]="usersState.state().status.GET === 'loading'"
           >
             Previous
           </button>
           <button
             class="btn"
             (click)="nextPage()"
-            [disabled]="usersState.state().status.GET === 2"
+            [disabled]="usersState.state().status.GET === 'loading'"
           >
             Next
           </button>
@@ -91,32 +91,32 @@
 </div>
 
 <ng-template #statusTemplate let-status="status">
-  @switch(status) { @case (0) {
+  @switch(status) { @case ('idle') {
   <span class="badge-container">
     <span class="status-emoji">🛌</span>
     <span class="badge badge-gray">Idle</span>
   </span>
-  } @case (1) {
+  } @case ('error') {
   <span class="badge-container">
     <span class="status-emoji error">❌</span>
     <span class="badge badge-red">Error</span>
   </span>
-  } @case (2) {
+  } @case ('loading') {
   <span class="badge-container">
     <span class="status-emoji loading">⏳</span>
     <span class="badge badge-orange">Loading</span>
   </span>
-  } @case (3) {
+  } @case ('reloading') {
   <span class="badge-container">
     <span class="status-emoji loading">🔄</span>
     <span class="badge badge-orange">Reloading</span>
   </span>
-  } @case (4) {
+  } @case ('resolved') {
   <span class="badge-container">
     <span class="status-emoji success">✅</span>
     <span class="badge badge-green">Loaded</span>
   </span>
-  } @case (5) {
+  } @case ('local') {
   <span class="badge-container">
     <span class="status-emoji">📦</span>
     <span class="badge badge-blue">Local</span>

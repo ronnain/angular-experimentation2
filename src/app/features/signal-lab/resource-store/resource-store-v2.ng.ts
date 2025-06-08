@@ -75,8 +75,8 @@ export default class ResourceByGroupV2Component {
       GET: action<UsersState>()({
         resourceRef: () =>
           resource({
-            request: () => this.pagination(),
-            loader: ({ request }) => this.apiService.getDataList$(request),
+            params: () => this.pagination(),
+            loader: ({ params }) => this.apiService.getDataList$(params),
           }),
         // TODO REMOVE THE GROUPID HERE
         reducer: ({ actionResource, state }) => ({
@@ -92,16 +92,16 @@ export default class ResourceByGroupV2Component {
       UPDATE: action<UsersState>()({
         resourceRef: () =>
           resourceById({
-            request: this.updateItem,
-            identifier: (request) => request.id,
-            loader: ({ request }) => {
-              return this.apiService.updateItem(request as User);
+            params: this.updateItem,
+            identifier: (params) => params.id,
+            loader: ({ params }) => {
+              return this.apiService.updateItem(params);
             },
           }),
         reducer: ({ actionResource, state, groupId }) => {
           console.log('groupId', groupId);
           // do not forget to handle the error case
-          if (actionResource.status() === ResourceStatus.Error) {
+          if (actionResource.status() === 'error') {
             const users = state.users.map((user) => {
               if (user.id === groupId) {
                 return {
@@ -118,7 +118,7 @@ export default class ResourceByGroupV2Component {
             };
           }
           const item =
-            actionResource.status() === ResourceStatus.Loading
+            actionResource.status() === 'loading'
               ? this.updateItem()
               : actionResource.value();
           const users = state.users.map((user) => {

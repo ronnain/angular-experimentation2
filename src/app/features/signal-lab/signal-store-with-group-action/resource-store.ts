@@ -145,7 +145,7 @@ export function signalServerState<
 
       if (isResourceRef(actionResource)) {
         effect(() => {
-          if (actionResource.status() === ResourceStatus.Idle) {
+          if (actionResource.status() === 'idle') {
             // do not run the reducer when the action is invalid (idle status)
             return;
           }
@@ -155,7 +155,7 @@ export function signalServerState<
         });
 
         effect(() => {
-          if (actionResource.status() === ResourceStatus.Idle) {
+          if (actionResource.status() === 'idle') {
             // do not emit the Idle status
             return;
           }
@@ -177,7 +177,7 @@ export function signalServerState<
                 resourceRef
               );
 
-              if (resourceRef.status() !== ResourceStatus.Idle) {
+              if (resourceRef.status() !== 'idle') {
                 state.update((state) =>
                   action.reducer({
                     state,
@@ -267,7 +267,7 @@ export function withGranularEntitiesInnerStore<
 
       if (isResourceRef(actionResource)) {
         effect(() => {
-          if (actionResource.status() === ResourceStatus.Idle) {
+          if (actionResource.status() === 'idle') {
             // do not run the reducer when the action is invalid (idle status)
             return;
           }
@@ -277,7 +277,7 @@ export function withGranularEntitiesInnerStore<
         });
 
         effect(() => {
-          if (actionResource.status() === ResourceStatus.Idle) {
+          if (actionResource.status() === 'idle') {
             // do not emit the Idle status
             return;
           }
@@ -299,7 +299,7 @@ export function withGranularEntitiesInnerStore<
                 resourceRef
               );
 
-              if (resourceRef.status() !== ResourceStatus.Idle) {
+              if (resourceRef.status() !== 'idle') {
                 state.update((state) =>
                   action.reducer({
                     state,

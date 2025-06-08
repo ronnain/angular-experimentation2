@@ -92,7 +92,7 @@ export function signalServerState<
       const actionResource = action.resource({ storeEvents });
 
       effect(() => {
-        if (actionResource.status() === ResourceStatus.Idle) {
+        if (actionResource.status() === 'idle') {
           // do not run the reducer when the action is invalid (idle status)
           return;
         }
@@ -100,7 +100,7 @@ export function signalServerState<
       });
 
       effect(() => {
-        if (actionResource.status() === ResourceStatus.Idle) {
+        if (actionResource.status() === 'idle') {
           // do not emit the Idle status
           return;
         }
