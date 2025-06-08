@@ -139,7 +139,8 @@
     <div class="bg-white p-4 rounded shadow my-8">
       <h2 class="font-bold">Out Of context Entities</h2>
       <div class="relative overflow-x-auto">
-        <table *ngIf="dataList.data$ | async as data" class="table table-zebra">
+        @if (dataList.data$ | async; as data) {
+        <table class="table table-zebra">
           <thead class="">
             <tr>
               <th scope="col" class="">ID</th>
@@ -149,10 +150,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              *ngFor="let entityData of data.result.outOfContextEntities"
-              class=""
-            >
+            @for (entityData of data.result.outOfContextEntities; track
+            entityData) {
+            <tr class="">
               <th scope="row" class="">
                 {{ entityData.entity.id }}
               </th>
@@ -180,8 +180,10 @@
                 </button>
               </td>
             </tr>
+            }
           </tbody>
         </table>
+        }
       </div>
     </div>
     }
@@ -189,94 +191,51 @@
 </div>
 
 <ng-template #statusTemplate let-status="status">
-  <span
-    *ngIf="status.create?.isLoading"
-    class="bg-blue-200 text-blue-800 px-2 py-1 rounded"
-    >Creating</span
-  >
-  <span
-    *ngIf="status.update?.isLoading"
-    class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
-    >Updating</span
-  >
-  <span
-    *ngIf="status.delete?.isLoading"
-    class="bg-red-200 text-red-800 px-2 py-1 rounded"
-    >Deleting</span
-  >
-  <span
-    *ngIf="status.refresh?.isLoading"
-    class="bg-grey-200 text-grey-800 px-2 py-1 rounded"
-    >Refreshing</span
-  >
-  <span
-    *ngIf="status.create?.isLoaded"
-    class="bg-green-200 text-green-800 px-2 py-1 rounded"
-    >Created</span
-  >
-  <span
-    *ngIf="status.update?.isLoaded"
-    class="bg-green-200 text-green-800 px-2 py-1 rounded"
-    >Updated</span
-  >
-  <span
-    *ngIf="status.delete?.isLoaded"
-    class="bg-green-200 text-green-800 px-2 py-1 rounded"
-    >Deleted</span
-  >
-  <span
-    *ngIf="status.refresh?.isLoaded"
-    class="bg-grey-200 text-green-800 px-2 py-1 rounded"
-    >Refreshed</span
-  >
-  <span
-    *ngIf="status.refresh?.hasError"
-    class="bg-grey-200 text-grey-800 px-2 py-1 rounded"
-    >Refresh Error</span
-  >
-  <span
-    *ngIf="status.create?.hasError"
-    class="bg-red-200 text-red-800 px-2 py-1 rounded"
-    >Creation Error</span
-  >
-  <span
-    *ngIf="status.update?.hasError"
-    class="bg-red-200 text-red-800 px-2 py-1 rounded"
-    >Update Error</span
-  >
-  <span
-    *ngIf="status.delete?.hasError"
-    class="bg-red-200 text-red-800 px-2 py-1 rounded"
-    >Delete Error</span
-  >
-  <span
-    *ngIf="status.bulkUpdate?.error"
-    class="bg-red-200 text-red-800 px-2 py-1 rounded"
+  @if (status.create?.isLoading) {
+  <span class="bg-blue-200 text-blue-800 px-2 py-1 rounded">Creating</span>
+  } @if (status.update?.isLoading) {
+  <span class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded">Updating</span>
+  } @if (status.delete?.isLoading) {
+  <span class="bg-red-200 text-red-800 px-2 py-1 rounded">Deleting</span>
+  } @if (status.refresh?.isLoading) {
+  <span class="bg-grey-200 text-grey-800 px-2 py-1 rounded">Refreshing</span>
+  } @if (status.create?.isLoaded) {
+  <span class="bg-green-200 text-green-800 px-2 py-1 rounded">Created</span>
+  } @if (status.update?.isLoaded) {
+  <span class="bg-green-200 text-green-800 px-2 py-1 rounded">Updated</span>
+  } @if (status.delete?.isLoaded) {
+  <span class="bg-green-200 text-green-800 px-2 py-1 rounded">Deleted</span>
+  } @if (status.refresh?.isLoaded) {
+  <span class="bg-grey-200 text-green-800 px-2 py-1 rounded">Refreshed</span>
+  } @if (status.refresh?.hasError) {
+  <span class="bg-grey-200 text-grey-800 px-2 py-1 rounded">Refresh Error</span>
+  } @if (status.create?.hasError) {
+  <span class="bg-red-200 text-red-800 px-2 py-1 rounded">Creation Error</span>
+  } @if (status.update?.hasError) {
+  <span class="bg-red-200 text-red-800 px-2 py-1 rounded">Update Error</span>
+  } @if (status.delete?.hasError) {
+  <span class="bg-red-200 text-red-800 px-2 py-1 rounded">Delete Error</span>
+  } @if (status.bulkUpdate?.error) {
+  <span class="bg-red-200 text-red-800 px-2 py-1 rounded"
     >Bulk Update Error</span
   >
-  <span
-    *ngIf="status.bulkUpdate?.isLoaded"
-    class="bg-green-200 text-green-800 px-2 py-1 rounded"
-    >Bulk update</span
-  >
-  <span
-    *ngIf="status.bulkUpdate?.isLoading"
-    class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
+  } @if (status.bulkUpdate?.isLoaded) {
+  <span class="bg-green-200 text-green-800 px-2 py-1 rounded">Bulk update</span>
+  } @if (status.bulkUpdate?.isLoading) {
+  <span class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
     >Bulk updating</span
   >
-  <span
-    *ngIf="status.bulkDelete?.error"
-    class="bg-red-200 text-red-800 px-2 py-1 rounded"
+  } @if (status.bulkDelete?.error) {
+  <span class="bg-red-200 text-red-800 px-2 py-1 rounded"
     >Bulk delete Error</span
   >
-  <span
-    *ngIf="status.bulkDelete?.isLoading"
-    class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
+  } @if (status.bulkDelete?.isLoading) {
+  <span class="bg-yellow-200 text-yellow-800 px-2 py-1 rounded"
     >Bulk deleting</span
   >
-  <span
-    *ngIf="status.bulkDelete?.isLoaded"
-    class="bg-green-200 text-green-800 px-2 py-1 rounded"
+  } @if (status.bulkDelete?.isLoaded) {
+  <span class="bg-green-200 text-green-800 px-2 py-1 rounded"
     >Bulk deleted</span
   >
+  }
 </ng-template>

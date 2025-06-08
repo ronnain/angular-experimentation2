@@ -1,10 +1,10 @@
-import { CommonModule } from '@angular/common';
+
 import { Component } from '@angular/core';
 
 @Component({
   selector: 'app-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: ` Just a random page `,
 })
 export class PageComponent {}
