@@ -21,7 +21,6 @@ import {
   withState,
 } from '@ngrx/signals';
 import { Action, fromResource } from './resource-store';
-import { on } from '@ngrx/signals/events';
 
 type Merge<T, U> = T & U;
 
@@ -59,13 +58,13 @@ const storeTest = signalStore(
       getAll: fromResource(
         () =>
           resource({
-            request: () => 5,
-            loader: ({ request }) => {
+            params: () => 5,
+            loader: ({ params }) => {
               // return a promise with 10
               return new Promise<UserTest[]>((resolve) => {
                 setTimeout(() => {
                   resolve(
-                    Array.from({ length: request }, (_, i) => ({
+                    Array.from({ length: params }, (_, i) => ({
                       id: `user-${i + 1}`,
                       name: `User ${i + 1}`,
                       email: `user${i + 1}` + '@example.com',

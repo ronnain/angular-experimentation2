@@ -88,6 +88,11 @@ export class DataListComponent {
 
   protected readonly selectedEntities$ = new BehaviorSubject<DataItem[]>([]);
 
+  // todo pas exposer les outOfContextEntities, permettre de les clear via une config
+  // todo mettre à jour automatiquement les entities et outOfContextEntities
+  // todo faire en mode pipe pattern
+  // todo optimiser les selectors pour éviter de recalculer les entities et outOfContextEntities à chaque changement de pagination
+  // todo optimise, checker comme tanstackquery pour ajouter une delay pour refresh..., garder les pages en mémoire... ?
   protected readonly dataList = store<MyDataListStoreType>()(
     withEntities<MyDataListStoreType>()({
       src: () => this.pagination$,
@@ -146,6 +151,7 @@ export class DataListComponent {
             }));
           },
         },
+        // todo removed delayedReducer, they can be triggered by listening on internal events like refresh
         delayedReducer: [
           {
             notifier: () =>
