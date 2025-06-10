@@ -1,28 +1,12 @@
 import { init } from 'fp-ts/lib/ReadonlyNonEmptyArray';
-import { hasProcessingItem } from './store-helper';
-import { withSelectors } from './storev3';
-import { patchState } from '../signal-lab/pipe/pipe-pattern';
+import { hasProcessingItem } from '../store-helper';
+import { withSelectors } from '../storev3';
+import { patchState } from '../../signal-lab/pipe/pipe-pattern';
 
 type User = {
   id: string;
   name: string;
   email: string;
-};
-
-type Path = string;
-
-type Config = {
-  state?: Record<string, unknown>;
-  entities?: Record<Path, {
-    state: User[]; // from query or entitiesAccessor
-    derivedState?: Record<string, unknown>; // from query derivedState
-    mutation?: Record<string, (...data: any[]) => unknown>;
-    grannularMutation?: Record<string, (...data: any[]) => unknown>;
-    grannularSelectors: Record<string, (...data: any[]) => unknown>;
-    selectors: Record<string, (...data: any[]) => unknown>;
-  }>
-  mutation?: Record<string, (...data: any[]) => unknown>;
-  selectors: Record<string, (...data: any[]) => unknown>;
 };
 
 // all async actions are stated by default
@@ -113,9 +97,15 @@ const storeUser = serverStateStore(
     src: () => store.state.pagination$,
     query: ({ data }) => this.dataListService.getDataList$(data),
   }),
-  withMutations((store) => ({
-    updateMetaData: mutation((metatda: MetaData) => ({
-      ...metatda,
-    })),
+  withMutations(() => ({
+    update$: mutation({
+      src: () => update$,
+      query: ({ actionSrc }) => {
+        return this.dataListService.updateItem(actionSrc);
+      },
+      operator: switchMap,
+    }),
   }))
 );
+
+storeUser.events.update$ // { status: 'loading' | 'success' | 'error', value?: User, error: any }

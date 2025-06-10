@@ -1,6 +1,6 @@
 import { init } from "fp-ts/lib/ReadonlyNonEmptyArray";
-import { hasProcessingItem } from "./store-helper";
-import { withSelectors } from "./storev3";
+import { hasProcessingItem } from "../store-helper";
+import { withSelectors } from "../storev3";
 
 type User = {
   id: string;
