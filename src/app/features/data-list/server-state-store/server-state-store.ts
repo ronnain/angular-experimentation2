@@ -176,6 +176,9 @@ type Prettify<T> = {
 //     );
 // }
 
+// todo withQuery
+// todo faire cas où on récup un state avec 2 array dedans et qu'on souhaite appliquer des changements à chacun d'eux
+
 const myStore = serverStateStore(
   () => ({
     state: {

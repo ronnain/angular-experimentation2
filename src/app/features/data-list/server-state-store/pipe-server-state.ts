@@ -109,3 +109,19 @@ const storeUser = serverStateStore(
 );
 
 storeUser.events.update$ // { status: 'loading' | 'success' | 'error', value?: User, error: any }
+
+const storeUser = serverStateStore(
+  withQuery({
+    src: () => store.state.pagination$,
+    query: ({ data }) => this.dataListService.getDataList$(data),
+  }),
+  withMutations(() => ({
+    update$: mutation({
+      src: () => update$,
+      query: ({ actionSrc }) => {
+        return this.dataListService.updateItem(actionSrc);
+      },
+      operator: switchMap,
+    }),
+  }))
+);
