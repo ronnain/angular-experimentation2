@@ -1,5 +1,10 @@
+import { of } from 'rxjs';
 import { Equal, Expect } from '../../../../../test-type';
-import { MergeEntitiesRecord } from './server-state-store';
+import {
+  MergeEntitiesRecord,
+  RemoveIndexSignature,
+  withQuery,
+} from './server-state-store';
 
 type MergeEntitiesRecordTest = MergeEntitiesRecord<
   {
@@ -111,4 +116,43 @@ it('Should merge config of entities with same key', () => {
       'isProcessing' | 'isProcessing2'
     >
   >;
+});
+
+type Params = {
+  id: string;
+  ordering: string;
+};
+it('Should pass params type from params function to query parameters', () => {
+  withQuery({
+    params: () => of<Params>({ id: '123', ordering: 'asc' }),
+    query: ({ params }) => {
+      type test = Expect<Equal<typeof params, Params>>;
+      return of({
+        name: 'John Doe',
+        email: 'john.doe@example.com',
+      });
+    },
+  });
+});
+
+type User = {
+  id: string;
+  name: string;
+  email: string;
+};
+it('Should add the query response type to the state', () => {
+  const query = withQuery({
+    params: () => of<Params>({ id: '123', ordering: 'asc' }),
+    query: () => {
+      return of<User>({
+        name: 'John Doe',
+        email: 'john.doe@example.com',
+        id: '1',
+      });
+    },
+  });
+  type QueryStateReturnType = RemoveIndexSignature<
+    ReturnType<typeof query>['state']
+  >;
+  type test = Expect<Equal<QueryStateReturnType, User>>;
 });

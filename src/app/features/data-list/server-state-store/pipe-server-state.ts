@@ -2,6 +2,8 @@ import { init } from 'fp-ts/lib/ReadonlyNonEmptyArray';
 import { hasProcessingItem } from '../store-helper';
 import { withSelectors } from '../storev3';
 import { patchState } from '../../signal-lab/pipe/pipe-pattern';
+import { serverStateStore, withQuery } from './server-state-store';
+import { of, Subject } from 'rxjs';
 
 type User = {
   id: string;
@@ -110,10 +112,17 @@ const storeUser = serverStateStore(
 
 storeUser.events.update$ // { status: 'loading' | 'success' | 'error', value?: User, error: any }
 
+const pagination$ = new Subject<{
+  page: number;
+  pageSize: number;
+}>();
 const storeUser = serverStateStore(
   withQuery({
-    src: () => store.state.pagination$,
-    query: ({ data }) => this.dataListService.getDataList$(data),
+    params: () => pagination$,
+    query: ({ params }) => of({
+      name: 'John Doe',
+      email: 'john.doe@example.com',
+    }),
   }),
   withMutations(() => ({
     update$: mutation({

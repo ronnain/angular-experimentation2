@@ -1,5 +1,6 @@
 import { signal, Signal, WritableSignal } from '@angular/core';
 import { hasProcessingItem } from '../store-helper';
+import { Observable } from 'rxjs';
 
 type Path = string;
 
@@ -112,25 +113,28 @@ type Prettify<T> = {
 //     };
 //   };
 // }
-// export function withState<
-//   Inputs extends StoreConstraints,
-//   State extends StoreConstraints['state']
-// >(
-//   state: State
-// ): InputOutputFn<
-//   Inputs,
-//   StoreConstraints & {
-//     state: State;
-//   }
-// > {
-//   return (store) => {
-//     return {
-//       state,
-//     } as unknown as StoreConstraints & {
-//       state: State;
-//     };
-//   };
-// }
+
+export function withQuery<
+  Inputs extends StoreConstraints,
+  Params,
+  QueryState
+>(query: {
+  params: () => Observable<Params>;
+  query: (queryData: { params: Params }) => Observable<QueryState>;
+}): InputOutputFn<
+  Inputs,
+  StoreConstraints & {
+    state: QueryState;
+  }
+> {
+  return (store) => {
+    return {
+      query,
+    } as unknown as StoreConstraints & {
+      state: QueryState;
+    };
+  };
+}
 
 // export function withFeature<
 //   Inputs extends StoreConstraints,
@@ -236,20 +240,6 @@ const myStore = serverStateStore(
     },
   })
 );
-
-// withState({
-//   user: {
-//     id: '1',
-//     name: 'test',
-//   },
-// }),
-// withMethods((store) => ({
-//   setName: (name: string) => {
-//     return patchState(store, (state) => ({
-//       user: { ...state.user, name },
-//     }));
-//   },
-// }))
 
 type InputOutputFn<
   Inputs extends StoreConstraints = StoreDefaultConfig,
