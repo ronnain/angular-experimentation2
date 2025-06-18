@@ -1,21 +1,22 @@
-import { signal, Signal, WritableSignal } from '@angular/core';
-import { hasProcessingItem } from '../store-helper';
-import { Observable } from 'rxjs';
+import { Signal, WritableSignal } from '@angular/core';
+import { Observable, of } from 'rxjs';
 
-type Path = string;
+type QueryKey = string;
+
+type MutationKey = `${QueryKey}` | `${QueryKey}.${string}`; // e.g. list all path to an array
 
 type StoreConstraints = {
-  state?: Record<string, unknown>;
-  mutations?: Record<string, (...data: any[]) => unknown>;
+  state?: Record<QueryKey, unknown>;
+  mutations?: Record<MutationKey, (...data: any[]) => unknown>;
   selectors?: Record<string, unknown>;
-  entities?: Record<Path, EntityConfig>;
+  entities?: Record<string, EntityConfig>;
 };
 
 type EntityConfig = {
   state: Record<string, unknown>; // from query or entitiesAccessor
   derivedState?: Record<string, unknown>; // from query derivedState
   mutations?: Record<string, (...data: any[]) => unknown>;
-  entityMutations?: Record<string, (...data: any[]) => unknown>;
+  entityMutations?: Record<QueryKey, (...data: any[]) => unknown>;
   entitySelectors?: Record<string, unknown>;
   selectors?: Record<string, unknown>;
 };
@@ -114,25 +115,71 @@ type Prettify<T> = {
 //   };
 // }
 
+type ExtractArrayType<T> = T extends Array<infer U> ? U : never;
+
+/**
+ * Function to create a query that can be used to fetch data from the server.
+ * It allows you to define a query with parameters and a query function that returns an observable of the query state.
+ * The query can be used to fetch data based on dynamic parameters.
+ * @example
+ * withQuery({
+ *   on: () => of({ page: 1, pageSize: 10 }),
+ *   query: ({ params }) => {
+ *    return of([{userId: '1', name: 'John Doe'}]);
+ *   },
+ *   queryKey: 'users',
+ * });
+ */
 export function withQuery<
   Inputs extends StoreConstraints,
   Params,
-  QueryState
->(query: {
-  params: () => Observable<Params>;
-  query: (queryData: { params: Params }) => Observable<QueryState>;
+  QueryState extends Record<string, unknown> | unknown[],
+  const QueryKey extends string
+>(queryConfig: {
+  /**
+   * Function that returns an observable of the parameters used for the query.
+   * This can be used to fetch data based on dynamic parameters.
+   */
+  on: () => Observable<Params>;
+  /**
+   * Query function that returns an observable of the query state.
+   * It can use the payload returned by the on function to fetch data.
+   */
+  query: (queryData: { payload: Params }) => Observable<QueryState>;
+  /**
+   * Path help to extend the store with other query and are used by some mutations to be apply on a specific target
+   */
+  queryKey: QueryKey;
 }): InputOutputFn<
   Inputs,
-  StoreConstraints & {
-    state: QueryState;
-  }
+  StoreConstraints &
+    (QueryState extends any[]
+      ? {
+          entities: {
+            [key in QueryKey & string]: {
+              state: ExtractArrayType<QueryState>;
+            };
+          };
+        }
+      : {
+          state: QueryState;
+        })
 > {
   return (store) => {
     return {
-      query,
-    } as unknown as StoreConstraints & {
-      state: QueryState;
-    };
+      queryConfig,
+    } as unknown as StoreConstraints &
+      (QueryState extends any[]
+        ? {
+            entities: {
+              [key in QueryKey & string]: {
+                state: ExtractArrayType<QueryState>;
+              };
+            };
+          }
+        : {
+            state: QueryState;
+          });
   };
 }
 
@@ -180,14 +227,15 @@ export function withQuery<
 //     );
 // }
 
-// todo withQuery
 // todo faire cas où on récup un state avec 2 array dedans et qu'on souhaite appliquer des changements à chacun d'eux
 
 const myStore = serverStateStore(
-  () => ({
-    state: {
-      userSelected: null as string | null,
+  withQuery({
+    on: () => of({ page: 1, pageSize: 10 }),
+    query: ({ payload }) => {
+      return of([]);
     },
+    queryKey: 'users',
   }),
   () => ({
     entities: {
@@ -240,6 +288,9 @@ const myStore = serverStateStore(
     },
   })
 );
+
+const result = myStore.value[0];
+//    ^?
 
 type InputOutputFn<
   Inputs extends StoreConstraints = StoreDefaultConfig,
@@ -310,7 +361,7 @@ export function serverStateStore(
 }
 
 type ToServerStateStoreApi<T extends StoreConstraints> = Prettify<{
-  value: Signal<NonNullable<Prettify<RemoveIndexSignature<T['state']>>>>;
+  value: NonNullable<Prettify<T['state']>>;
   mutations: Prettify<RemoveIndexSignature<T['mutations']>>;
   selectors: Prettify<RemoveIndexSignature<T['selectors']>>;
   entities: T['entities'];

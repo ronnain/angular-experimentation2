@@ -118,7 +118,7 @@ const pagination$ = new Subject<{
 }>();
 const storeUser = serverStateStore(
   withQuery({
-    params: () => pagination$,
+    on: () => pagination$,
     query: ({ params }) => of({
       name: 'John Doe',
       email: 'john.doe@example.com',

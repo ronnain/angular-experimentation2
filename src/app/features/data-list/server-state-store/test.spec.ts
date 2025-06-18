@@ -124,14 +124,15 @@ type Params = {
 };
 it('Should pass params type from params function to query parameters', () => {
   withQuery({
-    params: () => of<Params>({ id: '123', ordering: 'asc' }),
-    query: ({ params }) => {
-      type test = Expect<Equal<typeof params, Params>>;
+    on: () => of<Params>({ id: '123', ordering: 'asc' }),
+    query: ({ payload }) => {
+      type test = Expect<Equal<typeof payload, Params>>;
       return of({
         name: 'John Doe',
         email: 'john.doe@example.com',
       });
     },
+    queryKey: 'users',
   });
 });
 
@@ -142,7 +143,7 @@ type User = {
 };
 it('Should add the query response type to the state', () => {
   const query = withQuery({
-    params: () => of<Params>({ id: '123', ordering: 'asc' }),
+    on: () => of<Params>({ id: '123', ordering: 'asc' }),
     query: () => {
       return of<User>({
         name: 'John Doe',
@@ -150,9 +151,66 @@ it('Should add the query response type to the state', () => {
         id: '1',
       });
     },
+    queryKey: 'users',
   });
   type QueryStateReturnType = RemoveIndexSignature<
     ReturnType<typeof query>['state']
   >;
   type test = Expect<Equal<QueryStateReturnType, User>>;
+});
+
+it('Should request a path for entities query config', () => {
+  //@ts-expect-error
+  const query = withQuery({
+    on: () => of<Params>({ id: '123', ordering: 'asc' }),
+    query: () => {
+      return of<User[]>([
+        {
+          name: 'John Doe',
+          email: 'john.doe@example.com',
+          id: '1',
+        },
+      ]);
+    },
+  });
+});
+
+it('Should return entities with the inferred state from the query', () => {
+  const query = withQuery({
+    on: () => of<Params>({ id: '123', ordering: 'asc' }),
+    query: () => {
+      return of<User[]>([
+        {
+          name: 'John Doe',
+          email: 'john.doe@example.com',
+          id: '1',
+        },
+      ]);
+    },
+    queryKey: 'users',
+  });
+  type QueryStateReturnType = RemoveIndexSignature<
+    ReturnType<typeof query>['entities']['users']['state']
+  >;
+  type test = Expect<Equal<QueryStateReturnType, User>>;
+});
+
+it('Should return an empty state, if the entities queryKey is not existing', () => {
+  const query = withQuery({
+    on: () => of<Params>({ id: '123', ordering: 'asc' }),
+    query: () => {
+      return of<User[]>([
+        {
+          name: 'John Doe',
+          email: 'john.doe@example.com',
+          id: '1',
+        },
+      ]);
+    },
+    queryKey: 'users',
+  });
+  type QueryStateReturnType = RemoveIndexSignature<
+    ReturnType<typeof query>['entities']['A']['state']
+  >;
+  type test = Expect<Equal<QueryStateReturnType, {}>>;
 });
