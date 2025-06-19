@@ -4,26 +4,25 @@ import { Observable, of } from 'rxjs';
 type QueryKey = string;
 
 type MutationKey = `${QueryKey}` | `${QueryKey}.${string}`; // e.g. list all path to an array
+type MutationName = string;
 
-type StoreConstraints = {
+export type StoreConstraints = {
   state?: Record<QueryKey, unknown>;
   mutations?: Record<MutationKey, (...data: any[]) => unknown>;
   selectors?: Record<string, unknown>;
-  entities?: Record<string, EntityConfig>;
+  entitiesMutation?: Record<MutationKey, EntityConfig>;
 };
 
-type EntityConfig = {
-  state: Record<string, unknown>; // from query or entitiesAccessor
-  derivedState?: Record<string, unknown>; // from query derivedState
-  mutations?: Record<string, (...data: any[]) => unknown>;
-  entityMutations?: Record<QueryKey, (...data: any[]) => unknown>;
+export type EntityConfig = {
+  mutations?: Record<MutationName, (...data: any[]) => unknown>;
+  entityMutations?: Record<MutationName, (...data: any[]) => unknown>;
   entitySelectors?: Record<string, unknown>;
   selectors?: Record<string, unknown>;
 };
 
-type StoreDefaultConfig = {
+export type StoreDefaultConfig = {
   state: {
-    [key: string]: unknown;
+    [queryKey: QueryKey]: unknown;
   };
   mutations: {
     [key: string]: (...data: any[]) => unknown;
@@ -31,16 +30,14 @@ type StoreDefaultConfig = {
   selectors: {
     [key: string]: (...data: any[]) => unknown;
   };
-  entities: {};
+  entitiesMutation: {};
 };
 
 type MergeSameEntitiesConfig<
-  A extends NonNullable<StoreConstraints['entities']>,
+  A extends NonNullable<StoreConstraints['entitiesMutation']>,
   K extends keyof A & keyof B & string,
-  B extends NonNullable<StoreConstraints['entities']>
+  B extends NonNullable<StoreConstraints['entitiesMutation']>
 > = {
-  state: Prettify<A[K]['state'] & B[K]['state']>;
-  derivedState: Prettify<A[K]['derivedState'] & B[K]['derivedState']>;
   mutations: Prettify<NonNullable<A[K]['mutations'] & B[K]['mutations']>>;
   entityMutations: Prettify<
     NonNullable<A[K]['entityMutations'] & B[K]['entityMutations']>
@@ -52,8 +49,8 @@ type MergeSameEntitiesConfig<
 };
 
 export type MergeEntitiesRecord<
-  A extends NonNullable<StoreConstraints['entities']>,
-  B extends NonNullable<StoreConstraints['entities']>
+  A extends NonNullable<StoreConstraints['entitiesMutation']>,
+  B extends NonNullable<StoreConstraints['entitiesMutation']>
 > = {
   [K in keyof A & keyof B & string]: Prettify<MergeSameEntitiesConfig<A, K, B>>;
   // add non common keys
@@ -64,17 +61,23 @@ export type MergeEntitiesRecord<
 };
 
 // NonNullable is used to remove the undefined type from the Acc initial value
-type MergeConfig<A extends StoreConstraints, B extends StoreConstraints> = {
+export type MergeConfig<
+  A extends StoreConstraints,
+  B extends StoreConstraints
+> = {
   state: Prettify<A['state'] & B['state']>;
   mutations: Prettify<NonNullable<A['mutations'] & B['mutations']>>;
   selectors: Prettify<NonNullable<A['selectors'] & B['selectors']>>;
   // entities: Prettify<NonNullable<A['entities'] & B['entities']>>;
-  entities: Prettify<
-    MergeEntitiesRecord<NonNullable<A['entities']>, NonNullable<B['entities']>>
+  entitiesMutation: Prettify<
+    MergeEntitiesRecord<
+      NonNullable<A['entitiesMutation']>,
+      NonNullable<B['entitiesMutation']>
+    >
   >;
 };
 
-type MergeArgs<
+export type MergeArgs<
   F extends StoreConstraints[],
   Acc extends StoreConstraints = {
     state: Record<string, unknown>;
@@ -94,28 +97,41 @@ type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
 
-// export function withMethods<
-//   Inputs extends StoreConstraints,
-//   MethodsKey extends keyof Inputs['methods'],
-//   Methods extends Record<MethodsKey, (...data: any[]) => unknown>
-// >(
-//   methodsFactory: (store: ToserverStateStoreApi<Inputs>) => Methods
-// ): InputOutputFn<Inputs, StoreConstraints & { methods: Methods }> {
-//   return (store) => {
-//     const internalStore = store as unknown as StoreConstraints;
-//     return {
-//       ...internalStore,
-//       methods: {
-//         ...internalStore.methods,
-//         ...methodsFactory(store),
-//       },
-//     } as unknown as StoreConstraints & {
-//       methods: Methods;
-//     };
-//   };
-// }
-
-type ExtractArrayType<T> = T extends Array<infer U> ? U : never;
+export function withMutation<
+  Inputs extends StoreConstraints,
+  MutationKeys extends string,
+  MutationConfig extends Record<
+    MutationKeys,
+    {
+      /**
+       * Function that returns an observable of the Payload used for the mutation.
+       * This can be used to fetch data based on dynamic parameters.
+       */
+      on: () => Observable<Payload>;
+      mutation: (mutationData: {
+        payload: Payload;
+      }) => Observable<MutationResult>;
+      // todo add optimistic update?
+    }
+  >,
+  MutationResult,
+  Payload
+>(
+  methodsFactory: (store: ToServerStateStoreApi<Inputs>) => MutationConfig
+): InputOutputFn<Inputs, StoreConstraints & { mutations: MutationConfig }> {
+  return (store) => {
+    const internalStore = store as unknown as StoreConstraints;
+    return {
+      ...internalStore,
+      mutations: {
+        ...internalStore.mutations,
+        ...methodsFactory(store),
+      },
+    } as unknown as StoreConstraints & {
+      mutations: MutationConfig;
+    };
+  };
+}
 
 /**
  * Function to create a query that can be used to fetch data from the server.
@@ -152,34 +168,16 @@ export function withQuery<
   queryKey: QueryKey;
 }): InputOutputFn<
   Inputs,
-  StoreConstraints &
-    (QueryState extends any[]
-      ? {
-          entities: {
-            [key in QueryKey & string]: {
-              state: ExtractArrayType<QueryState>;
-            };
-          };
-        }
-      : {
-          state: QueryState;
-        })
+  StoreConstraints & {
+    state: { [key in QueryKey]: QueryState };
+  }
 > {
   return (store) => {
     return {
       queryConfig,
-    } as unknown as StoreConstraints &
-      (QueryState extends any[]
-        ? {
-            entities: {
-              [key in QueryKey & string]: {
-                state: ExtractArrayType<QueryState>;
-              };
-            };
-          }
-        : {
-            state: QueryState;
-          });
+    } as unknown as StoreConstraints & {
+      state: { [key in QueryKey]: QueryState };
+    };
   };
 }
 
@@ -227,66 +225,73 @@ export function withQuery<
 //     );
 // }
 
-// todo faire cas où on récup un state avec 2 array dedans et qu'on souhaite appliquer des changements à chacun d'eux
-
 const myStore = serverStateStore(
   withQuery({
     on: () => of({ page: 1, pageSize: 10 }),
     query: ({ payload }) => {
-      return of([]);
+      return of([
+        {
+          userId: '1',
+          name: 'John Doe',
+          email: 'john.doe@test.com',
+        },
+      ]);
     },
     queryKey: 'users',
-  }),
-  () => ({
-    entities: {
-      users: {
-        state: {
-          id: '',
-          name: '',
-          email: '',
-        },
-        derivedState: {
-          totalUsers: 0,
-        },
-        mutations: {
-          updateUser: (user: { id: string; name: string }) => {},
-        },
-        entitySelectors: {
-          isProcessing: true,
-        },
-        selectors: {
-          hasProcessing: true,
-        },
-      },
-    },
-  }),
-  () => ({
-    entities: {
-      users: {
-        state: {
-          address2: '',
-        },
-      },
-      accounts: {
-        state: {
-          accountId: '',
-          accountName: '',
-        },
-        derivedState: {
-          totalUsers: 0,
-        },
-        mutations: {
-          updateAccount: (account: { id: string; name: string }) => {},
-        },
-        entitySelectors: {
-          isProcessingAccount: true,
-        },
-        selectors: {
-          hasProcessingAccount: true,
-        },
-      },
-    },
   })
+  // withMutation((store) => ({
+
+  // }))
+  // () => ({
+  //   entities: {
+  //     users: {
+  //       state: {
+  //         id: '',
+  //         name: '',
+  //         email: '',
+  //       },
+  //       derivedState: {
+  //         totalUsers: 0,
+  //       },
+  //       mutations: {
+  //         updateUser: (user: { id: string; name: string }) => {},
+  //       },
+  //       entitySelectors: {
+  //         isProcessing: true,
+  //       },
+  //       selectors: {
+  //         hasProcessing: true,
+  //       },
+  //     },
+  //   },
+  // }),
+  // () => ({
+  //   entities: {
+  //     users: {
+  //       state: {
+  //         address2: '',
+  //       },
+  //     },
+  //     accounts: {
+  //       state: {
+  //         accountId: '',
+  //         accountName: '',
+  //       },
+  //       derivedState: {
+  //         totalUsers: 0,
+  //       },
+  //       mutations: {
+  //         updateAccount: (account: { id: string; name: string }) => {},
+  //       },
+  //       entitySelectors: {
+  //         isProcessingAccount: true,
+  //       },
+  //       selectors: {
+  //         hasProcessingAccount: true,
+  //       },
+  //     },
+  //   },
+  // })
 );
 
 const result = myStore.value[0];
@@ -364,7 +369,7 @@ type ToServerStateStoreApi<T extends StoreConstraints> = Prettify<{
   value: NonNullable<Prettify<T['state']>>;
   mutations: Prettify<RemoveIndexSignature<T['mutations']>>;
   selectors: Prettify<RemoveIndexSignature<T['selectors']>>;
-  entities: T['entities'];
+  entities: T['entitiesMutation'];
 }>;
 
 export type RemoveIndexSignature<T> = {

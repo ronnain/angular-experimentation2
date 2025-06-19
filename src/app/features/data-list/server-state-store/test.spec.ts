@@ -1,8 +1,13 @@
 import { of } from 'rxjs';
 import { Equal, Expect } from '../../../../../test-type';
 import {
+  EntityConfig,
+  MergeArgs,
+  MergeConfig,
   MergeEntitiesRecord,
   RemoveIndexSignature,
+  StoreConstraints,
+  StoreDefaultConfig,
   withQuery,
 } from './server-state-store';
 
@@ -92,12 +97,6 @@ it('Should preserve all keys', () => {
 });
 
 it('Should merge config of entities with same key', () => {
-  type testState = Expect<
-    Equal<
-      MergeEntitiesRecordTest['common']['state'],
-      { id: ''; name: ''; email: ''; email2: '' }
-    >
-  >;
   type testMutation = Expect<
     Equal<
       keyof MergeEntitiesRecordTest['common']['mutations'],
@@ -116,6 +115,17 @@ it('Should merge config of entities with same key', () => {
       'isProcessing' | 'isProcessing2'
     >
   >;
+});
+
+it('All derived types from StoreConstraints should have the same keys', () => {
+  type testState = Expect<
+    Equal<keyof StoreConstraints, keyof StoreDefaultConfig>
+  >;
+  type mergedConfig = MergeConfig<StoreDefaultConfig, StoreDefaultConfig>;
+  type testState2 = Expect<Equal<keyof StoreConstraints, keyof mergedConfig>>;
+
+  type mergedArgsTest = MergeArgs<[StoreDefaultConfig, StoreDefaultConfig]>;
+  type testState3 = Expect<Equal<keyof StoreConstraints, keyof mergedArgsTest>>;
 });
 
 type Params = {
@@ -173,44 +183,4 @@ it('Should request a path for entities query config', () => {
       ]);
     },
   });
-});
-
-it('Should return entities with the inferred state from the query', () => {
-  const query = withQuery({
-    on: () => of<Params>({ id: '123', ordering: 'asc' }),
-    query: () => {
-      return of<User[]>([
-        {
-          name: 'John Doe',
-          email: 'john.doe@example.com',
-          id: '1',
-        },
-      ]);
-    },
-    queryKey: 'users',
-  });
-  type QueryStateReturnType = RemoveIndexSignature<
-    ReturnType<typeof query>['entities']['users']['state']
-  >;
-  type test = Expect<Equal<QueryStateReturnType, User>>;
-});
-
-it('Should return an empty state, if the entities queryKey is not existing', () => {
-  const query = withQuery({
-    on: () => of<Params>({ id: '123', ordering: 'asc' }),
-    query: () => {
-      return of<User[]>([
-        {
-          name: 'John Doe',
-          email: 'john.doe@example.com',
-          id: '1',
-        },
-      ]);
-    },
-    queryKey: 'users',
-  });
-  type QueryStateReturnType = RemoveIndexSignature<
-    ReturnType<typeof query>['entities']['A']['state']
-  >;
-  type test = Expect<Equal<QueryStateReturnType, {}>>;
 });
