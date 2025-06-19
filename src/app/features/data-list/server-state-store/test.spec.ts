@@ -164,7 +164,7 @@ it('Should add the query response type to the state', () => {
     queryKey: 'users',
   });
   type QueryStateReturnType = RemoveIndexSignature<
-    ReturnType<typeof query>['state']
+    ReturnType<typeof query>['state']['users']
   >;
   type test = Expect<Equal<QueryStateReturnType, User>>;
 });

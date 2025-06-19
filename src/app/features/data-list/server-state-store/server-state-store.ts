@@ -97,6 +97,24 @@ type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
 
+// todo mettre un path optionnel ?
+// todo, dans le résultat global, toujours exposer les résulatts de primitie et list sous la form queryKey.value (pour permettre d'ajouter un status de chargement, d'erreur, etc.)
+
+type AllTargetKeys<Inputs extends StoreConstraints> = Inputs extends {
+  state: Record<infer QueryKey, infer QueryState>;
+}
+  ? QueryState
+  : never;
+
+type Testtarget = AllTargetKeys<{
+  state: {
+    user: { id: string; name: string; email: string };
+    product: { id: string; name: string; price: number };
+    products: { id: string; name: string; price: number }[];
+  };
+}>;
+const test = {} as Testtarget;
+//    ^?
 export function withMutation<
   Inputs extends StoreConstraints,
   MutationKeys extends string,
@@ -111,6 +129,7 @@ export function withMutation<
       mutation: (mutationData: {
         payload: Payload;
       }) => Observable<MutationResult>;
+      target: keyof Inputs['state'];
       // todo add optimistic update?
     }
   >,
