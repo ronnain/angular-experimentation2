@@ -8,6 +8,7 @@ import {
   inject,
   resource,
   ResourceRef,
+  ResourceStatus,
   Signal,
   signal,
   WritableSignal,
@@ -19,9 +20,12 @@ import {
   signalStore,
   SignalStoreFeature,
   signalStoreFeature,
+  SignalStoreFeatureResult,
+  StateSignals,
   withMethods,
   withProps,
   withState,
+  WritableStateSource,
 } from '@ngrx/signals';
 import { of } from 'rxjs';
 
@@ -32,6 +36,17 @@ type StatedAction = {
   isLoading: boolean;
   isLoaded: boolean;
   error?: string;
+};
+
+type ResourceStatusData = {
+  status: ResourceStatus;
+  isLoading: boolean;
+  error: Error | undefined;
+};
+
+type ResourceData<State extends object> = {
+  value: State | undefined;
+  status: ResourceStatusData;
 };
 
 type ToGranularEntity<
@@ -60,65 +75,77 @@ const storeTest = signalStore(
       pageSize: 10,
     },
   }),
-  // todo pass the store in parameters ?
-  withQuery(
-    (store) => ({
-    resourceName: 'users',
-    resource<UserTest>({
-      params: store.state.pagination(),
-      loader: (pagination) => {
-        return of<UserTest>({
-          id: '1',
-          name: 'John Doe',
-          email: 'john.doe@a.com',
-        });
-      },
-    })})
-  )
+  withQuery((storeData) => {
+    storeData.test;
+    return {
+      resourceName: 'users',
+      resource: resource<UserTest>({
+        params: storeData.stateSignals.pagination(),
+        loader: (pagination) => {
+          return of<UserTest>({
+            id: '1',
+            name: 'John Doe',
+            email: 'john.doe@a.com',
+          });
+        },
+      }),
+    };
+  })
 );
 
 const testImpl = inject(storeTest);
-testImpl.entities()[0].uiStatus?.getAll.isLoading;
+// testImpl.entities()[0].uiStatus?.getAll.isLoading;
 // testImpl.entitiesActionsEvents.getAll.subscribe((event) => console.log(event));
 
 function withQuery<
   State extends object,
   ResourceName extends string,
-  >(
-  {resource,resourceName,initialValue}: {
+  StateI,
+  Input extends {
+    state: StateI;
+    props: object;
+    methods: Methods;
+  },
+  Incoming extends Prettify<
+    StateSignals<Input['state']> &
+      Input['props'] &
+      Input['methods'] &
+      WritableStateSource<Prettify<Input['state']>>
+  >,
+  Methods extends Record<string, Function>
+>(
+  fn: (store: Incoming) => {
     resourceName: ResourceName;
     resource: ResourceRef<State>;
-    initialValue: NoInfer<State>;
-  }) {
-    const innerQuery = signalStoreFeature(
-      withState({[resourceName]: {
-        value: initialValue,
-        status: {
-          isLoading: false,
-          isLoaded: false,
-          hasError: false,
-          error: null,
-        }
-      }}),
-      withProps((store) => ({
-        [`__set_${resourceName}Effect`]: effect(() => {
-          // TODO Gérer tous les cas, erreur/ idle.../laoding
-          if(resource.hasValue()) {
-            patchState(store, (state) => ({
-              [resourceName]: {
-                value: resource.value(),
-                status: {
-                  isLoading: false,
-                  isLoaded: true,
-                  hasError: false,
-                  error: null,
-                },
-              },
-            }));
-          }
-        }),
-      })))
-
-    return
-
+    initialValue: NoInfer<State> | undefined;
   }
+) {
+  return (store: T) => {
+    const { resourceName, resource, initialValue } = fn(store);
+    const initialResourceState: ResourceData<State> = {
+      value: initialValue,
+      status: {
+        status: 'local',
+        isLoading: false,
+        error: undefined,
+      },
+    };
+  };
+
+  // return signalStoreFeature(
+  //   withState({[resourceName]: initialResourceState}),
+  //   withProps((store) => ({
+  //     [`_${resourceName}Effect`]: effect(() => {
+  //         patchState(store, (state) => ({
+  //           [resourceName]: {
+  //             value: resource.hasValue() ? resource.value() : state[resourceName].value,
+  //             status: {
+  //               isLoading: resource.isLoading(),
+  //               status: resource.status(),
+  //               error: resource.error(),
+  //             },
+  //           } satisfies ResourceData<State>,
+  //         }));
+  //     }),
+  //   })))
+}
