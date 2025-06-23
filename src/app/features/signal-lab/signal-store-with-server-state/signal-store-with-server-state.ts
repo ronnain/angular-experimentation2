@@ -37,6 +37,7 @@ import {
   STATE_SOURCE,
 } from './inner-signal-store';
 import { rxResource } from '@angular/core/rxjs-interop';
+import { resourceById, ResourceByIdRef } from './resource-by-id-signal-store';
 
 type Merge<T, U> = T & U;
 
@@ -99,6 +100,7 @@ const storeTest = signalStore(
       page: 1,
       pageSize: 10,
     },
+    selectedUserId: undefined as string | undefined,
   }),
   withQuery((store) => ({
     //         ^?
@@ -119,9 +121,27 @@ const storeTest = signalStore(
     },
     resourceName: 'users',
   })),
+  withQueryById((store) => ({
+    resourceName: 'usersById',
+    resource: resourceById({
+      params: store.selectedUserId,
+      loader: (params) => {
+        return lastValueFrom(
+          of({
+            id: params,
+            name: 'John Doe',
+            email: 'test@a.com',
+          })
+        );
+      },
+      identifier: (params) => params,
+    }),
+  })),
   withHooks((store) => ({
     onInit: () => {
       const test = store.users;
+      const test2 = store.usersById()()['1']?.hasValue();
+      //    ^?
       const effect = store._usersEffect;
 
       console.log('Store initialized', store);
@@ -156,6 +176,103 @@ const queryTest = withQuery((store) => ({
   },
   resourceName: 'users',
 }));
+
+function withQueryById<
+  Input extends SignalStoreFeatureResult,
+  const ResourceName extends string,
+  State extends object | undefined,
+  GroupIdentifier extends string | number
+>(
+  queryFactory: (
+    store: Prettify<
+      StateSignals<Input['state']> &
+        Input['props'] &
+        Input['methods'] & // todo remove methods ?
+        WritableStateSource<Prettify<Input['state']>>
+    >
+  ) => {
+    resourceName: ResourceName;
+    resource: ResourceByIdRef<GroupIdentifier, State>;
+  }
+): SignalStoreFeature<
+  Input,
+  {
+    state: {
+      [key in ResourceName]: ResourceByIdRef<
+        GroupIdentifier,
+        ResourceData<State>
+      >;
+    };
+    props: {
+      // todo maybe omit this effect ?
+      [key in `_${ResourceName}Effect`]: EffectRef;
+    };
+    methods: {};
+  }
+> {
+  return ((store: EmptyFeatureResult) => {
+    const { resource, resourceName } = queryFactory(
+      store as unknown as StateSignals<Input['state']> &
+        Input['props'] &
+        Input['methods'] & // todo remove methods ?
+        WritableStateSource<Prettify<Input['state']>>
+    );
+
+    return signalStoreFeature(
+      store,
+      withState({
+        [resourceName]: {} as {
+          [id: string]: ResourceByIdRef<GroupIdentifier, ResourceData<State>>;
+        },
+      }),
+      withProps((store) => ({
+        [`_${resourceName}Effect`]: effect(() => {
+          patchState(store, (state) => {
+            const resourceByGroup = Object.entries(resource).reduce(
+              (acc, cur) => {
+                const [group, resourceGrouped] = cur;
+                acc[group as GroupIdentifier] = {
+                  // todo check to remove as GroupIdentifier
+                  value: resourceGrouped.hasValue()
+                    ? resourceGrouped.value()
+                    : undefined,
+                  status: {
+                    isLoading: resourceGrouped.isLoading(),
+                    isLoaded: resourceGrouped.status() === 'resolved',
+                    hasError: resourceGrouped.status() === 'error',
+                    status: resourceGrouped.status(),
+                    error: resourceGrouped.error(),
+                  },
+                } satisfies ResourceData<State>;
+                return acc;
+              },
+              {} as Record<GroupIdentifier, ResourceData<State | undefined>>
+            );
+            return {
+              [resourceName]: {
+                ...state[resourceName],
+                ...resourceByGroup,
+              },
+            };
+          });
+        }),
+      }))
+    );
+  }) as unknown as SignalStoreFeature<
+    Input,
+    {
+      state: {
+        [key in ResourceName]: Prettify<
+          ResourceByIdRef<GroupIdentifier, ResourceData<State>>
+        >;
+      };
+      props: {
+        [key in `_${ResourceName}Effect`]: EffectRef;
+      };
+      methods: {};
+    }
+  >;
+}
 
 function withQuery<
   Input extends SignalStoreFeatureResult,
