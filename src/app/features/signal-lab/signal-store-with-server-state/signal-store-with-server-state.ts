@@ -5,6 +5,7 @@
 
 import {
   effect,
+  EffectRef,
   inject,
   resource,
   ResourceRef,
@@ -49,10 +50,12 @@ type StatedAction = {
 type ResourceStatusData = {
   status: ResourceStatus;
   isLoading: boolean;
+  isLoaded: boolean;
+  hasError: boolean;
   error: Error | undefined;
 };
 
-type ResourceData<State extends object> = {
+type ResourceData<State extends object | undefined> = {
   value: State | undefined;
   status: ResourceStatusData;
 };
@@ -109,11 +112,17 @@ const storeTest = signalStore(
         });
       },
     }),
+    initialResourceState: {
+      id: '1',
+      name: 'John Doe',
+      email: '',
+    },
     resourceName: 'users',
   })),
   withHooks((store) => ({
     onInit: () => {
       const test = store.users;
+      const effect = store._usersEffect;
 
       console.log('Store initialized', store);
     },
@@ -127,7 +136,7 @@ const testImpl = inject(storeTest);
 // testImpl.entities()[0].uiStatus?.getAll.isLoading;
 // testImpl.entitiesActionsEvents.getAll.subscribe((event) => console.log(event));
 
-const queryTest = withQuery(() => ({
+const queryTest = withQuery((store) => ({
   //         ^?
   resource: resource({
     loader: () => {
@@ -140,15 +149,20 @@ const queryTest = withQuery(() => ({
       );
     },
   }),
+  initialResourceState: {
+    id: '1',
+    name: 'John Doe',
+    email: '',
+  },
   resourceName: 'users',
 }));
 
 function withQuery<
   Input extends SignalStoreFeatureResult,
   const ResourceName extends string,
-  State
+  State extends object | undefined
 >(
-  methodsFactory: (
+  queryFactory: (
     store: Prettify<
       StateSignals<Input['state']> &
         Input['props'] &
@@ -158,85 +172,67 @@ function withQuery<
   ) => {
     resourceName: ResourceName;
     resource: ResourceRef<State>;
+    initialResourceState: NoInfer<State>; // todo remove (can be retrieved from resource)
   }
 ): SignalStoreFeature<
   Input,
-  { state: { [key: ResourceName]: { test: true } }; props: {}; methods: {} }
-> {
-  // ): SignalStoreFeature<Input, { state: {[key: ResourceName]: State}; props: {}; methods: {} }> {
-  return (store) => {
-    // const methods = methodsFactory({
-    //   [STATE_SOURCE]: store[STATE_SOURCE],
-    //   ...store.stateSignals,
-    //   ...store.props,
-    //   ...store.methods,
-    // });
-    // assertUniqueStoreMembers(store, Reflect.ownKeys(methods));
-
-    return {
-      ...store,
-      // methods: { ...store.methods, ...methods },
-    } as unknown as InnerSignalStore<{ [key: ResourceName]: { test: true } }>;
-  };
-}
-
-// return signalStoreFeature(
-//   withState({[resourceName]: initialResourceState}),
-//   withProps((store) => ({
-//     [`_${resourceName}Effect`]: effect(() => {
-//         patchState(store, (state) => ({
-//           [resourceName]: {
-//             value: resource.hasValue() ? resource.value() : state[resourceName].value,
-//             status: {
-//               isLoading: resource.isLoading(),
-//               status: resource.status(),
-//               error: resource.error(),
-//             },
-//           } satisfies ResourceData<State>,
-//         }));
-//     }),
-//   })))
-
-function withQuery2<
-  Input extends SignalStoreFeatureResult,
-  const ResourceName extends string,
-  State
->(
-  methodsFactory: (
-    store: Prettify<
-      StateSignals<Input['state']> &
-        Input['props'] &
-        Input['methods'] & // todo remove methods ?
-        WritableStateSource<Prettify<Input['state']>>
-    >
-  ) => {
-    resourceName: ResourceName;
-    resource: ResourceRef<State>;
+  {
+    state: { [key in ResourceName]: ResourceData<State> };
+    props: {
+      [key in `_${ResourceName}Effect`]: EffectRef;
+    };
+    methods: {};
   }
-): SignalStoreFeature<
-  Input,
-  { state: { [key in ResourceName]: { test: true } }; props: {}; methods: {} }
 > {
-  return ((store) => {
-    const { resource, resourceName } = methodsFactory(
+  return ((store: unknown) => {
+    const { resource, resourceName, initialResourceState } = queryFactory(
       store as unknown as StateSignals<Input['state']> &
         Input['props'] &
         Input['methods'] & // todo remove methods ?
         WritableStateSource<Prettify<Input['state']>>
     );
+
     return signalStoreFeature(
+      store,
       withState({
         [resourceName]: {
-          value: undefined as State | undefined,
+          value: initialResourceState as State | undefined,
           status: {
             isLoading: false,
+            isLoaded: false,
+            hasError: false,
             status: 'idle',
             error: undefined,
-          } satisfies ResourceStatusData,
+          } satisfies ResourceStatusData as ResourceStatusData,
         },
-      })
+      }),
+      withProps((store) => ({
+        [`_${resourceName}Effect`]: effect(() => {
+          patchState(store, (state) => ({
+            [resourceName]: {
+              value: resource.hasValue()
+                ? resource.value()
+                : state[resourceName].value,
+              status: {
+                isLoading: resource.isLoading(),
+                isLoaded: resource.status() === 'resolved',
+                hasError: resource.status() === 'error',
+                status: resource.status(),
+                error: resource.error(),
+              },
+            } satisfies ResourceData<State>,
+          }));
+        }),
+      }))
     );
-  }) as ;
-
-  // ): SignalStoreFeature<Input, { state: {[key: ResourceName]: State}; props: {}; methods: {} }> {
+  }) as unknown as SignalStoreFeature<
+    Input,
+    {
+      state: { [key in ResourceName]: ResourceData<State> };
+      props: {
+        [key in `_${ResourceName}Effect`]: EffectRef;
+      };
+      methods: {};
+    }
+  >;
 }
