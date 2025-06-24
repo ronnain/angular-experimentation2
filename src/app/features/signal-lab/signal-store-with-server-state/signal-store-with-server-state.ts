@@ -322,7 +322,7 @@ function withQuery<
     methods: {};
   }
 > {
-  return ((store: unknown) => {
+  return ((store: SignalStoreFeatureResult) => {
     const { resource, resourceName, initialResourceState } = queryFactory(
       store as unknown as StateSignals<Input['state']> &
         Input['props'] &
@@ -350,7 +350,7 @@ function withQuery<
             [resourceName]: {
               value: resource.hasValue()
                 ? resource.value()
-                : state[resourceName].value,
+                : (state[resourceName].value as State),
               status: {
                 isLoading: resource.isLoading(),
                 isLoaded: resource.status() === 'resolved',
