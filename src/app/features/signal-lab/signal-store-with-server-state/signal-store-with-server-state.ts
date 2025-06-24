@@ -80,79 +80,79 @@ type UserTest = {
   email: string;
 };
 
-const r = rxResource({
-  params: () => ({
-    page: 1,
-    pageSize: 10,
-  }),
-  stream: ({ params }) => {
-    return of<UserTest>({
-      id: '1',
-      name: 'John Doe',
-      email: 'john.doe@a.com',
-    });
-  },
-});
+// const r = rxResource({
+//   params: () => ({
+//     page: 1,
+//     pageSize: 10,
+//   }),
+//   stream: ({ params }) => {
+//     return of<UserTest>({
+//       id: '1',
+//       name: 'John Doe',
+//       email: 'john.doe@a.com',
+//     });
+//   },
+// });
 
-const storeTest = signalStore(
-  withState({
-    pagination: {
-      page: 1,
-      pageSize: 10,
-    },
-    selectedUserId: undefined as string | undefined,
-  }),
-  withQuery((store) => ({
-    //         ^?
-    resource: rxResource({
-      params: store.pagination,
-      stream: ({ params }) => {
-        return of<UserTest>({
-          id: '1',
-          name: 'John Doe',
-          email: 'john.doe@a.com',
-        });
-      },
-    }),
-    initialResourceState: {
-      id: '1',
-      name: 'John Doe',
-      email: '',
-    },
-    resourceName: 'users',
-  })),
-  withQueryById((store) => ({
-    resourceName: 'usersById',
-    resource: resourceById({
-      params: store.selectedUserId,
-      loader: (params) => {
-        return lastValueFrom(
-          of({
-            id: '1',
-            name: 'John Doe',
-            email: 'test@a.com',
-          })
-        );
-      },
-      identifier: (params) => params,
-    }),
-  })),
-  withHooks((store) => ({
-    onInit: () => {
-      const test = store.users;
-      const test2 = store.usersById()['1']?.value;
-      //    ^?
-      const effect = store._usersEffect;
+// const storeTest = signalStore(
+//   withState({
+//     pagination: {
+//       page: 1,
+//       pageSize: 10,
+//     },
+//     selectedUserId: undefined as string | undefined,
+//   }),
+//   withQuery((store) => ({
+//     //         ^?
+//     resource: rxResource({
+//       params: store.pagination,
+//       stream: ({ params }) => {
+//         return of<UserTest>({
+//           id: '1',
+//           name: 'John Doe',
+//           email: 'john.doe@a.com',
+//         });
+//       },
+//     }),
+//     initialResourceState: {
+//       id: '1',
+//       name: 'John Doe',
+//       email: '',
+//     },
+//     resourceName: 'users',
+//   })),
+//   withQueryById((store) => ({
+//     resourceName: 'usersById',
+//     resource: resourceById({
+//       params: store.selectedUserId,
+//       loader: (params) => {
+//         return lastValueFrom(
+//           of({
+//             id: '1',
+//             name: 'John Doe',
+//             email: 'test@a.com',
+//           })
+//         );
+//       },
+//       identifier: (params) => params,
+//     }),
+//   })),
+//   withHooks((store) => ({
+//     onInit: () => {
+//       const test = store.users;
+//       const test2 = store.usersById()['1']?.value;
+//       //    ^?
+//       const effect = store._usersEffect;
 
-      console.log('Store initialized', store);
-    },
-    onDestroy: () => {
-      console.log('Store destroyed');
-    },
-  }))
-);
+//       console.log('Store initialized', store);
+//     },
+//     onDestroy: () => {
+//       console.log('Store destroyed');
+//     },
+//   }))
+// );
 
-const testImpl = inject(storeTest);
+// const testImpl = inject(storeTest);
 // testImpl.entities()[0].uiStatus?.getAll.isLoading;
 // testImpl.entitiesActionsEvents.getAll.subscribe((event) => console.log(event));
 
@@ -177,29 +177,12 @@ const queryTest = withQuery((store) => ({
   resourceName: 'users',
 }));
 
-const queryByIdTest = withQueryById((store) => ({
-  resourceName: 'usersById',
-  resource: resourceById({
-    params: () => '5',
-    loader: (params) => {
-      return lastValueFrom(
-        of({
-          id: params,
-          name: 'John Doe',
-          email: 'test@a.com',
-        })
-      );
-    },
-    identifier: (params) => params,
-  }),
-}));
-
 type ResourceByIdResult<
   GroupIdentifier extends string | number,
   State extends object | undefined
 > = Prettify<Partial<Record<GroupIdentifier, ResourceData<State>>>>;
 
-function withQueryById<
+export function withQueryById<
   Input extends SignalStoreFeatureResult,
   const ResourceName extends string,
   State extends object | undefined,
@@ -230,18 +213,18 @@ function withQueryById<
   }
 > {
   return ((store: EmptyFeatureResult) => {
-    const { resource, resourceName } = queryFactory(
-      store as unknown as StateSignals<Input['state']> &
-        Input['props'] &
-        Input['methods'] & // todo remove methods ?
-        WritableStateSource<Prettify<Input['state']>>
-    );
+    const { resource, resourceName } = queryFactory({
+      //@ts-ignore
+      ...store.stateSignals,
+    } as unknown as StateSignals<Input['state']> &
+      Input['props'] &
+      Input['methods'] & // todo remove methods ?
+      WritableStateSource<Prettify<Input['state']>>);
     const result = resource();
     const subResult = result['1' as GroupIdentifier];
     subResult?.value();
 
     return signalStoreFeature(
-      store,
       withState({
         // todo handle first state
         [resourceName]: {} as ResourceByIdResult<GroupIdentifier, State>,
@@ -280,7 +263,8 @@ function withQueryById<
           });
         }),
       }))
-    );
+      //@ts-ignore
+    )(store); // todo fix that error !
   }) as unknown as SignalStoreFeature<
     Input,
     {

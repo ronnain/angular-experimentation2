@@ -16,6 +16,11 @@ export const signalLabRoutes: Route[] = [
         path: 'pipe',
         loadComponent: () => import('./pipe/my-signal-store.ng'),
       },
+      {
+        path: 'signal-store-with-query',
+        loadComponent: () =>
+          import('./signal-store-with-server-state/view.component'),
+      },
     ],
   },
 ];
