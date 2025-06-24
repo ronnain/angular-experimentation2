@@ -57,7 +57,7 @@ type ResourceStatusData = {
 };
 
 type ResourceData<State extends object | undefined> = {
-  value: State | undefined;
+  value: State;
   status: ResourceStatusData;
 };
 
@@ -128,7 +128,7 @@ const storeTest = signalStore(
       loader: (params) => {
         return lastValueFrom(
           of({
-            id: params,
+            id: '1',
             name: 'John Doe',
             email: 'test@a.com',
           })
@@ -140,7 +140,7 @@ const storeTest = signalStore(
   withHooks((store) => ({
     onInit: () => {
       const test = store.users;
-      const test2 = store.usersById()()['1']?.hasValue();
+      const test2 = store.usersById()['1']?.value;
       //    ^?
       const effect = store._usersEffect;
 
@@ -177,6 +177,28 @@ const queryTest = withQuery((store) => ({
   resourceName: 'users',
 }));
 
+const queryByIdTest = withQueryById((store) => ({
+  resourceName: 'usersById',
+  resource: resourceById({
+    params: () => '5',
+    loader: (params) => {
+      return lastValueFrom(
+        of({
+          id: params,
+          name: 'John Doe',
+          email: 'test@a.com',
+        })
+      );
+    },
+    identifier: (params) => params,
+  }),
+}));
+
+type ResourceByIdResult<
+  GroupIdentifier extends string | number,
+  State extends object | undefined
+> = Prettify<Partial<Record<GroupIdentifier, ResourceData<State>>>>;
+
 function withQueryById<
   Input extends SignalStoreFeatureResult,
   const ResourceName extends string,
@@ -198,10 +220,7 @@ function withQueryById<
   Input,
   {
     state: {
-      [key in ResourceName]: ResourceByIdRef<
-        GroupIdentifier,
-        ResourceData<State>
-      >;
+      [key in ResourceName]: ResourceByIdResult<GroupIdentifier, State>;
     };
     props: {
       // todo maybe omit this effect ?
@@ -217,25 +236,30 @@ function withQueryById<
         Input['methods'] & // todo remove methods ?
         WritableStateSource<Prettify<Input['state']>>
     );
+    const result = resource();
+    const subResult = result['1' as GroupIdentifier];
+    subResult?.value();
 
     return signalStoreFeature(
       store,
       withState({
-        [resourceName]: {} as {
-          [id: string]: ResourceByIdRef<GroupIdentifier, ResourceData<State>>;
-        },
+        // todo handle first state
+        [resourceName]: {} as ResourceByIdResult<GroupIdentifier, State>,
       }),
       withProps((store) => ({
         [`_${resourceName}Effect`]: effect(() => {
-          patchState(store, (state) => {
-            const resourceByGroup = Object.entries(resource).reduce(
+          patchState(store, () => {
+            const resourceByGroup = Object.entries(resource()).reduce(
               (acc, cur) => {
-                const [group, resourceGrouped] = cur;
-                acc[group as GroupIdentifier] = {
+                const [group, resourceGrouped] = cur as [
+                  GroupIdentifier,
+                  ResourceRef<State>
+                ];
+                acc[group] = {
                   // todo check to remove as GroupIdentifier
-                  value: resourceGrouped.hasValue()
+                  value: (resourceGrouped.hasValue()
                     ? resourceGrouped.value()
-                    : undefined,
+                    : undefined) as State,
                   status: {
                     isLoading: resourceGrouped.isLoading(),
                     isLoaded: resourceGrouped.status() === 'resolved',
@@ -243,14 +267,13 @@ function withQueryById<
                     status: resourceGrouped.status(),
                     error: resourceGrouped.error(),
                   },
-                } satisfies ResourceData<State>;
+                };
                 return acc;
               },
-              {} as Record<GroupIdentifier, ResourceData<State | undefined>>
+              {} as ResourceByIdResult<GroupIdentifier, State>
             );
             return {
               [resourceName]: {
-                ...state[resourceName],
                 ...resourceByGroup,
               },
             };
@@ -262,9 +285,7 @@ function withQueryById<
     Input,
     {
       state: {
-        [key in ResourceName]: Prettify<
-          ResourceByIdRef<GroupIdentifier, ResourceData<State>>
-        >;
+        [key in ResourceName]: ResourceByIdResult<GroupIdentifier, State>;
       };
       props: {
         [key in `_${ResourceName}Effect`]: EffectRef;
