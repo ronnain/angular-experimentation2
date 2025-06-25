@@ -25,6 +25,16 @@ const mutation = withMutations((store) => {
       params: store.updatedTodo, // signal
       // loader ...
     }), // n'expose pas de fonction, juste un resource (qui elle peut être peut-être déclarative)
+    update3: {
+      fn?: (id: string, todo: Todo) => void},
+      mutationResource: resource({}),
+      mutationChange: (mutationResource: ResourceMutation) => {
+        if(mutationResource.isLoading) {
+          // do something
+        }
+      },
+      optimisticUpdate: 'statePath' // will perform an optimistic update on the state
+      optimisticUpdateIdentifier??: (params: !StateTargeted, stateTargeted: StateTargeted) => StateTargeted
   };
 });
 export function withMutation<
