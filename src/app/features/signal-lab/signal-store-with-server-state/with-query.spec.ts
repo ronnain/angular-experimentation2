@@ -1,9 +1,9 @@
 import { lastValueFrom, of } from 'rxjs';
-import { resourceById } from '../resource-by-id';
 import { ResourceData } from './signal-store-with-server-state';
 import { Equal, Expect } from '../../../../../test-type';
 import { SignalStoreFeature } from '@ngrx/signals';
-import { withQueryById } from './with-query-by-id';
+import { withQuery } from './with-query';
+import { resource } from '@angular/core';
 
 type User = {
   id: string;
@@ -16,8 +16,8 @@ type InferSignalStoreFeatureReturnedType<
 > = T extends SignalStoreFeature<any, infer R> ? R : never;
 
 it('Should request a path for entities query config', () => {
-  const queryByIdTest = withQueryById('usersById', () =>
-    resourceById({
+  const queryByIdTest = withQuery('user', () =>
+    resource({
       params: () => '5',
       loader: ({ params }) => {
         return lastValueFrom(
@@ -28,21 +28,15 @@ it('Should request a path for entities query config', () => {
           } satisfies User)
         );
       },
-      identifier: (params) => params,
     })
   );
   type ResultType = InferSignalStoreFeatureReturnedType<typeof queryByIdTest>;
   type StateKeys = keyof ResultType['state'];
 
-  type ExpectResourceNameToBeAtTheRootState = Expect<
-    Equal<StateKeys, 'usersById'>
-  >;
+  type ExpectResourceNameToBeAtTheRootState = Expect<Equal<StateKeys, 'user'>>;
 
   type ExpectTheStateToHaveARecordWithResourceData = Expect<
-    Equal<
-      ResultType['state']['usersById'],
-      Record<string, ResourceData<User> | undefined>
-    >
+    Equal<ResultType['state']['user'], ResourceData<User | undefined>>
   >;
 
   type PropsPropertyKey = keyof ResultType['props'];
@@ -50,6 +44,6 @@ it('Should request a path for entities query config', () => {
   type PrivatePropsPrefix = `_`;
 
   type ExpectPropsEffectToBePrivate = Expect<
-    Equal<PropsPropertyKey, `${PrivatePropsPrefix}usersByIdEffect`>
+    Equal<PropsPropertyKey, `${PrivatePropsPrefix}userEffect`>
   >;
 });

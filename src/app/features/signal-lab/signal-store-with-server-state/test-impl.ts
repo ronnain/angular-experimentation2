@@ -2,9 +2,9 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { signalStore, withState, withHooks } from '@ngrx/signals';
 import { of, lastValueFrom } from 'rxjs';
 import { resourceById } from '../resource-by-id';
-import { withQuery } from './signal-store-with-server-state';
 import { resource } from '@angular/core';
 import { withQueryById } from './with-query-by-id';
+import { withQuery } from './with-query';
 
 type UserTest = {
   id: string;
@@ -34,9 +34,8 @@ const storeTest = signalStore(
     },
     selectedUserId: undefined as string | undefined,
   }),
-  withQuery((store) => ({
-    //         ^?
-    resource: rxResource({
+  withQuery('users', (store) =>
+    rxResource({
       params: store.pagination,
       stream: ({ params }) => {
         return of<UserTest>({
@@ -45,14 +44,13 @@ const storeTest = signalStore(
           email: 'john.doe@a.com',
         });
       },
-    }),
-    initialResourceState: {
-      id: '1',
-      name: 'John Doe',
-      email: '',
-    },
-    resourceName: 'users',
-  })),
+      defaultValue: {
+        id: '1',
+        name: 'John Doe',
+        email: '',
+      },
+    })
+  ),
   withQueryById('usersById', (store) =>
     resourceById({
       params: store.selectedUserId,
@@ -83,9 +81,8 @@ const storeTest = signalStore(
   }))
 );
 
-const queryTest = withQuery((store) => ({
-  //         ^?
-  resource: resource({
+const queryTest = withQuery('users', (store) =>
+  resource({
     loader: () => {
       return lastValueFrom(
         of<UserTest>({
@@ -95,11 +92,10 @@ const queryTest = withQuery((store) => ({
         })
       );
     },
-  }),
-  initialResourceState: {
-    id: '1',
-    name: 'John Doe',
-    email: '',
-  },
-  resourceName: 'users',
-}));
+    defaultValue: {
+      id: '1',
+      name: 'John Doe',
+      email: '',
+    },
+  })
+);
