@@ -16,7 +16,7 @@ import {
 } from './signal-store-with-server-state';
 
 // ! pas ajouter de computed/selector, juste appliquer la mutation et l'exposer via un computed ?
-
+// objectif permettre de faire des mutations optimistes, et de gérer les erreurs
 const mutation = withMutations((store) => {
   return {
     // todo lié un mutation à un state ? dans le cas où on veut faire de l'optimistic update ?
@@ -26,15 +26,19 @@ const mutation = withMutations((store) => {
       // loader ...
     }), // n'expose pas de fonction, juste un resource (qui elle peut être peut-être déclarative)
     update3: {
-      fn?: (id: string, todo: Todo) => void},
-      mutationResource: resource({}),
+      method?: (id: string, todo: Todo) => resource({}),
+      stateTargetedPath?: (state, params) => state.users[params.id]  // will perform an optimistic update on the state, marche pas si c'est dans un array
+      optimistic?: true,
+      optimisticResolver??: (params: !StateTargeted, stateTargeted: StateTargeted) => StateTargeted
+    },
+    update4: {
+      method?: (id: string, todo: Todo) => resource({}),
       mutationChange: (mutationResource: ResourceMutation) => {
         if(mutationResource.isLoading) {
           // do something
         }
       },
-      optimisticUpdate: 'statePath' // will perform an optimistic update on the state
-      optimisticUpdateIdentifier??: (params: !StateTargeted, stateTargeted: StateTargeted) => StateTargeted
+    }
   };
 });
 export function withMutation<
