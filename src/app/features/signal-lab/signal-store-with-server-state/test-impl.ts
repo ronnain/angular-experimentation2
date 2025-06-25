@@ -2,8 +2,9 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { signalStore, withState, withHooks } from '@ngrx/signals';
 import { of, lastValueFrom } from 'rxjs';
 import { resourceById } from '../resource-by-id';
-import { withQuery, withQueryById } from './signal-store-with-server-state';
+import { withQuery } from './signal-store-with-server-state';
 import { resource } from '@angular/core';
+import { withQueryById } from './with-query-by-id';
 
 type UserTest = {
   id: string;
@@ -52,9 +53,8 @@ const storeTest = signalStore(
     },
     resourceName: 'users',
   })),
-  withQueryById((store) => ({
-    resourceName: 'usersById',
-    resource: resourceById({
+  withQueryById('usersById', (store) =>
+    resourceById({
       params: store.selectedUserId,
       loader: (params) => {
         return lastValueFrom(
@@ -66,8 +66,8 @@ const storeTest = signalStore(
         );
       },
       identifier: (params) => params,
-    }),
-  })),
+    })
+  ),
   withHooks((store) => ({
     onInit: () => {
       const test = store.users;
