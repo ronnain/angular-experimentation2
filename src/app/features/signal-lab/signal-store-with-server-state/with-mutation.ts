@@ -15,6 +15,8 @@ import {
   ResourceStatusData,
 } from './signal-store-with-server-state';
 
+// todo withQuery... faire un state initial qui représente l'état et sera muté par la mutation, et préserver la réponse de la query dans un champs spécifique readonly
+
 // ! pas ajouter de computed/selector, juste appliquer la mutation et l'exposer via un computed ?
 // objectif permettre de faire des mutations optimistes, et de gérer les erreurs
 const mutation = withMutations((store) => {
