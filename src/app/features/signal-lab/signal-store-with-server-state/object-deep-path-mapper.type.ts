@@ -10,6 +10,7 @@ type GetAllStatePath<State extends object> = UnionToTuple<
 
 type DefaultUnion = '__ROOT';
 
+// todo on the continue pas dans la tail si on tombe sur un objet
 // return an union type of all the paths in the state
 type __ObjectDeepPath<
   keys extends string[],
@@ -21,14 +22,26 @@ type __ObjectDeepPath<
     ? HasChild<State[Head]> extends true
       ? keyof State[Head] extends string
         ? UnionToTuple<keyof State[Head]> extends string[]
-          ? __ObjectDeepPath<
-              UnionToTuple<keyof State[Head]>,
-              State[Head],
-              MergeStatePaths<Acc, `${RootPath}${Head & string}`>,
-              `${RootPath}${Head & string}.`
-            >
-          : never
-        : never
+          ? Tail extends string[]
+            ? __ObjectDeepPath<
+                Tail,
+                State,
+                __ObjectDeepPath<
+                  UnionToTuple<keyof State[Head]>,
+                  State[Head],
+                  MergeStatePaths<Acc, `${RootPath}${Head & string}`>,
+                  `${RootPath}${Head & string}.`
+                >,
+                RootPath
+              >
+            : __ObjectDeepPath<
+                UnionToTuple<keyof State[Head]>,
+                State[Head],
+                MergeStatePaths<Acc, `${RootPath}${Head & string}`>,
+                `${RootPath}${Head & string}.`
+              >
+          : Acc
+        : Acc
       : Tail extends string[]
       ? __ObjectDeepPath<
           Tail,

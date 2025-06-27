@@ -9,7 +9,8 @@ type User = {
 
 it('Should map all deep object paths except arrays', () => {
   type State = {
-    pagination: {
+    users: [];
+    pagination2: {
       page: number;
       pageSize: number;
       filters: {
@@ -18,10 +19,17 @@ it('Should map all deep object paths except arrays', () => {
         order: 'asc' | 'desc';
       };
     };
-    users: [];
-
     selectedUserId: string | undefined;
     userDetails: User | undefined;
+    pagination3: {
+      page: number;
+      pageSize: number;
+      filters: {
+        search: string;
+        sort: string;
+        order: 'asc' | 'desc';
+      };
+    };
   };
   type keys = keyof State;
   //   ^?
@@ -43,9 +51,11 @@ it('Should map all deep object paths except arrays', () => {
     Equal<ExpectAllStatePath, AllStatePathResult>
   >;
 
-  const test = 'somethingNotInTheState' satisfies ExpectAllStatePath;
+  const test = 'somethingNotInTheState' satisfies AllStatePathResult;
 
   type ExpectToAllowEveryString = Expect<
     Equal<typeof test, 'somethingNotInTheState'>
   >;
+
+  const statePath = '' satisfies ExpectAllStatePath;
 });
