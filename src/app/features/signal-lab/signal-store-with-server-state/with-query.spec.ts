@@ -1,9 +1,10 @@
 import { lastValueFrom, of } from 'rxjs';
 import { ResourceData } from './signal-store-with-server-state';
 import { Equal, Expect } from '../../../../../test-type';
-import { SignalStoreFeature } from '@ngrx/signals';
+import { signalStore, SignalStoreFeature, withState } from '@ngrx/signals';
 import { withQuery } from './with-query';
 import { resource } from '@angular/core';
+import { ObjectDeepPath } from './object-deep-path-mapper.type';
 
 type User = {
   id: string;
@@ -15,7 +16,7 @@ type InferSignalStoreFeatureReturnedType<
   T extends SignalStoreFeature<any, any>
 > = T extends SignalStoreFeature<any, infer R> ? R : never;
 
-it('Should request a path for entities query config', () => {
+it('Should be well typed', () => {
   const queryByIdTest = withQuery('user', () =>
     resource({
       params: () => '5',
@@ -45,5 +46,48 @@ it('Should request a path for entities query config', () => {
 
   type ExpectPropsEffectToBePrivate = Expect<
     Equal<PropsPropertyKey, `${PrivatePropsPrefix}userEffect`>
+  >;
+});
+
+it('Third parameter should the associated client state', () => {
+  type State = {
+    pagination: {
+      page: number;
+      pageSize: number;
+      filters: {
+        search: string;
+        sort: string;
+        order: 'asc' | 'desc';
+      };
+    };
+    users: [];
+
+    selectedUserId: string | undefined;
+    userDetails: User | undefined;
+  };
+  type keys = keyof State;
+  //   ^?
+  type StateValue = State[keys];
+
+  type AllStatePathResult = ObjectDeepPath<State>;
+
+  type ExpectAllStatePath =
+    | {} // used to allow empty object
+    | 'pagination'
+    | 'pagination.page'
+    | 'pagination.pageSize'
+    | 'pagination.filters'
+    | 'pagination.filters.search'
+    | 'pagination.filters.sort'
+    | 'pagination.filters.order';
+
+  type ExpectToGetAllStateDeepPath = Expect<
+    Equal<ExpectAllStatePath, AllStatePathResult>
+  >;
+
+  const test = 'somethingNotInTheState' satisfies ExpectAllStatePath;
+
+  type ExpectToAllowEveryString = Expect<
+    Equal<typeof test, 'somethingNotInTheState'>
   >;
 });
