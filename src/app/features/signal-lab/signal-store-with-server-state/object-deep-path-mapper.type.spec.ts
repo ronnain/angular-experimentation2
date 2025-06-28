@@ -10,7 +10,7 @@ type User = {
 it('Should map all deep object paths except arrays', () => {
   type State = {
     users: [];
-    pagination2: {
+    pagination: {
       page: number;
       pageSize: number;
       filters: {
@@ -20,8 +20,7 @@ it('Should map all deep object paths except arrays', () => {
       };
     };
     selectedUserId: string | undefined;
-    userDetails: User | undefined;
-    pagination3: {
+    propertyObject: {
       page: number;
       pageSize: number;
       filters: {
@@ -36,16 +35,26 @@ it('Should map all deep object paths except arrays', () => {
   type StateValue = State[keys];
 
   type AllStatePathResult = ObjectDeepPath<State>;
+  const t: AllStatePathResult = '';
 
   type ExpectAllStatePath =
     | {} // used to allow empty object
+    | 'users'
     | 'pagination'
     | 'pagination.page'
     | 'pagination.pageSize'
     | 'pagination.filters'
     | 'pagination.filters.search'
     | 'pagination.filters.sort'
-    | 'pagination.filters.order';
+    | 'pagination.filters.order'
+    | 'selectedUserId'
+    | 'propertyObject'
+    | 'propertyObject.page'
+    | 'propertyObject.pageSize'
+    | 'propertyObject.filters'
+    | 'propertyObject.filters.search'
+    | 'propertyObject.filters.sort'
+    | 'propertyObject.filters.order';
 
   type ExpectToGetAllStateDeepPath = Expect<
     Equal<ExpectAllStatePath, AllStatePathResult>

@@ -1,3 +1,6 @@
+/**
+ * Does not work with number/symbole keys
+ */
 export type ObjectDeepPath<State extends object> =
   | Exclude<GetAllStatePath<State>, DefaultUnion>
   | {};
