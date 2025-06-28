@@ -1,5 +1,6 @@
 /**
  * Does not work with number/symbole keys
+ * Does not go into arrays
  */
 export type ObjectDeepPath<State extends object> =
   | Exclude<GetAllStatePath<State>, DefaultUnion>

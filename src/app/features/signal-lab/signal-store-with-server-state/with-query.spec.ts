@@ -49,45 +49,57 @@ it('Should be well typed', () => {
   >;
 });
 
-it('Third parameter should the associated client state', () => {
-  type State = {
-    pagination: {
-      page: number;
-      pageSize: number;
-      filters: {
-        search: string;
-        sort: string;
-        order: 'asc' | 'desc';
-      };
-    };
-    users: [];
+it('clientStatePath option should infer signalStore state path', () => {
+  const queryByIdTest = signalStore(
+    withState({
+      pagination: {
+        page: 1,
+        pageSize: 10,
+        filters: {
+          search: '',
+          sort: '',
+          order: 'asc',
+        },
+      },
+      selectedUserId: undefined,
+    }),
+    withQuery(
+      'user',
+      () =>
+        resource({
+          params: () => '5',
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params,
+                name: 'John Doe',
+                email: 'test@a.com',
+              } satisfies User)
+            );
+          },
+        }),
+      {
+        clientStatePath: 'pagination',
+        associatedStateType: {
+          test: 'test',
+        },
+      }
+    )
+  );
+  type ResultType = InferSignalStoreFeatureReturnedType<typeof queryByIdTest>;
+  type StateKeys = keyof ResultType['state'];
 
-    selectedUserId: string | undefined;
-    userDetails: User | undefined;
-  };
-  type keys = keyof State;
-  //   ^?
-  type StateValue = State[keys];
+  type ExpectResourceNameToBeAtTheRootState = Expect<Equal<StateKeys, 'user'>>;
 
-  type AllStatePathResult = ObjectDeepPath<State>;
-
-  type ExpectAllStatePath =
-    | {} // used to allow empty object
-    | 'pagination'
-    | 'pagination.page'
-    | 'pagination.pageSize'
-    | 'pagination.filters'
-    | 'pagination.filters.search'
-    | 'pagination.filters.sort'
-    | 'pagination.filters.order';
-
-  type ExpectToGetAllStateDeepPath = Expect<
-    Equal<ExpectAllStatePath, AllStatePathResult>
+  type ExpectTheStateToHaveARecordWithResourceData = Expect<
+    Equal<ResultType['state']['user'], ResourceData<User | undefined>>
   >;
 
-  const test = 'somethingNotInTheState' satisfies ExpectAllStatePath;
+  type PropsPropertyKey = keyof ResultType['props'];
 
-  type ExpectToAllowEveryString = Expect<
-    Equal<typeof test, 'somethingNotInTheState'>
+  type PrivatePropsPrefix = `_`;
+
+  type ExpectPropsEffectToBePrivate = Expect<
+    Equal<PropsPropertyKey, `${PrivatePropsPrefix}userEffect`>
   >;
 });

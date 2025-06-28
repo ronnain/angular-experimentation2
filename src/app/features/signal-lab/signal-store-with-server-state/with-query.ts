@@ -14,10 +14,12 @@ import {
   ResourceData,
   ResourceStatusData,
 } from './signal-store-with-server-state';
+import { ObjectDeepPath } from './object-deep-path-mapper.type';
 
 export function withQuery<
   Input extends SignalStoreFeatureResult,
   const ResourceName extends string,
+  const ClientStatePath extends ObjectDeepPath<Input['state']>,
   State extends object | undefined
 >(
   resourceName: ResourceName,
@@ -28,7 +30,13 @@ export function withQuery<
         Input['methods'] & // todo remove methods ?
         WritableStateSource<Prettify<Input['state']>>
     >
-  ) => ResourceRef<State>
+  ) => ResourceRef<State>,
+  options?: {
+    clientStatePath: ClientStatePath;
+    associatedStateType: ClientStatePath extends keyof Input['state']
+      ? Input['state'][ClientStatePath]
+      : never;
+  }
 ): SignalStoreFeature<
   Input,
   {
