@@ -15,11 +15,44 @@ import {
   ResourceStatusData,
 } from './signal-store-with-server-state';
 import { ObjectDeepPath } from './object-deep-path-mapper.type';
+import { MakeOptionalPropertiesRequired } from './util.type';
+
+export type TypeObjectPropertyByPathAccess<
+  State extends object,
+  DottedPathPathTuple extends string[]
+> = DottedPathPathTuple extends [infer Head, ...infer Tail]
+  ? Head extends keyof State
+    ? Tail extends string[]
+      ? Tail['length'] extends 0
+        ? State[Head]
+        : MakeOptionalPropertiesRequired<
+            State[Head]
+          > extends infer RequiredStateHead
+        ? RequiredStateHead extends object
+          ? TypeObjectPropertyByPathAccess<RequiredStateHead, Tail>
+          : 'lol'
+        : 'Head'
+      : State[Head]
+    : never
+  : never;
+
+// Split path by dot and access and make a tuple
+// Recursive loop to access the property by path
+
+export type DottedPathPathToTuple<
+  DottedPath extends string,
+  Tuple extends string[] = []
+> = DottedPath extends `${infer Head}.${infer Tail}`
+  ? DottedPathPathToTuple<Tail, [...Tuple, Head]>
+  : [...Tuple, DottedPath];
 
 export function withQuery<
   Input extends SignalStoreFeatureResult,
   const ResourceName extends string,
   const ClientStatePath extends ObjectDeepPath<Input['state']>,
+  TargetedStateType extends ClientStatePath extends keyof Input['state']
+    ? Input['state'][ClientStatePath]
+    : never,
   State extends object | undefined
 >(
   resourceName: ResourceName,
@@ -33,9 +66,7 @@ export function withQuery<
   ) => ResourceRef<State>,
   options?: {
     clientStatePath: ClientStatePath;
-    associatedStateType: ClientStatePath extends keyof Input['state']
-      ? Input['state'][ClientStatePath]
-      : never;
+    associatedStateType: TargetedStateType;
   }
 ): SignalStoreFeature<
   Input,

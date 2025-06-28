@@ -1,9 +1,15 @@
+import { MakeOptionalPropertiesRequired } from './util.type';
+
 /**
  * Does not work with number/symbole keys
  * Does not go into arrays
+ * Does not handle optional path
  */
 export type ObjectDeepPath<State extends object> =
-  | Exclude<GetAllStatePath<State>, DefaultUnion>
+  | Exclude<
+      GetAllStatePath<MakeOptionalPropertiesRequired<State>>,
+      DefaultUnion
+    >
   | {};
 
 type GetAllStatePath<State extends object> = UnionToTuple<
@@ -29,10 +35,10 @@ type __ObjectDeepPath<
           ? Tail extends string[]
             ? __ObjectDeepPath<
                 Tail,
-                State,
+                MakeOptionalPropertiesRequired<State>,
                 __ObjectDeepPath<
                   UnionToTuple<keyof State[Head]>,
-                  State[Head],
+                  MakeOptionalPropertiesRequired<State[Head]>,
                   MergeStatePaths<Acc, `${RootPath}${Head & string}`>,
                   `${RootPath}${Head & string}.`
                 >,

@@ -1,5 +1,9 @@
 import { Equal, Expect } from '../../../../../test-type';
 import { ObjectDeepPath } from './object-deep-path-mapper.type';
+import {
+  DottedPathPathToTuple,
+  TypeObjectPropertyByPathAccess,
+} from './with-query';
 
 type User = {
   id: string;
@@ -8,6 +12,37 @@ type User = {
 };
 
 it('Should map all deep object paths except arrays', () => {
+  type State = {
+    pagination?: {
+      page: number;
+      pageSize: number;
+      filters?: {
+        search?: string;
+        sort: string;
+        order: 'asc' | 'desc';
+      };
+    };
+  };
+
+  type AllStatePathResult = ObjectDeepPath<State>;
+  const t: AllStatePathResult = 'pagination.filters';
+
+  type ExpectAllStatePath =
+    | {} // used to allow empty object
+    | 'pagination'
+    | 'pagination.page'
+    | 'pagination.pageSize'
+    | 'pagination.filters'
+    | 'pagination.filters.search'
+    | 'pagination.filters.sort'
+    | 'pagination.filters.order';
+
+  type ExpectToGetAllStateDeepPath = Expect<
+    Equal<ExpectAllStatePath, AllStatePathResult>
+  >;
+});
+
+it('Should map all deep object paths that can be optional', () => {
   type State = {
     users: [];
     pagination: {
@@ -67,4 +102,51 @@ it('Should map all deep object paths except arrays', () => {
   >;
 
   const statePath = '' satisfies ExpectAllStatePath;
+});
+
+it('Should make a tuple from dotted path', () => {
+  type DottedPath = 'pagination.filters.search';
+  type TupleFromDottedPath = DottedPathPathToTuple<DottedPath>;
+  const t: TupleFromDottedPath = ['pagination', 'filters', 'search'];
+
+  type ExpectToGetTupleFromDottedPath = Expect<
+    Equal<TupleFromDottedPath, ['pagination', 'filters', 'search']>
+  >;
+});
+
+it('Should access to the object type by dottedPath', () => {
+  type State = {
+    pagination: {
+      filters: {
+        advancedFilters?: {
+          group1?: {
+            search: string;
+            sort?: string;
+            order: 'asc' | 'desc';
+          };
+          group2: {
+            userName?: string;
+            sort?: string;
+            order?: 'asc' | 'desc';
+          };
+        };
+      };
+    };
+  };
+
+  type AccessedProperty = TypeObjectPropertyByPathAccess<
+    State,
+    DottedPathPathToTuple<'pagination.filters.advancedFilters.group3'>
+  >;
+
+  type ExpectToAccessThePropertyByDottedPath = Expect<
+    Equal<
+      AccessedProperty,
+      {
+        search: string;
+        sort?: string;
+        order: 'asc' | 'desc';
+      }
+    >
+  >;
 });
