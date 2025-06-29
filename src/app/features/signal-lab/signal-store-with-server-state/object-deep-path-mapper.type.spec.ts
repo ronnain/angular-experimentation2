@@ -1,8 +1,4 @@
 import { Equal, Expect } from '../../../../../test-type';
-import {
-  AccessTypeObjectPropertyByDottedPath,
-  DottedPathPathToTuple,
-} from './access-type-object-property-by-dotted-path.type';
 import { ObjectDeepPath } from './object-deep-path-mapper.type';
 
 type User = {

@@ -79,10 +79,15 @@ it('clientStatePath option should infer signalStore state path', () => {
           },
         }),
       {
-        clientStatePath: 'pagination',
-        associatedStateType: {
-          test: 'test',
-        },
+        clientStatePath: 'pagination.filters',
+        // tuple: ['pagination', 'filters'],
+        // associatedStateType: ,
+        mapResourceToState: ({ store, resource }) => ({
+          search: '',
+          sort: '',
+          order: 'asc',
+        }),
+        testState,
       }
     )
   );
@@ -103,3 +108,5 @@ it('clientStatePath option should infer signalStore state path', () => {
     Equal<PropsPropertyKey, `${PrivatePropsPrefix}userEffect`>
   >;
 });
+
+// todo faire test avec typage en dur pour le clientStatePath

@@ -15,16 +15,24 @@ import {
   ResourceStatusData,
 } from './signal-store-with-server-state';
 import { ObjectDeepPath } from './object-deep-path-mapper.type';
-import { MakeOptionalPropertiesRequired } from './util.type';
+import {
+  AccessTypeObjectPropertyByDottedPath,
+  DottedPathPathToTuple,
+} from './access-type-object-property-by-dotted-path.type';
 
+// todo add queryChange: [associateToAClientStatePath('balba.bla.bla, ?(store, resource) => ...)]
 export function withQuery<
   Input extends SignalStoreFeatureResult,
   const ResourceName extends string,
-  const ClientStatePath extends ObjectDeepPath<Input['state']>,
-  TargetedStateType extends ClientStatePath extends keyof Input['state']
-    ? Input['state'][ClientStatePath]
-    : never,
-  State extends object | undefined
+  const ClientStateDottedPath extends ObjectDeepPath<Input['state']>,
+  ResourceState extends object | undefined,
+  const ClientStateTypeByDottedPath extends AccessTypeObjectPropertyByDottedPath<
+    Input['state'],
+    ClientStateDottedPathTuple
+  >,
+  const ClientStateDottedPathTuple extends DottedPathPathToTuple<
+    ClientStateDottedPath & string
+  > = DottedPathPathToTuple<ClientStateDottedPath & string>
 >(
   resourceName: ResourceName,
   queryFactory: (
@@ -34,15 +42,31 @@ export function withQuery<
         Input['methods'] & // todo remove methods ?
         WritableStateSource<Prettify<Input['state']>>
     >
-  ) => ResourceRef<State>,
+  ) => ResourceRef<ResourceState>,
   options?: {
-    clientStatePath: ClientStatePath;
-    associatedStateType: TargetedStateType;
+    /**
+     * Will update the state at the given path with the resource data.
+     * If the path does not exist, it will be created.
+     */
+    clientStatePath: ClientStateDottedPath;
+    mapResourceToState: (data: {
+      store: Prettify<
+        StateSignals<Input['state']> &
+          Input['props'] &
+          Input['methods'] & // todo remove methods ?
+          WritableStateSource<Prettify<Input['state']>>
+      >;
+      resource: ResourceRef<ResourceState>;
+    }) => ClientStateTypeByDottedPath;
+    associatedStateType?: ClientStateTypeByDottedPath;
+    tuple?: ClientStateDottedPathTuple;
+    state?: Input['state'];
+    testState: ResourceState;
   }
 ): SignalStoreFeature<
   Input,
   {
-    state: { [key in ResourceName]: ResourceData<State> };
+    state: { [key in ResourceName]: ResourceData<ResourceState> };
     props: {
       [key in `_${ResourceName}Effect`]: EffectRef;
     };
@@ -60,7 +84,7 @@ export function withQuery<
     return signalStoreFeature(
       withState({
         [resourceName]: {
-          value: resource.value() as State | undefined,
+          value: resource.value() as ResourceState | undefined,
           status: {
             isLoading: false,
             isLoaded: false,
@@ -76,7 +100,7 @@ export function withQuery<
             [resourceName]: {
               value: resource.hasValue()
                 ? resource.value()
-                : (state[resourceName].value as State),
+                : (state[resourceName].value as ResourceState),
               status: {
                 isLoading: resource.isLoading(),
                 isLoaded: resource.status() === 'resolved',
@@ -84,7 +108,7 @@ export function withQuery<
                 status: resource.status(),
                 error: resource.error(),
               },
-            } satisfies ResourceData<State>,
+            } satisfies ResourceData<ResourceState>,
           }));
         }),
       }))
@@ -93,7 +117,7 @@ export function withQuery<
   }) as unknown as SignalStoreFeature<
     Input,
     {
-      state: { [key in ResourceName]: ResourceData<State> };
+      state: { [key in ResourceName]: ResourceData<ResourceState> };
       props: {
         [key in `_${ResourceName}Effect`]: EffectRef;
       };
