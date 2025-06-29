@@ -1,6 +1,7 @@
 import { signalStore, withHooks, withMethods, withState } from '@ngrx/signals';
-import { withQueryById } from './signal-store-with-server-state';
-import { resourceById } from './resource-by-id-signal-store';
+import { withQuery } from './with-query';
+import { rxResource } from '@angular/core/rxjs-interop';
+import { BehaviorSubject, delay, of } from 'rxjs';
 
 type User = {
   id: string;
@@ -18,25 +19,56 @@ export const testStore = signalStore(
       pageSize: 10,
     },
     selectedUserId: '5' as string | undefined,
-  }),
-  withQueryById((store) => ({
-    resourceName: 'usersById',
-    resource: resourceById({
-      params: store.selectedUserId,
-      loader: ({ params }) => {
-        console.log('params', params);
-        return new Promise<User>((resolve) => {
-          setTimeout(() => {
-            resolve({
-              id: '1',
-              name: 'John Doe',
-              email: 'a@a.fr',
-            });
-          }, 3000);
-        });
+    userDetails: {
+      stateToPreserve: {
+        test: true,
       },
-      identifier: (params) => params,
+      user: undefined as User | undefined,
+    },
+  }),
+  // withQuery('simpleQuery', (store) =>
+  //   resource({
+  //     params: store.selectedUserId,
+  //     loader: ({ params }) => {
+  //       console.log('params', params);
+  //       return new Promise<User>((resolve) => {
+  //         setTimeout(() => {
+  //           resolve({
+  //             id: '1',
+  //             name: 'John Doe',
+  //             email: 'a@a.fr',
+  //           });
+  //         }, 3000);
+  //       });
+  //     },
+  //   })
+  // ),
+  //! Ce qui n'est pas ouf, c'est que ça propose les méthodes de `resource` et pas de `rxResource`
+  withQuery('userQueryWithAssociatedClientState', (store) => ({
+    resource: rxResource({
+      params: store.selectedUserId,
+      stream: ({ params }) => {
+        console.log('params', params);
+        const result = new BehaviorSubject<User | undefined>(undefined);
+
+        setTimeout(() => {
+          result.next({
+            id: '1',
+            name: 'John Doe',
+            email: 'a@a.fr',
+          });
+        }, 3000);
+        setTimeout(() => {
+          result.next({
+            id: '2',
+            name: 'John Doe2',
+            email: 'a@a.fr',
+          });
+        }, 6000);
+        return result.pipe(delay(1000));
+      },
     }),
+    clientStatePath: 'userDetails.user',
   }))
 );
 

@@ -85,7 +85,7 @@ export function withQuery<
     const queryConfig = queryFactory(
       store as unknown as StateSignals<Input['state']> &
         Input['props'] &
-        Input['methods'] & // todo remove methods ?
+        Input['methods'] &
         WritableStateSource<Prettify<Input['state']>>
     );
     const resource =
