@@ -5,3 +5,5 @@ export type MakeOptionalPropertiesRequired<
 > = T & {
   [P in K]-?: T[P];
 };
+
+export type MergeObject<A, B> = A & B;

@@ -3,7 +3,7 @@ import { ResourceData } from './signal-store-with-server-state';
 import { Equal, Expect } from '../../../../../test-type';
 import { signalStore, SignalStoreFeature, withState } from '@ngrx/signals';
 import { withQuery } from './with-query';
-import { resource } from '@angular/core';
+import { resource, ResourceRef } from '@angular/core';
 import { ObjectDeepPath } from './object-deep-path-mapper.type';
 
 type User = {
@@ -62,11 +62,11 @@ it('clientStatePath option should infer signalStore state path', () => {
         },
       },
       selectedUserId: undefined,
+      user: undefined as User | undefined,
     }),
-    withQuery(
-      'user',
-      () =>
-        resource({
+    withQuery('userQuery', () => {
+      return {
+        resource: resource({
           params: () => '5',
           loader: ({ params }) => {
             return lastValueFrom(
@@ -74,22 +74,13 @@ it('clientStatePath option should infer signalStore state path', () => {
                 id: params,
                 name: 'John Doe',
                 email: 'test@a.com',
-              } satisfies User)
+              } as User)
             );
           },
         }),
-      {
-        clientStatePath: 'pagination.filters',
-        // tuple: ['pagination', 'filters'],
-        // associatedStateType: ,
-        mapResourceToState: ({ store, resource }) => ({
-          search: '',
-          sort: '',
-          order: 'asc',
-        }),
-        testState,
-      }
-    )
+        clientStatePath: 'user',
+      };
+    })
   );
   type ResultType = InferSignalStoreFeatureReturnedType<typeof queryByIdTest>;
   type StateKeys = keyof ResultType['state'];

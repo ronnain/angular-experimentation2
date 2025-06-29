@@ -19,9 +19,13 @@ import {
   AccessTypeObjectPropertyByDottedPath,
   DottedPathPathToTuple,
 } from './access-type-object-property-by-dotted-path.type';
+import { MergeObject } from './util.type';
 
+// todo withLinkedClientStatePath("bla.bla.bla", ["userQuery", {resourceName: "userUpdate", mapResourceToState: (store, resource) => ...}])
+// withState(withLinkedClientStatePath({user:{...}}, ["userQuery", {resourceName: "userUpdate", mapResourceToState: (store, resource) => ...}]))
 // todo add queryChange: [associateToAClientStatePath('balba.bla.bla, ?(store, resource) => ...)]
 export function withQuery<
+  StateTest extends object | undefined,
   Input extends SignalStoreFeatureResult,
   const ResourceName extends string,
   const ClientStateDottedPath extends ObjectDeepPath<Input['state']>,
@@ -42,27 +46,32 @@ export function withQuery<
         Input['methods'] & // todo remove methods ?
         WritableStateSource<Prettify<Input['state']>>
     >
-  ) => ResourceRef<ResourceState>,
-  options?: {
-    /**
-     * Will update the state at the given path with the resource data.
-     * If the path does not exist, it will be created.
-     */
-    clientStatePath: ClientStateDottedPath;
-    mapResourceToState: (data: {
-      store: Prettify<
-        StateSignals<Input['state']> &
-          Input['props'] &
-          Input['methods'] & // todo remove methods ?
-          WritableStateSource<Prettify<Input['state']>>
-      >;
-      resource: ResourceRef<ResourceState>;
-    }) => ClientStateTypeByDottedPath;
-    associatedStateType?: ClientStateTypeByDottedPath;
-    tuple?: ClientStateDottedPathTuple;
-    state?: Input['state'];
-    testState: ResourceState;
-  }
+  ) =>
+    | ResourceRef<ResourceState>
+    | MergeObject<
+        {
+          resource: ResourceRef<ResourceState>;
+          /**
+           * Will update the state at the given path with the resource data.
+           * If the state associated to the path does not exist, it will be created.
+           */
+          clientStatePath: ClientStateDottedPath;
+          mapResourceToState?: (data: {
+            resource: ResourceRef<NoInfer<ResourceState>>;
+          }) => NoInfer<ClientStateTypeByDottedPath>;
+        },
+        NoInfer<ResourceState> extends ClientStateTypeByDottedPath
+          ? {
+              mapResourceToState?: (data: {
+                resource: ResourceRef<NoInfer<ResourceState>>;
+              }) => NoInfer<ClientStateTypeByDottedPath>;
+            }
+          : {
+              mapResourceToState: (data: {
+                resource: ResourceRef<NoInfer<ResourceState>>;
+              }) => NoInfer<ClientStateTypeByDottedPath>;
+            }
+      >
 ): SignalStoreFeature<
   Input,
   {
