@@ -6,6 +6,7 @@ import {
   signalStoreFeature,
   SignalStoreFeatureResult,
   StateSignals,
+  withComputed,
   withProps,
   withState,
   WritableStateSource,
@@ -75,50 +76,49 @@ export function withQuery<
 ): SignalStoreFeature<
   Input,
   {
-    state: { [key in ResourceName]: ResourceData<ResourceState> };
-    props: {
-      [key in `_${ResourceName}Effect`]: EffectRef;
-    };
+    state: {};
+    props: { [key in ResourceName]: ResourceRef<ResourceState> };
     methods: {};
   }
 > {
   return ((store: SignalStoreFeatureResult) => {
-    const resource = queryFactory(
+    const queryConfig = queryFactory(
       store as unknown as StateSignals<Input['state']> &
         Input['props'] &
         Input['methods'] & // todo remove methods ?
         WritableStateSource<Prettify<Input['state']>>
     );
+    const resource =
+      typeof queryConfig === 'object' && 'resource' in queryConfig
+        ? queryConfig.resource
+        : queryConfig;
 
     return signalStoreFeature(
-      withState({
-        [resourceName]: {
-          value: resource.value() as ResourceState | undefined,
-          status: {
-            isLoading: false,
-            isLoaded: false,
-            hasError: false,
-            status: 'idle',
-            error: undefined,
-          } satisfies ResourceStatusData as ResourceStatusData,
-        },
-      }),
       withProps((store) => ({
-        [`_${resourceName}Effect`]: effect(() => {
-          patchState(store, (state) => ({
-            [resourceName]: {
-              value: resource.hasValue()
-                ? resource.value()
-                : (state[resourceName].value as ResourceState),
-              status: {
-                isLoading: resource.isLoading(),
-                isLoaded: resource.status() === 'resolved',
-                hasError: resource.status() === 'error',
-                status: resource.status(),
-                error: resource.error(),
-              },
-            } satisfies ResourceData<ResourceState>,
-          }));
+        [resourceName]: resource,
+        ...('clientStatePath' in queryConfig && {
+          [`_${resourceName}Effect`]: effect(() => {
+            if (resource.status() !== 'resolved') {
+              return;
+            }
+            patchState(store, (state) => {
+              const resourceData = resource.hasValue()
+                ? (resource.value() as ResourceState | undefined)
+                : undefined;
+              const clientStatePath = queryConfig.clientStatePath;
+              const mappedResourceToState =
+                'mapResourceToState' in queryConfig
+                  ? queryConfig.mapResourceToState({ resource })
+                  : resourceData;
+              const keysPath = (clientStatePath as string).split('.');
+
+              return createNestedStateUpdate(
+                state,
+                keysPath,
+                mappedResourceToState
+              );
+            });
+          }),
         }),
       }))
       //@ts-ignore
@@ -126,11 +126,30 @@ export function withQuery<
   }) as unknown as SignalStoreFeature<
     Input,
     {
-      state: { [key in ResourceName]: ResourceData<ResourceState> };
-      props: {
-        [key in `_${ResourceName}Effect`]: EffectRef;
-      };
+      state: {};
+      props: { [key in ResourceName]: ResourceRef<ResourceState> };
       methods: {};
     }
   >;
+}
+
+function createNestedStateUpdate(
+  state: any,
+  keysPath: string[],
+  value: any
+): any {
+  if (keysPath.length === 0) {
+    return value;
+  }
+
+  const [currentKey, ...remainingKeys] = keysPath;
+  const currentState = state[currentKey] || {};
+
+  return {
+    ...state,
+    [currentKey]:
+      remainingKeys.length === 0
+        ? { ...currentState, ...value }
+        : createNestedStateUpdate(currentState, remainingKeys, value),
+  };
 }

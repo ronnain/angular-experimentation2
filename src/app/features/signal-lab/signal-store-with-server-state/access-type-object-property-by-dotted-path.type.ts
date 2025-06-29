@@ -16,8 +16,8 @@ export type AccessTypeObjectPropertyByDottedPath<
           : 'lol'
         : 'Head'
       : State[Head]
-    : never
-  : never;
+    : 'ErrorTypeNotFound'
+  : 'ErrorTypeNotFound';
 
 export type DottedPathPathToTuple<
   DottedPath extends string,

@@ -24,7 +24,6 @@ it('Should map all deep object paths except arrays', () => {
   const t: AllStatePathResult = 'pagination.filters';
 
   type ExpectAllStatePath =
-    | {} // used to allow empty object
     | 'pagination'
     | 'pagination.page'
     | 'pagination.pageSize'
@@ -63,10 +62,8 @@ it('Should map all deep object paths that can be optional', () => {
   };
 
   type AllStatePathResult = ObjectDeepPath<State>;
-  const t: AllStatePathResult = '';
 
   type ExpectAllStatePath =
-    | {} // used to allow empty object
     | 'users'
     | 'pagination'
     | 'pagination.page'
@@ -88,11 +85,7 @@ it('Should map all deep object paths that can be optional', () => {
     Equal<ExpectAllStatePath, AllStatePathResult>
   >;
 
-  const test = 'somethingNotInTheState' satisfies AllStatePathResult;
-
-  type ExpectToAllowEveryString = Expect<
-    Equal<typeof test, 'somethingNotInTheState'>
-  >;
-
-  const statePath = '' satisfies ExpectAllStatePath;
+  //@ts-expect-error
+  const ShouldNotAllowNotExistingPath: AllStatePathResult =
+    'somethingNotInTheState';
 });

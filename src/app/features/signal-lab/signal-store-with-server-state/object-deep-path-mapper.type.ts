@@ -5,12 +5,10 @@ import { MakeOptionalPropertiesRequired } from './util.type';
  * Does not go into arrays
  * Does not handle optional path
  */
-export type ObjectDeepPath<State extends object> =
-  | Exclude<
-      GetAllStatePath<MakeOptionalPropertiesRequired<State>>,
-      DefaultUnion
-    >
-  | {};
+export type ObjectDeepPath<State extends object> = Exclude<
+  GetAllStatePath<MakeOptionalPropertiesRequired<State>>,
+  DefaultUnion
+>;
 
 type GetAllStatePath<State extends object> = UnionToTuple<
   keyof State

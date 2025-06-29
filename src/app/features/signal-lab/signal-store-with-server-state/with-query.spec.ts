@@ -32,20 +32,12 @@ it('Should be well typed', () => {
     })
   );
   type ResultType = InferSignalStoreFeatureReturnedType<typeof queryByIdTest>;
-  type StateKeys = keyof ResultType['state'];
+  type PropsKeys = keyof ResultType['props'];
 
-  type ExpectResourceNameToBeAtTheRootState = Expect<Equal<StateKeys, 'user'>>;
+  type ExpectResourceNameToBeAtTheRootState = Expect<Equal<PropsKeys, 'user'>>;
 
-  type ExpectTheStateToHaveARecordWithResourceData = Expect<
-    Equal<ResultType['state']['user'], ResourceData<User | undefined>>
-  >;
-
-  type PropsPropertyKey = keyof ResultType['props'];
-
-  type PrivatePropsPrefix = `_`;
-
-  type ExpectPropsEffectToBePrivate = Expect<
-    Equal<PropsPropertyKey, `${PrivatePropsPrefix}userEffect`>
+  type ExpectThePropsToHaveARecordWithResourceRef = Expect<
+    Equal<ResultType['props']['user'], ResourceRef<User | undefined>>
   >;
 });
 
@@ -64,40 +56,22 @@ it('clientStatePath option should infer signalStore state path', () => {
       selectedUserId: undefined,
       user: undefined as User | undefined,
     }),
-    withQuery('userQuery', () => {
-      return {
-        resource: resource({
-          params: () => '5',
-          loader: ({ params }) => {
-            return lastValueFrom(
-              of({
-                id: params,
-                name: 'John Doe',
-                email: 'test@a.com',
-              } as User)
-            );
-          },
-        }),
-        clientStatePath: 'user',
-      };
-    })
+    withQuery('userQuery', () => ({
+      resource: resource({
+        params: () => '5',
+        loader: ({ params }) => {
+          return lastValueFrom(
+            of<User>({
+              id: params,
+              name: 'John Doe',
+              email: 'test@a.com',
+            })
+          );
+        },
+      }),
+      clientStatePath: 'user',
+    }))
   );
-  type ResultType = InferSignalStoreFeatureReturnedType<typeof queryByIdTest>;
-  type StateKeys = keyof ResultType['state'];
-
-  type ExpectResourceNameToBeAtTheRootState = Expect<Equal<StateKeys, 'user'>>;
-
-  type ExpectTheStateToHaveARecordWithResourceData = Expect<
-    Equal<ResultType['state']['user'], ResourceData<User | undefined>>
-  >;
-
-  type PropsPropertyKey = keyof ResultType['props'];
-
-  type PrivatePropsPrefix = `_`;
-
-  type ExpectPropsEffectToBePrivate = Expect<
-    Equal<PropsPropertyKey, `${PrivatePropsPrefix}userEffect`>
-  >;
 });
 
 // todo faire test avec typage en dur pour le clientStatePath
