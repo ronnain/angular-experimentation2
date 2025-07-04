@@ -22,14 +22,20 @@ import {
 } from './access-type-object-property-by-dotted-path.type';
 import { MergeObject } from './util.type';
 
+type Params<T extends string | undefined = undefined> = {
+  clientStatePath?: T;
+  test?: T extends string ? true : false;
+};
+
 // todo withLinkedClientStatePath("bla.bla.bla", ["userQuery", {resourceName: "userUpdate", mapResourceToState: (store, resource) => ...}])
 // withState(withLinkedClientStatePath({user:{...}}, ["userQuery", {resourceName: "userUpdate", mapResourceToState: (store, resource) => ...}]))
 // todo add queryChange: [associateToAClientStatePath('balba.bla.bla, ?(store, resource) => ...)]
 export function withQuery<
-  StateTest extends object | undefined,
   Input extends SignalStoreFeatureResult,
   const ResourceName extends string,
-  const ClientStateDottedPath extends ObjectDeepPath<Input['state']>,
+  const ClientStateDottedPath extends
+    | ObjectDeepPath<Input['state']>
+    | undefined,
   ResourceState extends object | undefined,
   const ClientStateTypeByDottedPath extends AccessTypeObjectPropertyByDottedPath<
     Input['state'],
@@ -39,7 +45,6 @@ export function withQuery<
     ClientStateDottedPath & string
   > = DottedPathPathToTuple<ClientStateDottedPath & string>
 >(
-  resourceName: ResourceName,
   queryFactory: (
     store: Prettify<
       StateSignals<Input['state']> &
@@ -47,32 +52,45 @@ export function withQuery<
         Input['methods'] & // todo remove methods ?
         WritableStateSource<Prettify<Input['state']>>
     >
-  ) =>
-    | ResourceRef<ResourceState>
-    | MergeObject<
-        {
-          resource: ResourceRef<ResourceState>;
-          /**
-           * Will update the state at the given path with the resource data.
-           * If the state associated to the path does not exist, it will be created.
-           */
-          clientStatePath: ClientStateDottedPath;
+  ) => MergeObject<
+    {
+      resourceName: ResourceName;
+      resource: ResourceRef<ResourceState>;
+      /**
+       * Will update the state at the given path with the resource data.
+       * If the state associated to the path does not exist, it will be created.
+       */
+      mapResourceToState?: (data: {
+        resource: ResourceRef<NoInfer<ResourceState>>;
+      }) => NoInfer<ClientStateTypeByDottedPath>;
+      clientStatePath?: ClientStateDottedPath;
+      test?: NoInfer<ClientStateDottedPath> extends string ? true : false;
+      params: NoInfer<ClientStateDottedPath> extends string
+        ? NoInfer<ClientStateTypeByDottedPath> extends NoInfer<ResourceState>
+          ? 'extendsTarget'
+          : 'mustShowMapper'
+        : 'notDefined';
+    },
+    NoInfer<ClientStateDottedPath> extends string
+      ? NoInfer<ClientStateTypeByDottedPath> extends NoInfer<ResourceState>
+        ? {
+            mapResourceToState?: (data: {
+              resource: ResourceRef<NoInfer<ResourceState>>;
+            }) => NoInfer<ClientStateTypeByDottedPath>;
+          }
+        : 'mustShowMapper'
+      : 'notDefined' extends 'mustShowMapper'
+      ? {
+          mapResourceToState: (data: {
+            resource: ResourceRef<NoInfer<ResourceState>>;
+          }) => NoInfer<ClientStateTypeByDottedPath>;
+        }
+      : {
           mapResourceToState?: (data: {
             resource: ResourceRef<NoInfer<ResourceState>>;
           }) => NoInfer<ClientStateTypeByDottedPath>;
-        },
-        NoInfer<ResourceState> extends ClientStateTypeByDottedPath
-          ? {
-              mapResourceToState?: (data: {
-                resource: ResourceRef<NoInfer<ResourceState>>;
-              }) => NoInfer<ClientStateTypeByDottedPath>;
-            }
-          : {
-              mapResourceToState: (data: {
-                resource: ResourceRef<NoInfer<ResourceState>>;
-              }) => NoInfer<ClientStateTypeByDottedPath>;
-            }
-      >
+        }
+  >
 ): SignalStoreFeature<
   Input,
   {
@@ -92,6 +110,7 @@ export function withQuery<
       typeof queryConfig === 'object' && 'resource' in queryConfig
         ? queryConfig.resource
         : queryConfig;
+    const resourceName = queryConfig.resourceName;
 
     return signalStoreFeature(
       withProps((store) => ({

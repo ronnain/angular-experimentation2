@@ -17,8 +17,9 @@ type InferSignalStoreFeatureReturnedType<
 > = T extends SignalStoreFeature<any, infer R> ? R : never;
 
 it('Should be well typed', () => {
-  const queryByIdTest = withQuery('user', () =>
-    resource({
+  const queryByIdTest = withQuery(() => ({
+    resourceName: 'user',
+    resource: resource({
       params: () => '5',
       loader: ({ params }) => {
         return lastValueFrom(
@@ -29,8 +30,8 @@ it('Should be well typed', () => {
           } satisfies User)
         );
       },
-    })
-  );
+    }),
+  }));
   type ResultType = InferSignalStoreFeatureReturnedType<typeof queryByIdTest>;
   type PropsKeys = keyof ResultType['props'];
 
@@ -56,21 +57,43 @@ it('clientStatePath option should infer signalStore state path', () => {
       selectedUserId: undefined,
       user: undefined as User | undefined,
     }),
-    withQuery('userQuery', () => ({
+    withQuery((store) => ({
+      resourceName: 'userQuery',
       resource: resource({
         params: () => '5',
         loader: ({ params }) => {
           return lastValueFrom(
-            of<User>({
-              id: params,
-              name: 'John Doe',
-              email: 'test@a.com',
-            })
+            of<User[]>([
+              {
+                id: params,
+                name: 'John Doe',
+                email: 'test@a.com',
+              },
+            ])
           );
         },
       }),
       clientStatePath: 'user',
+      test: true,
+      params: 'extendsTarget',
+      mapResourceToState: ({ resource }) => {
+        return '';
+      },
     }))
+    // withQuery('userQuery', () =>
+    //   resource({
+    //     params: () => '5',
+    //     loader: ({ params }) => {
+    //       return lastValueFrom(
+    //         of<User>({
+    //           id: params,
+    //           name: 'John Doe',
+    //           email: 'test@a.com',
+    //         })
+    //       );
+    //     },
+    //   })
+    // )
   );
 });
 
