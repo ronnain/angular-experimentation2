@@ -1,4 +1,4 @@
-import { ResourceRef, EffectRef, effect } from '@angular/core';
+import { ResourceRef, effect } from '@angular/core';
 import {
   patchState,
   Prettify,
@@ -6,21 +6,16 @@ import {
   signalStoreFeature,
   SignalStoreFeatureResult,
   StateSignals,
-  withComputed,
   withProps,
-  withState,
   WritableStateSource,
 } from '@ngrx/signals';
-import {
-  ResourceData,
-  ResourceStatusData,
-} from './signal-store-with-server-state';
 import { ObjectDeepPath } from './object-deep-path-mapper.type';
 import {
   AccessTypeObjectPropertyByDottedPath,
   DottedPathPathToTuple,
 } from './access-type-object-property-by-dotted-path.type';
 import { MergeObject } from './util.type';
+import { Merge } from '../../../util/types/merge';
 
 // todo withLinkedClientStatePath("bla.bla.bla", ["userQuery", {resourceName: "userUpdate", mapResourceToState: (store, resource) => ...}])
 // withState(withLinkedClientStatePath({user:{...}}, ["userQuery", {resourceName: "userUpdate", mapResourceToState: (store, resource) => ...}]))
@@ -77,7 +72,14 @@ export function withQuery<
   Input,
   {
     state: {};
-    props: { [key in ResourceName]: ResourceRef<ResourceState> };
+    props: Merge<
+      { [key in ResourceName]: ResourceRef<ResourceState> },
+      {
+        __query: {
+          [key in ResourceName]: ResourceState;
+        };
+      }
+    >;
     methods: {};
   }
 > {
@@ -127,7 +129,14 @@ export function withQuery<
     Input,
     {
       state: {};
-      props: { [key in ResourceName]: ResourceRef<ResourceState> };
+      props: Merge<
+        { [key in ResourceName]: ResourceRef<ResourceState> },
+        {
+          __query: {
+            [key in ResourceName]: ResourceState;
+          };
+        }
+      >;
       methods: {};
     }
   >;

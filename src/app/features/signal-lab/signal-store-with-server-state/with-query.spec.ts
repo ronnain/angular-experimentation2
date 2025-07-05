@@ -1,7 +1,12 @@
 import { lastValueFrom, of } from 'rxjs';
 import { ResourceData } from './signal-store-with-server-state';
 import { Equal, Expect } from '../../../../../test-type';
-import { signalStore, SignalStoreFeature, withState } from '@ngrx/signals';
+import {
+  signalStore,
+  signalStoreFeature,
+  SignalStoreFeature,
+  withState,
+} from '@ngrx/signals';
 import { withQuery } from './with-query';
 import { resource, ResourceRef } from '@angular/core';
 import { ObjectDeepPath } from './object-deep-path-mapper.type';
@@ -34,10 +39,69 @@ it('Should be well typed', () => {
   type ResultType = InferSignalStoreFeatureReturnedType<typeof queryByIdTest>;
   type PropsKeys = keyof ResultType['props'];
 
-  type ExpectResourceNameToBeAtTheRootState = Expect<Equal<PropsKeys, 'user'>>;
+  type ExpectTheResourceNameAndQueriesTypeRecord = Expect<
+    Equal<PropsKeys, 'user' | '__query'>
+  >;
 
   type ExpectThePropsToHaveARecordWithResourceRef = Expect<
     Equal<ResultType['props']['user'], ResourceRef<User | undefined>>
+  >;
+
+  type ExpectThePropsToHaveARecordWithQueryNameAndHisType = Expect<
+    Equal<
+      ResultType['props']['__query'],
+      {
+        user:
+          | {
+              id: string;
+              name: string;
+              email: string;
+            }
+          | undefined;
+      }
+    >
+  >;
+  // todo check if it can be merged
+
+  const multiplesWithQuery = signalStoreFeature(
+    withQuery('user', () =>
+      resource({
+        params: () => '5',
+        loader: ({ params }) => {
+          return lastValueFrom(
+            of({
+              id: params,
+              name: 'John Doe',
+              email: 'test@a.com',
+            } satisfies User)
+          );
+        },
+      })
+    ),
+    withQuery('users', () =>
+      resource({
+        params: () => '5',
+        loader: ({ params }) => {
+          return lastValueFrom(
+            of([
+              {
+                id: params,
+                name: 'John Doe',
+                email: 'test@a.com',
+              },
+            ] satisfies User[])
+          );
+        },
+      })
+    )
+  );
+
+  type ResultTypeMultiplesQuery = InferSignalStoreFeatureReturnedType<
+    typeof multiplesWithQuery
+  >;
+
+  type ExpectThePropsToHaveARecordWithMultipleQueryNameAndHisType = Expect<
+    Equal<keyof ResultTypeMultiplesQuery['props']['__query'], 'user' | 'users'>
   >;
 });
 
