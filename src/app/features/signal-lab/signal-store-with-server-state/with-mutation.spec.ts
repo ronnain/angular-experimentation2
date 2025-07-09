@@ -1,5 +1,5 @@
 import { signalStoreFeature, SignalStoreFeature } from '@ngrx/signals';
-import { Equal } from '../../../../../test-type';
+import { Equal, Expect } from '../../../../../test-type';
 import { withQuery } from './with-query';
 import { lastValueFrom, of } from 'rxjs';
 import { resource } from '@angular/core';

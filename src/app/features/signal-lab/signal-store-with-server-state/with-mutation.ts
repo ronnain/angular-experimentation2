@@ -22,6 +22,94 @@ import {
   DottedPathPathToTuple,
 } from './access-type-object-property-by-dotted-path.type';
 
+type OptimisticMutationEnum<QueryState, MutationState> = {
+  boolean: boolean;
+  function: (data: {
+    queryResource: ResourceRef<QueryState>;
+    mutationResource: ResourceRef<MutationState>;
+  }) => QueryState;
+};
+
+type OptimisticMutationUnion<QueryState, MutationState> =
+  OptimisticMutationEnum<
+    QueryState,
+    MutationState
+  >[keyof OptimisticMutationEnum<QueryState, MutationState>];
+
+type OptimisticMutationQuery<
+  MutationState extends object | undefined,
+  QueryState
+> = MutationState extends QueryState
+  ? OptimisticMutationEnum<QueryState, MutationState>['boolean']
+  : OptimisticMutationEnum<QueryState, MutationState>['function'];
+
+type ReloadQueriesConfig =
+  | false
+  | {
+      onMutationError?: boolean;
+      onMutationResolved?: boolean;
+      onMutationLoading?: boolean;
+    };
+
+type OptimisticPathMutationQuery<
+  QueryState,
+  MutationState extends object | undefined
+> = {
+  [queryPatchPath in ObjectDeepPath<
+    QueryState & {}
+  >]?: AccessTypeObjectPropertyByDottedPath<
+    QueryState & {},
+    DottedPathPathToTuple<queryPatchPath>
+  > extends infer TargetedType
+    ? MutationState extends TargetedType
+      ? true
+      : (data: {
+          queryResource: NoInfer<ResourceRef<QueryState>>;
+          mutationResource: NoInfer<ResourceRef<MutationState>>;
+          targetedState: TargetedType;
+        }) => TargetedType
+    : never;
+};
+
+type LinkedQueryConfig<MutationState extends object | undefined, QueryState> = {
+  /**
+   * Will update the query state with the mutation data.
+   */
+  optimistic?: OptimisticMutationQuery<MutationState, QueryState>;
+  /**
+   * Will reload the query when the mutation is in a specific state.
+   * If not provided, it will reload the query onMutationResolved and onMutationError.
+   * If the query is loading, it will not reload.
+   */
+  reload?: ReloadQueriesConfig;
+  /**
+   * Will patch the query specific state with the mutation data.
+   * If the query is loading, it will not patch.
+   * If the mutation data is not compatible with the query state, it will not patch.
+   */
+  optimisticPatch?: OptimisticPathMutationQuery<QueryState, MutationState>;
+};
+
+type MutationFactoryConfig<
+  MutationState extends object | undefined,
+  Input extends SignalStoreFeatureResult
+> = MergeObject<
+  {
+    mutation: ResourceRef<MutationState>;
+    queries: Input['props'] extends {
+      __query: infer Queries;
+    }
+      ? {
+          [key in keyof Queries]: LinkedQueryConfig<
+            MutationState,
+            Queries[key]
+          >;
+        }
+      : never;
+  },
+  {}
+>;
+
 // todo withQuery... faire un state initial qui représente l'état et sera muté par la mutation, et préserver la réponse de la query dans un champs spécifique readonly
 
 // ! pas ajouter de computed/selector, juste appliquer la mutation et l'exposer via un computed ?
@@ -56,71 +144,14 @@ export function withMutation<
   MutationState extends object | undefined
 >(
   mutationName: MutationName,
-  queryFactory: (
+  mutationFactory: (
     store: Prettify<
       StateSignals<Input['state']> &
         Input['props'] &
         Input['methods'] & // todo remove methods ?
         WritableStateSource<Prettify<Input['state']>>
     >
-  ) =>
-    | ResourceRef<MutationState>
-    | MergeObject<
-        {
-          mutation: ResourceRef<MutationState>;
-          queries: Input['props'] extends { __query: infer Q }
-            ? {
-                [key in keyof Q]: {
-                  /**
-                   * Will update the query state with the mutation data.
-                   */
-                  optimistic?: MutationState extends Q[key]
-                    ? boolean
-                    : (data: {
-                        queryResource: ResourceRef<Q[key]>;
-                        mutationResource: ResourceRef<MutationState>;
-                      }) => Q[key];
-                  /**
-                   * Will reload the query when the mutation is in a specific state.
-                   * If the query is loading, it will not reload.
-                   */
-                  reload?:
-                    | false
-                    | {
-                        onMutationError?: boolean;
-                        onMutationResolved?: boolean;
-                        onMutationLoading?: boolean;
-                        onMutationIdle?: boolean;
-                      };
-                  /**
-                   * Will patch the query specific state with the mutation data.
-                   * If the query is loading, it will not patch.
-                   * If the mutation data is not compatible with the query state, it will not patch.
-                   */
-                  optimisticPatch?: {
-                    [queryPatchPath in ObjectDeepPath<
-                      Q[key] & {}
-                    >]?: AccessTypeObjectPropertyByDottedPath<
-                      Q[key] & {},
-                      DottedPathPathToTuple<queryPatchPath>
-                    > extends infer TargetedType
-                      ? MutationState extends TargetedType
-                        ? true
-                        : (data: {
-                            queryResource: NoInfer<ResourceRef<Q[key]>>;
-                            mutationResource: NoInfer<
-                              ResourceRef<MutationState>
-                            >;
-                            targetedState: TargetedType;
-                          }) => TargetedType
-                      : never;
-                  };
-                };
-              }
-            : never;
-        },
-        {}
-      >
+  ) => ResourceRef<MutationState> | MutationFactoryConfig<MutationState, Input>
 ): SignalStoreFeature<
   Input,
   {
@@ -130,6 +161,9 @@ export function withMutation<
         [key in MutationName]: ResourceData<MutationState>;
       },
       {
+        /**
+         * Does not exist, it is only used by the typing system to infer
+         */
         __mutation: {
           [key in MutationName]: MutationState;
         };
@@ -139,42 +173,59 @@ export function withMutation<
   }
 > {
   return ((store: SignalStoreFeatureResult) => {
-    const resource = queryFactory(
+    // todo rename to mutationConfig
+    const queryConfig = mutationFactory(
       store as unknown as StateSignals<Input['state']> &
         Input['props'] &
-        Input['methods'] & // todo remove methods ?
+        Input['methods'] &
         WritableStateSource<Prettify<Input['state']>>
+    );
+    const resource =
+      typeof queryConfig === 'object' && 'mutation' in queryConfig
+        ? queryConfig.mutation
+        : queryConfig;
+
+    const queriesMutation =
+      typeof queryConfig === 'object' && 'queries' in queryConfig
+        ? queryConfig.queries
+        : ({} as Record<string, LinkedQueryConfig<MutationState, any>>);
+    const queriesWithOptimisticMutation = Object.entries(
+      queriesMutation
+    ).filter(([, queryMutationConfig]) => queryMutationConfig.optimistic);
+    const queriesWithOptimisticPatch = Object.entries(queriesMutation).filter(
+      ([, queryMutationConfig]) => queryMutationConfig.optimisticPatch
+    );
+    const queriesWithReload = Object.entries(queriesMutation).filter(
+      ([, queryMutationConfig]) => queryMutationConfig.reload
     );
 
     return signalStoreFeature(
-      withState({
-        [resourceName]: {
-          value: resource.value() as MutationState | undefined,
-          status: {
-            isLoading: false,
-            isLoaded: false,
-            hasError: false,
-            status: 'idle',
-            error: undefined,
-          } satisfies ResourceStatusData as ResourceStatusData,
-        },
-      }),
       withProps((store) => ({
-        [`_${resourceName}Effect`]: effect(() => {
-          patchState(store, (state) => ({
-            [resourceName]: {
-              value: resource.hasValue()
-                ? resource.value()
-                : (state[resourceName].value as MutationState),
-              status: {
-                isLoading: resource.isLoading(),
-                isLoaded: resource.status() === 'resolved',
-                hasError: resource.status() === 'error',
-                status: resource.status(),
-                error: resource.error(),
-              },
-            } satisfies ResourceData<MutationState>,
-          }));
+        [mutationName]: resource,
+        ...('queries' in queryConfig && {
+          [`_${mutationName}Effect`]: effect(() => {
+            const resourceData = resource.hasValue()
+              ? resource.value()
+              : undefined;
+            const resourceStatus = resource.status();
+
+            // Handle optimistic updates on loading
+            if (resourceStatus === 'loading') {
+              queriesWithOptimisticMutation.forEach(
+                ([queryName, queryMutationConfig]) => {
+                  const queryResource = store.props[`_${queryName}Resource`];
+                  if (queryMutationConfig.optimistic === true) {
+                    patchState(store, (state) => {
+                      return {
+                        ...state,
+                        [`_${queryName}State`]: queryResource.value(),
+                      };
+                    });
+                  }
+                }
+              );
+            }
+          }),
         }),
       }))
       //@ts-ignore
@@ -190,3 +241,23 @@ export function withMutation<
     }
   >;
 }
+
+function WrapperTest<
+  const Config extends {
+    key: string;
+  }
+>(config: Config) {
+  return (data: {
+    [key in Config['key']]: true;
+  }) => {
+    return {
+      ...data,
+      [config.key]: true,
+    };
+  };
+}
+WrapperTest({
+  key: 'test3',
+})({
+  test3: true,
+});
