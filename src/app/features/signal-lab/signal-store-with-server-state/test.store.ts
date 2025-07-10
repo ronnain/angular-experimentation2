@@ -1,7 +1,15 @@
-import { signalStore, withHooks, withMethods, withState } from '@ngrx/signals';
+import {
+  signalStore,
+  withHooks,
+  withMethods,
+  withProps,
+  withState,
+} from '@ngrx/signals';
 import { withQuery } from './with-query';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, delay, of } from 'rxjs';
+import { withMutation } from './with-mutation';
+import { signal } from '@angular/core';
 
 type User = {
   id: string;
@@ -69,6 +77,27 @@ export const testStore = signalStore(
       },
     }),
     clientStatePath: 'userDetails.user',
+  })),
+  withProps(() => ({
+    _updateUserSrc: signal<User | undefined>(undefined),
+  })),
+  // TODO AJOUTER UNE METHOD POUR APPELER LA RESSOURCE, PRB, le résultat de la méthod doit passer en signal params , donc créer withResourceMutation, withRxResourceMutation, pareil pour withQuery
+  withMutation('updateUser', (store) => ({
+    mutation: rxResource({
+      params: store._updateUserSrc,
+      stream: ({ params }) => {
+        console.log('params', params);
+        return of(params).pipe(delay(2000));
+      },
+    }),
+    queries: {
+      userQueryWithAssociatedClientState: {
+        reload: {
+          onMutationLoading: true,
+          onMutationError: true,
+        },
+      },
+    },
   }))
 );
 

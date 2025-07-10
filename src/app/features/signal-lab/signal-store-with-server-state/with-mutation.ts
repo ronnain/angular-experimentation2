@@ -110,7 +110,7 @@ type MutationFactoryConfig<
 > = MergeObject<
   {
     mutation: ResourceRef<MutationState>;
-    queries: Input['props'] extends {
+    queries?: Input['props'] extends {
       __query: infer Queries;
     }
       ? {
