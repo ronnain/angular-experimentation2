@@ -16,6 +16,7 @@ import {
 } from './access-type-object-property-by-dotted-path.type';
 import { MergeObject } from './util.type';
 import { Merge } from '../../../util/types/merge';
+import { createNestedStateUpdate } from './update-state.util';
 
 // todo withLinkedClientStatePath("bla.bla.bla", ["userQuery", {resourceName: "userUpdate", mapResourceToState: (store, resource) => ...}])
 // withState(withLinkedClientStatePath({user:{...}}, ["userQuery", {resourceName: "userUpdate", mapResourceToState: (store, resource) => ...}]))
@@ -114,11 +115,11 @@ export function withQuery<
                   : resourceData;
               const keysPath = (clientStatePath as string).split('.');
 
-              return createNestedStateUpdate(
+              return createNestedStateUpdate({
                 state,
                 keysPath,
-                mappedResourceToState
-              );
+                value: mappedResourceToState,
+              });
             });
           }),
         }),
@@ -140,25 +141,4 @@ export function withQuery<
       methods: {};
     }
   >;
-}
-
-function createNestedStateUpdate(
-  state: any,
-  keysPath: string[],
-  value: any
-): any {
-  if (keysPath.length === 0) {
-    return value;
-  }
-
-  const [currentKey, ...remainingKeys] = keysPath;
-  const currentState = state[currentKey] || {};
-
-  return {
-    ...state,
-    [currentKey]:
-      remainingKeys.length === 0
-        ? { ...currentState, ...value }
-        : createNestedStateUpdate(currentState, remainingKeys, value),
-  };
 }
