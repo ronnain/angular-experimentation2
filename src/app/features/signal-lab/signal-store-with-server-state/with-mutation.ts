@@ -1,4 +1,4 @@
-import { ResourceRef, EffectRef, effect } from '@angular/core';
+import { ResourceRef, EffectRef, effect, ResourceOptions } from '@angular/core';
 import {
   patchState,
   Prettify,
@@ -125,6 +125,13 @@ type MutationFactoryConfig<
 >;
 
 // todo withQuery... faire un state initial qui représente l'état et sera muté par la mutation, et préserver la réponse de la query dans un champs spécifique readonly
+
+function test<ResourceState, Params, ParamsArgs>(
+  data: ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs>
+) {}
+const testData = test({
+  params: () => 'test',
+});
 
 export function withMutation<
   Input extends SignalStoreFeatureResult,
