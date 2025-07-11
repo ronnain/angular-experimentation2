@@ -5,11 +5,11 @@ import { lastValueFrom, of } from 'rxjs';
 import { resource } from '@angular/core';
 import { withMutation } from './with-mutation';
 import { id } from 'fp-ts/lib/Refinement';
-import { ObjectDeepPath } from './object-deep-path-mapper.type';
+import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
 import {
   AccessTypeObjectPropertyByDottedPath,
   DottedPathPathToTuple,
-} from './access-type-object-property-by-dotted-path.type';
+} from './types/access-type-object-property-by-dotted-path.type';
 
 type User = {
   id: string;

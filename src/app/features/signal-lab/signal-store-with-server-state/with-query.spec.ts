@@ -1,5 +1,4 @@
 import { lastValueFrom, of } from 'rxjs';
-import { ResourceData } from './signal-store-with-server-state';
 import { Equal, Expect } from '../../../../../test-type';
 import {
   signalStore,
@@ -9,7 +8,6 @@ import {
 } from '@ngrx/signals';
 import { withQuery } from './with-query';
 import { resource, ResourceRef } from '@angular/core';
-import { ObjectDeepPath } from './object-deep-path-mapper.type';
 
 type User = {
   id: string;

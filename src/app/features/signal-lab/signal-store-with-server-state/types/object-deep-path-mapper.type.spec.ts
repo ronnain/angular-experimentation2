@@ -1,4 +1,4 @@
-import { Equal, Expect } from '../../../../../test-type';
+import { Equal, Expect } from '../../../../../../test-type';
 import { ObjectDeepPath } from './object-deep-path-mapper.type';
 
 type User = {

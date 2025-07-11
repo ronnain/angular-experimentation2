@@ -9,14 +9,14 @@ import {
   withProps,
   WritableStateSource,
 } from '@ngrx/signals';
-import { ObjectDeepPath } from './object-deep-path-mapper.type';
+import { MergeObject } from './types/util.type';
+import { Merge } from '../../../util/types/merge';
+import { createNestedStateUpdate } from './update-state.util';
+import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
 import {
   AccessTypeObjectPropertyByDottedPath,
   DottedPathPathToTuple,
-} from './access-type-object-property-by-dotted-path.type';
-import { MergeObject } from './util.type';
-import { Merge } from '../../../util/types/merge';
-import { createNestedStateUpdate } from './update-state.util';
+} from './types/access-type-object-property-by-dotted-path.type';
 
 // todo withLinkedClientStatePath("bla.bla.bla", ["userQuery", {resourceName: "userUpdate", mapResourceToState: (store, resource) => ...}])
 // withState(withLinkedClientStatePath({user:{...}}, ["userQuery", {resourceName: "userUpdate", mapResourceToState: (store, resource) => ...}]))

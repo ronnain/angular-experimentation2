@@ -1,7 +1,7 @@
 import { ResourceOptions } from '@angular/core';
 import { ObjectDeepPath } from './object-deep-path-mapper.type';
 import { ResourceWithParamsOrParamsFn } from './resource-with-params-or-params-fn.type';
-import { Equal, Expect } from '../../../../../test-type';
+import { Equal, Expect } from '../../../../../../test-type';
 
 function test<ResourceState, Params, ParamsArgs>(
   data: ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs>
@@ -46,6 +46,18 @@ it('Should accept params or paramsFn, but not both', () => {
       Parameters<NonNullable<(typeof paramsFnOnly)['paramsFn']>>[0],
       { id: string; name: string; email: string }
     >
+  >;
+
+  function testArgs<ResourceState, Params, ParamsArgs>(
+    data: ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs>
+  ) {
+    return data as ParamsArgs;
+  }
+  const argsReturned = testArgs({
+    paramsFn: (data: { id: string; name: string; email: string }) => data,
+  });
+  type ParamsFnOnlyArgTypeRetrieved2 = Expect<
+    Equal<typeof argsReturned, { id: string; name: string; email: string }>
   >;
 
   //@ts-expect-error

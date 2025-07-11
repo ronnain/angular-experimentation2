@@ -15,16 +15,18 @@ import {
   ResourceStatusData,
 } from './signal-store-with-server-state';
 import { Merge } from '../../../util/types/merge';
-import { MergeObject } from './util.type';
-import { ObjectDeepPath } from './object-deep-path-mapper.type';
-import {
-  AccessTypeObjectPropertyByDottedPath,
-  DottedPathPathToTuple,
-} from './access-type-object-property-by-dotted-path.type';
+import { MergeObject } from './types/util.type';
+
 import {
   createNestedStateUpdate,
   getNestedStateValue,
 } from './update-state.util';
+import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
+import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
+import {
+  AccessTypeObjectPropertyByDottedPath,
+  DottedPathPathToTuple,
+} from './types/access-type-object-property-by-dotted-path.type';
 
 type OptimisticMutationEnum<QueryState, MutationState> = {
   boolean: boolean;
