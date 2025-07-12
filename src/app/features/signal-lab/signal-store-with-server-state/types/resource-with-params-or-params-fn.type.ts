@@ -1,6 +1,21 @@
-import { ResourceLoader, ResourceOptions } from '@angular/core';
+import {
+  ResourceLoader,
+  ResourceLoaderParams,
+  ResourceOptions,
+} from '@angular/core';
+import {
+  Prettify,
+  SignalStoreFeatureResult,
+  StateSignals,
+  WritableStateSource,
+} from '@ngrx/signals';
 
-export type ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
+export type ResourceWithParamsOrParamsFn<
+  Input extends SignalStoreFeatureResult,
+  ResourceState,
+  Params,
+  ParamsArgs
+> =
   | Omit<ResourceOptions<ResourceState, Params>, 'params' | 'loader'> &
       (
         | {
@@ -10,8 +25,17 @@ export type ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
              *
              * If a request function isn't provided, the loader won't rerun unless the resource is reloaded.
              */
-            params: () => Params;
-            loader: ResourceLoader<ResourceState, NoInfer<Params>>;
+            params: (
+              store: Prettify<
+                StateSignals<Input['state']> &
+                  Input['props'] &
+                  Input['methods'] & // todo remove methods ?
+                  WritableStateSource<Prettify<Input['state']>>
+              >
+            ) => () => Params;
+            loader: (
+              param: ResourceLoaderParams<NoInfer<Params>>
+            ) => Promise<ResourceState>;
             method?: never;
           }
         | {
@@ -20,8 +44,17 @@ export type ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
              * TODO PENSER A METTRE UN EQUAL TRUE ?
              */
             // TODO RENAME method accoding to signalStore
-            method: (args: ParamsArgs) => Params;
-            loader: ResourceLoader<ResourceState, NoInfer<Params>>;
+            method: (
+              store: Prettify<
+                StateSignals<Input['state']> &
+                  Input['props'] &
+                  Input['methods'] & // todo remove methods ?
+                  WritableStateSource<Prettify<Input['state']>>
+              >
+            ) => (args: ParamsArgs) => Params;
+            loader: (
+              param: ResourceLoaderParams<NoInfer<Params>>
+            ) => Promise<ResourceState>;
             params?: never;
           }
       );

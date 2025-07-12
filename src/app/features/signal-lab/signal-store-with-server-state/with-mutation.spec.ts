@@ -7,7 +7,7 @@ import { Equal, Expect } from '../../../../../test-type';
 import { withQuery } from './with-query';
 import { delay, lastValueFrom, of } from 'rxjs';
 import { resource, ResourceRef, signal } from '@angular/core';
-import { withMutation } from './with-mutation';
+import { tsTypeHelper, withMutation } from './with-mutation';
 import { id } from 'fp-ts/lib/Refinement';
 import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
 import {
@@ -60,36 +60,83 @@ it('Should be well typed', () => {
         },
       })
     ),
-    withMutation('updateUser', () => ({
+    withMutation('updateUser', {
       mutation: {
-        params: () => '5',
+        params: () => () => ({
+          id: '3',
+        }),
         loader: ({ params }) => {
           return lastValueFrom(
             of({
-              id: params,
+              id: params.id,
               name: 'Updated User',
               email: 'er@d',
             } satisfies User)
           );
         },
       },
-      queries: {
-        user: {
-          reload: {
-            onMutationError: true,
-          },
+      tsTypeHelper: tsTypeHelper(),
 
-          optimisticPatch: {
-            'address.street': () => 'true',
-          },
-        },
+      // //@ts-expect-error
+      // mutationState: {
+      //   // id: 'params',
+      //   // name: 'Updated User',
+      //   // email: 'er@d',
+      // },
+      // mutationStateFn: (data) => true,
+      queries: {
+        // user: {
+        //   reload: {
+        //     onMutationError: true,
+        //   },
+
+        //   optimisticPatch: {
+        //     'address.street': () => 'true',
+        //   },
+        // },
         users: {
-          optimistic: ({ queryResource, mutationResource }) => {
+          // test1: {
+          //   id: 'params',
+          //   name: 'Updated User',
+          //   email: 'er@d',
+          // },
+          // test: (data) => {
+          //   return !!data;
+          // },
+          // test2: (data) => true,
+          optimistic: ({ queryResource, mutationResource, mutationParams }) => {
+            type ExpectQueryResourceType = Expect<
+              Equal<
+                typeof queryResource,
+                ResourceRef<
+                  | {
+                      id: string;
+                      name: string;
+                      email: string;
+                    }[]
+                  | undefined
+                >
+              >
+            >;
+            type ExpectMutationResourceType = Expect<
+              Equal<
+                typeof mutationResource,
+                ResourceRef<{
+                  id: string;
+                  name: string;
+                  email: string;
+                }>
+              >
+            >;
+
+            type ExpectMutationParamsType = Expect<
+              Equal<typeof mutationParams, { id: string }>
+            >;
             return queryResource.value();
           },
         },
       },
-    }))
+    })
   );
 
   type ResultTypeMultiplesQuery = InferSignalStoreFeatureReturnedType<
@@ -103,9 +150,9 @@ it('Should be well typed', () => {
 
 it('Should expose a method', () => {
   const mutationOutput = signalStoreFeature(
-    withMutation('updateUser', () => ({
+    withMutation('updateUser', {
       mutation: {
-        method: (data: { page: string }) => data.page,
+        method: () => (data: { page: string }) => data.page,
         loader: ({ params }) => {
           return lastValueFrom(
             of({
@@ -116,7 +163,8 @@ it('Should expose a method', () => {
           );
         },
       },
-    }))
+      tsTypeHelper: tsTypeHelper(),
+    })
   );
 
   type ResultTypeMutation = InferSignalStoreFeatureReturnedType<
@@ -165,35 +213,27 @@ it('Should accept the store without loosing typing', () => {
   const mutationOutput = signalStoreFeature(
     withProps(() => ({
       sourceId: signal({
-        id: 4,
+        id: '4',
       }),
     })),
-    withMutation('updatxeUser', (store) => ({
-      test: store.sourceId(),
-      testInfer: {
-        id: 4,
-      },
-      testMutation: {
-        testInfer: {
-          //@ts-expect-error
-          id: '4',
+    withMutation('updateUser', {
+      mutation: {
+        params: (store) => store.sourceId,
+        loader: ({ params }) => {
+          type ExpectParamsToBeAnObjectWithStringId = Expect<
+            Equal<typeof params, { id: string }>
+          >;
+          return lastValueFrom(
+            of({
+              id: params.id,
+              name: 'Updated User',
+              email: 'er@d',
+            } satisfies User)
+          );
         },
       },
-      testMutationFn: {
-        testInfer: (store) => {
-          store;
-        },
-      },
-      // loader: ({ params }) => {
-      //   return lastValueFrom(
-      //     of({
-      //       id: params,
-      //       name: 'Updated User',
-      //       email: 'er@d',
-      //     } satisfies User)
-      //   );
-      // },
-    }))
+      tsTypeHelper: tsTypeHelper(),
+    })
   );
 });
 

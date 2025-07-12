@@ -1,4 +1,5 @@
 import {
+  ResourceLoader,
   ResourceOptions,
   ResourceRef,
   effect,
@@ -29,69 +30,82 @@ import {
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
 
-type NoInferDeep<T> = [T][T extends any ? 0 : never];
-
-export type MutationScope = any extends {
-  state: any;
-  params: any;
-  methodArgs: any;
-}
-  ? {
-      state: object | undefined;
-      params: unknown | undefined;
-      methodArgs: unknown;
-    }
-  : never;
-export type MutationCoreType<T extends MutationScope> = T;
-
 type OptimisticMutationQuery<
   QueryState,
-  MutationCore extends MutationScope
+  MutationState,
+  MutationParams,
+  MutationArgsParams
 > = (data: {
   queryResource: ResourceRef<QueryState>;
-  mutationResource: ResourceRef<MutationCore['state']>;
-  mutationParams: MutationCore['params'] | undefined;
+  mutationResource: ResourceRef<NoInfer<MutationState>>;
+  mutationParams: NonNullable<NoInfer<MutationParams>>;
 }) => QueryState;
 
 type CustomReloadOnSpecificMutationStatus<
   QueryState,
-  MutationCore extends MutationScope
+  MutationState,
+  MutationParams,
+  MutationArgsParams
 > = (data: {
-  queryResource: NoInfer<ResourceRef<QueryState>>;
-  mutationResource: NoInfer<ResourceRef<MutationCore['state']>>;
-  mutationParams: NoInfer<MutationCore['params'] | undefined>;
+  queryResource: ResourceRef<QueryState>;
+  mutationResource: ResourceRef<NoInfer<MutationState>>;
+  mutationParams: NonNullable<NoInfer<MutationParams>>;
 }) => boolean;
 
 // ? OptimisticMutationEnum<QueryState, MutationState>['boolean'] // can not be boolean, because MutationState does not expose a params
 // : ;
 
-type ReloadQueriesConfig<QueryState, MutationCore extends MutationScope> =
+type ReloadQueriesConfig<
+  QueryState,
+  MutationState,
+  MutationParams,
+  MutationArgsParams
+> =
   | false
   | {
       onMutationError?:
         | boolean
-        | CustomReloadOnSpecificMutationStatus<QueryState, MutationCore>;
+        | CustomReloadOnSpecificMutationStatus<
+            QueryState,
+            MutationState,
+            MutationParams,
+            MutationArgsParams
+          >;
       onMutationResolved?:
         | boolean
-        | CustomReloadOnSpecificMutationStatus<QueryState, MutationCore>;
+        | CustomReloadOnSpecificMutationStatus<
+            QueryState,
+            MutationState,
+            MutationParams,
+            MutationArgsParams
+          >;
       onMutationLoading?:
         | boolean
-        | CustomReloadOnSpecificMutationStatus<QueryState, MutationCore>;
+        | CustomReloadOnSpecificMutationStatus<
+            QueryState,
+            MutationState,
+            MutationParams,
+            MutationArgsParams
+          >;
     };
 
 type OptimisticPatchQueryFn<
   QueryState,
-  MutationCore extends MutationScope,
+  MutationState,
+  MutationParams,
+  MutationArgsParams,
   TargetedType
 > = (data: {
   queryResource: NoInfer<ResourceRef<QueryState>>;
-  mutationResource: NoInfer<ResourceRef<MutationCore['state']>>;
+  mutationResource: NoInfer<ResourceRef<MutationState>>;
   targetedState: TargetedType;
 }) => TargetedType;
 
 type OptimisticPathMutationQuery<
   QueryState,
-  MutationCore extends MutationScope
+  MutationState,
+  MutationParams,
+  MutationArgsParams
 > = {
   [queryPatchPath in ObjectDeepPath<
     QueryState & {}
@@ -99,38 +113,75 @@ type OptimisticPathMutationQuery<
     QueryState & {},
     DottedPathPathToTuple<queryPatchPath>
   > extends infer TargetedType
-    ? OptimisticPatchQueryFn<QueryState, MutationCore, TargetedType>
+    ? OptimisticPatchQueryFn<
+        QueryState,
+        MutationState,
+        MutationParams,
+        MutationArgsParams,
+        TargetedType
+      >
     : never;
 };
 
-type LinkedQueryConfig<MutationCore extends MutationScope, QueryState> = {
+type LinkedQueryConfig<
+  QueryState,
+  MutationState,
+  MutationParams,
+  MutationArgsParams
+> = {
+  // test1: NoInfer<MutationState>;
+  // test: NoInfer<(data: NoInfer<MutationState>) => boolean>;
+  // test2: (data: NoInfer<MutationParams>) => boolean;
+  // test?: NoInfer<MutationState>;
   /**
    * Will update the query state with the mutation data.
    */
-  optimistic?: OptimisticMutationQuery<QueryState, MutationCore>;
+  optimistic?: OptimisticMutationQuery<
+    QueryState,
+    MutationState,
+    MutationParams,
+    MutationArgsParams
+  >;
   /**
    * Will reload the query when the mutation is in a specific state.
    * If not provided, it will reload the query onMutationResolved and onMutationError.
    * If the query is loading, it will not reload.
    */
-  reload?: ReloadQueriesConfig<QueryState, MutationCore>;
+  reload?: ReloadQueriesConfig<
+    QueryState,
+    MutationState,
+    MutationParams,
+    MutationArgsParams
+  >;
   /**
    * Will patch the query specific state with the mutation data.
    * If the query is loading, it will not patch.
    * If the mutation data is not compatible with the query state, it will not patch.
    */
-  optimisticPatch?: OptimisticPathMutationQuery<QueryState, MutationCore>;
+  optimisticPatch?: OptimisticPathMutationQuery<
+    QueryState,
+    MutationState,
+    MutationParams,
+    MutationArgsParams
+  >;
 };
 
 type MutationFactoryConfig<
   Input extends SignalStoreFeatureResult,
-  MutationCore extends MutationScope
+  MutationState,
+  MutationParams,
+  MutationArgsParams
 > = {
   queries?: Input['props'] extends {
     __query: infer Queries;
   }
     ? {
-        [key in keyof Queries]: LinkedQueryConfig<MutationCore, Queries[key]>;
+        [key in keyof Queries]?: LinkedQueryConfig<
+          Queries[key],
+          MutationState,
+          MutationParams,
+          MutationArgsParams
+        >;
       }
     : never;
 };
@@ -161,6 +212,16 @@ type MutationStoreOutput<
   };
 };
 
+/**
+ * No idea why this is needed, but without that the MutationState can not be passed as input, in query optimistic functions.
+ * Please add it after the mutation property
+ */
+export function tsTypeHelper() {
+  return <StateToSave>(_: StateToSave): void => {
+    console.log('_', _);
+  };
+}
+
 // todo withQuery... faire un state initial qui représente l'état et sera muté par la mutation, et préserver la réponse de la query dans un champs spécifique readonly
 
 export function withMutation<
@@ -168,59 +229,28 @@ export function withMutation<
   const MutationName extends string,
   MutationState extends object | undefined,
   MutationParams,
-  MutationArgsParams,
-  Test,
-  MutationCore extends MutationScope extends {
-    state: MutationState;
-    params: MutationParams;
-    args: MutationArgsParams;
-  }
-    ? {
-        state: MutationState;
-        params: MutationParams;
-        args: MutationArgsParams;
-      }
-    : never
+  MutationArgsParams
 >(
   mutationName: MutationName,
-  mutationFactory: (
-    store: Prettify<
-      StateSignals<Input['state']> &
-        Input['props'] &
-        Input['methods'] & // todo remove methods ?
-        WritableStateSource<Prettify<Input['state']>>
-    >
-  ) => MergeObject<
+  mutationConfig: MergeObject<
     {
-      test: Test;
-      testInfer: NoInfer<Test>;
-      testMutation: {
-        testInfer: NoInfer<Test>;
-      };
-      testMutationFn: {
-        testInfer: (
-          store: Prettify<
-            StateSignals<Input['state']> &
-              Merge<
-                Input['props'],
-                {
-                  test: NoInferDeep<NoInfer<Test>>;
-                }
-              > &
-              Input['methods'] & // todo remove methods ?
-              WritableStateSource<Prettify<Input['state']>>
-          >
-        ) => void;
-      };
-      // resource: ResourceOptions<MutationState, NoInfer<Test>>;
-      // mutation: ResourceWithParamsOrParamsFn<
-      //   MutationState,
-      //   MutationParams,
-      //   MutationArgsParams
-      // >;
-      // loader: (param: { params: NoInfer<Test> }) => Promise<MutationState>;
+      mutation: Prettify<
+        ResourceWithParamsOrParamsFn<
+          Input,
+          MutationState,
+          MutationParams,
+          MutationArgsParams
+        >
+      >;
+      // No idea why this is needed, but without that the MutationState can not be passed as input, in query optimistic functions
+      tsTypeHelper: (test: NoInfer<MutationState>) => void;
     },
-    MutationFactoryConfig<Input, MutationCore>
+    MutationFactoryConfig<
+      Input,
+      MutationState,
+      MutationParams,
+      MutationArgsParams
+    >
   >
 ): SignalStoreFeature<
   Input,
@@ -228,28 +258,23 @@ export function withMutation<
 > {
   return ((store: SignalStoreFeatureResult) => {
     // todo rename to mutationConfig
-    const mutationConfig = mutationFactory(
-      store as unknown as StateSignals<Input['state']> &
-        Input['props'] &
-        Input['methods'] &
-        WritableStateSource<Prettify<Input['state']>>
-    );
+
     const mutationResourceOption =
       typeof mutationConfig === 'object' && 'mutation' in mutationConfig
         ? mutationConfig.mutation
         : mutationConfig;
 
     // resourceParamsFnSignal will be used has params signal to trigger the mutation loader
-    const mutationResourceParamsFnSignal = signal<
-      MutationCore['params'] | undefined
-    >(undefined);
-    const resourceParamsSrc =
-      mutationResourceOption.params ?? mutationResourceParamsFnSignal;
+    // todo method
+    const mutationResourceParamsFnSignal = signal<MutationParams | undefined>(
+      undefined
+    );
 
-    const mutationResource = resource<
-      MutationCore['state'],
-      MutationCore['params']
-    >({
+    const resourceParamsSrc =
+      mutationResourceOption.params?.(store as any) ??
+      mutationResourceParamsFnSignal;
+
+    const mutationResource = resource<MutationState, MutationParams>({
       ...mutationResourceOption,
       params: resourceParamsSrc,
     } as any);
@@ -257,7 +282,15 @@ export function withMutation<
     const queriesMutation =
       typeof mutationConfig === 'object' && 'queries' in mutationConfig
         ? mutationConfig.queries
-        : ({} as Record<string, LinkedQueryConfig<MutationCore, any>>);
+        : ({} as Record<
+            string,
+            LinkedQueryConfig<
+              any,
+              MutationState,
+              MutationParams,
+              MutationArgsParams
+            >
+          >);
     const queriesWithOptimisticMutation = Object.entries(
       queriesMutation
     ).filter(([, queryMutationConfig]) => queryMutationConfig.optimistic);
@@ -291,9 +324,9 @@ export function withMutation<
                   const optimisticValue = queryMutationConfig?.optimistic?.({
                     mutationResource,
                     queryResource,
-                    mutationParams: resourceParamsSrc() as
-                      | MutationCore['params']
-                      | undefined,
+                    mutationParams: resourceParamsSrc() as NonNullable<
+                      NoInfer<MutationParams>
+                    >,
                   });
 
                   if (!queryResource.isLoading()) {
@@ -312,7 +345,13 @@ export function withMutation<
                   Object.entries(
                     queryMutationConfig.optimisticPatch as Record<
                       string,
-                      OptimisticPatchQueryFn<any, any, any>
+                      OptimisticPatchQueryFn<
+                        any,
+                        MutationState,
+                        MutationParams,
+                        MutationArgsParams,
+                        any
+                      >
                     >
                   ).forEach(([path, optimisticPatch]) => {
                     const optimisticValue = optimisticPatch({
@@ -359,7 +398,10 @@ export function withMutation<
                           reloadConfig({
                             queryResource,
                             mutationResource,
-                            mutationParams: mutationResourceParamsFnSignal(),
+                            mutationParams:
+                              mutationResourceParamsFnSignal() as NonNullable<
+                                NoInfer<MutationParams>
+                              >,
                           })
                         ) {
                           queryResource.reload();
@@ -377,7 +419,10 @@ export function withMutation<
                           reloadConfig({
                             queryResource,
                             mutationResource,
-                            mutationParams: mutationResourceParamsFnSignal(),
+                            mutationParams:
+                              mutationResourceParamsFnSignal() as NonNullable<
+                                NoInfer<MutationParams>
+                              >,
                           })
                         ) {
                           queryResource.reload();
@@ -395,7 +440,10 @@ export function withMutation<
                           reloadConfig({
                             queryResource,
                             mutationResource,
-                            mutationParams: mutationResourceParamsFnSignal(),
+                            mutationParams:
+                              mutationResourceParamsFnSignal() as NonNullable<
+                                NoInfer<MutationParams>
+                              >,
                           })
                         ) {
                           queryResource.reload();
@@ -413,9 +461,17 @@ export function withMutation<
       })),
       withMethods(() => ({
         [`trigger${capitalizedMutationName}`]: (
-          mutationParams: MutationCore['methodArgs']
+          mutationParams: MutationArgsParams
         ) => {
-          mutationResourceParamsFnSignal.set(mutationParams);
+          const mutationMethod = mutationConfig.mutation.method;
+          if (mutationMethod) {
+            const mutationParamsResult = mutationConfig.mutation.method?.(
+              store as any
+            )(mutationParams);
+            mutationResourceParamsFnSignal.set(
+              mutationParamsResult as MutationParams
+            );
+          }
         },
       }))
       //@ts-ignore
