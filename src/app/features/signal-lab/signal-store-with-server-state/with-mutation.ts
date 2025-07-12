@@ -186,6 +186,9 @@ type MutationFactoryConfig<
     : never;
 };
 
+/**
+ * Mainly used to preserve the TS typing system
+ */
 export function mutation<
   Input extends SignalStoreFeatureResult,
   const MutationName extends string,

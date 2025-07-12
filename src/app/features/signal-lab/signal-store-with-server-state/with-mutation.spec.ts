@@ -76,25 +76,16 @@ it('Should be well typed', () => {
         },
       }),
       queries: {
-        // user: {
-        //   reload: {
-        //     onMutationError: true,
-        //   },
+        user: {
+          reload: {
+            onMutationError: true,
+          },
 
-        //   optimisticPatch: {
-        //     'address.street': () => 'true',
-        //   },
-        // },
+          optimisticPatch: {
+            'address.street': () => 'true',
+          },
+        },
         users: {
-          // test1: {
-          //   id: 'params',
-          //   name: 'Updated User',
-          //   email: 'er@d',
-          // },
-          // test: (data) => {
-          //   return !!data;
-          // },
-          // test2: (data) => true,
           optimistic: ({ queryResource, mutationResource, mutationParams }) => {
             type ExpectQueryResourceType = Expect<
               Equal<
