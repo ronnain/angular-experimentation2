@@ -186,6 +186,23 @@ type MutationFactoryConfig<
     : never;
 };
 
+export function mutation<
+  Input extends SignalStoreFeatureResult,
+  const MutationName extends string,
+  MutationState extends object | undefined,
+  MutationParams,
+  MutationArgsParams
+>(
+  mutationResourceConfig: ResourceWithParamsOrParamsFn<
+    Input,
+    MutationState,
+    MutationParams,
+    MutationArgsParams
+  >
+) {
+  return mutationResourceConfig;
+}
+
 type MutationStoreOutput<
   MutationName extends string,
   MutationState,
@@ -234,16 +251,14 @@ export function withMutation<
   mutationName: MutationName,
   mutationConfig: MergeObject<
     {
-      mutation: Prettify<
-        ResourceWithParamsOrParamsFn<
-          Input,
-          MutationState,
-          MutationParams,
-          MutationArgsParams
-        >
+      mutation: ResourceWithParamsOrParamsFn<
+        Input,
+        MutationState,
+        MutationParams,
+        MutationArgsParams
       >;
       // No idea why this is needed, but without that the MutationState can not be passed as input, in query optimistic functions
-      tsTypeHelper: (test: NoInfer<MutationState>) => void;
+      tsTypeHelper?: (test: NoInfer<MutationState>) => void;
     },
     MutationFactoryConfig<
       Input,

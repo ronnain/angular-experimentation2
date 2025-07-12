@@ -7,7 +7,7 @@ import { Equal, Expect } from '../../../../../test-type';
 import { withQuery } from './with-query';
 import { delay, lastValueFrom, of } from 'rxjs';
 import { resource, ResourceRef, signal } from '@angular/core';
-import { tsTypeHelper, withMutation } from './with-mutation';
+import { mutation, tsTypeHelper, withMutation } from './with-mutation';
 import { id } from 'fp-ts/lib/Refinement';
 import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
 import {
@@ -61,7 +61,7 @@ it('Should be well typed', () => {
       })
     ),
     withMutation('updateUser', {
-      mutation: {
+      mutation: mutation({
         params: () => () => ({
           id: '3',
         }),
@@ -74,16 +74,7 @@ it('Should be well typed', () => {
             } satisfies User)
           );
         },
-      },
-      tsTypeHelper: tsTypeHelper(),
-
-      // //@ts-expect-error
-      // mutationState: {
-      //   // id: 'params',
-      //   // name: 'Updated User',
-      //   // email: 'er@d',
-      // },
-      // mutationStateFn: (data) => true,
+      }),
       queries: {
         // user: {
         //   reload: {
