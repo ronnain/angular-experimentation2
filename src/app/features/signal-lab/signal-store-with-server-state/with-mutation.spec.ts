@@ -1,8 +1,12 @@
-import { signalStoreFeature, SignalStoreFeature } from '@ngrx/signals';
+import {
+  signalStoreFeature,
+  SignalStoreFeature,
+  withProps,
+} from '@ngrx/signals';
 import { Equal, Expect } from '../../../../../test-type';
 import { withQuery } from './with-query';
-import { lastValueFrom, of } from 'rxjs';
-import { resource, ResourceRef } from '@angular/core';
+import { delay, lastValueFrom, of } from 'rxjs';
+import { resource, ResourceRef, signal } from '@angular/core';
 import { withMutation } from './with-mutation';
 import { id } from 'fp-ts/lib/Refinement';
 import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
@@ -101,7 +105,7 @@ it('Should expose a method', () => {
   const mutationOutput = signalStoreFeature(
     withMutation('updateUser', () => ({
       mutation: {
-        method: (data: { page: string }) => '5',
+        method: (data: { page: string }) => data.page,
         loader: ({ params }) => {
           return lastValueFrom(
             of({
@@ -155,6 +159,42 @@ it('Should expose a method', () => {
       }
     >
   >;
+});
+
+it('Should accept the store without loosing typing', () => {
+  const mutationOutput = signalStoreFeature(
+    withProps(() => ({
+      sourceId: signal({
+        id: 4,
+      }),
+    })),
+    withMutation('updatxeUser', (store) => ({
+      test: store.sourceId(),
+      testInfer: {
+        id: 4,
+      },
+      testMutation: {
+        testInfer: {
+          //@ts-expect-error
+          id: '4',
+        },
+      },
+      testMutationFn: {
+        testInfer: (store) => {
+          store;
+        },
+      },
+      // loader: ({ params }) => {
+      //   return lastValueFrom(
+      //     of({
+      //       id: params,
+      //       name: 'Updated User',
+      //       email: 'er@d',
+      //     } satisfies User)
+      //   );
+      // },
+    }))
+  );
 });
 
 type testUserPath = ObjectDeepPath<User & {}>;

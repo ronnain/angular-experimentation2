@@ -1,4 +1,10 @@
-import { ResourceRef, effect, resource, signal } from '@angular/core';
+import {
+  ResourceOptions,
+  ResourceRef,
+  effect,
+  resource,
+  signal,
+} from '@angular/core';
 import {
   Prettify,
   SignalStoreFeature,
@@ -22,6 +28,8 @@ import {
   AccessTypeObjectPropertyByDottedPath,
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
+
+type NoInferDeep<T> = [T][T extends any ? 0 : never];
 
 export type MutationScope = any extends {
   state: any;
@@ -159,8 +167,9 @@ export function withMutation<
   Input extends SignalStoreFeatureResult,
   const MutationName extends string,
   MutationState extends object | undefined,
-  MutationParams extends MutationScope['params'],
+  MutationParams,
   MutationArgsParams,
+  Test,
   MutationCore extends MutationScope extends {
     state: MutationState;
     params: MutationParams;
@@ -181,22 +190,38 @@ export function withMutation<
         Input['methods'] & // todo remove methods ?
         WritableStateSource<Prettify<Input['state']>>
     >
-  ) =>
-    | ResourceWithParamsOrParamsFn<
-        MutationState,
-        MutationParams,
-        MutationArgsParams
-      >
-    | MergeObject<
-        {
-          mutation: ResourceWithParamsOrParamsFn<
-            MutationState,
-            MutationParams,
-            MutationArgsParams
-          >;
-        },
-        MutationFactoryConfig<Input, MutationCore>
-      >
+  ) => MergeObject<
+    {
+      test: Test;
+      testInfer: NoInfer<Test>;
+      testMutation: {
+        testInfer: NoInfer<Test>;
+      };
+      testMutationFn: {
+        testInfer: (
+          store: Prettify<
+            StateSignals<Input['state']> &
+              Merge<
+                Input['props'],
+                {
+                  test: NoInferDeep<NoInfer<Test>>;
+                }
+              > &
+              Input['methods'] & // todo remove methods ?
+              WritableStateSource<Prettify<Input['state']>>
+          >
+        ) => void;
+      };
+      // resource: ResourceOptions<MutationState, NoInfer<Test>>;
+      // mutation: ResourceWithParamsOrParamsFn<
+      //   MutationState,
+      //   MutationParams,
+      //   MutationArgsParams
+      // >;
+      // loader: (param: { params: NoInfer<Test> }) => Promise<MutationState>;
+    },
+    MutationFactoryConfig<Input, MutationCore>
+  >
 ): SignalStoreFeature<
   Input,
   MutationStoreOutput<MutationName, MutationState, MutationArgsParams>
