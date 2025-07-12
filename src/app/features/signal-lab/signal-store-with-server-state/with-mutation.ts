@@ -129,24 +129,27 @@ type MutationFactoryConfig<
 
 type MutationStoreOutput<
   MutationName extends string,
-  MutationCore extends MutationScope
+  MutationState,
+  MutationArgsParams
 > = {
   state: {};
   props: Merge<
     {
-      [key in MutationName]: ResourceRef<MutationCore['state']>;
+      [key in MutationName]: ResourceRef<MutationState>;
     },
     {
       /**
        * Does not exist, it is only used by the typing system to infer
        */
       __mutation: {
-        [key in MutationName]: MutationCore['state'];
+        [key in MutationName]: MutationState;
       };
     }
   >;
   methods: {
-    [key in MutationName]: (mutationParams: MutationCore['methodArgs']) => void;
+    [key in MutationName as `trigger${Capitalize<key>}`]: (
+      mutationParams: MutationArgsParams
+    ) => void;
   };
 };
 
@@ -194,7 +197,10 @@ export function withMutation<
         },
         MutationFactoryConfig<Input, MutationCore>
       >
-): SignalStoreFeature<Input, MutationStoreOutput<MutationName, MutationCore>> {
+): SignalStoreFeature<
+  Input,
+  MutationStoreOutput<MutationName, MutationState, MutationArgsParams>
+> {
   return ((store: SignalStoreFeatureResult) => {
     // todo rename to mutationConfig
     const mutationConfig = mutationFactory(
@@ -236,6 +242,9 @@ export function withMutation<
     const queriesWithReload = Object.entries(queriesMutation).filter(
       ([, queryMutationConfig]) => queryMutationConfig.reload
     );
+
+    const capitalizedMutationName =
+      mutationName.charAt(0).toUpperCase() + mutationName.slice(1);
 
     return signalStoreFeature(
       withProps((store) => ({
@@ -378,7 +387,9 @@ export function withMutation<
         }),
       })),
       withMethods(() => ({
-        [mutationName]: (mutationParams: MutationCore['methodArgs']) => {
+        [`trigger${capitalizedMutationName}`]: (
+          mutationParams: MutationCore['methodArgs']
+        ) => {
           mutationResourceParamsFnSignal.set(mutationParams);
         },
       }))
@@ -386,6 +397,6 @@ export function withMutation<
     )(store);
   }) as unknown as SignalStoreFeature<
     Input,
-    MutationStoreOutput<MutationName, MutationCore>
+    MutationStoreOutput<MutationName, MutationState, MutationArgsParams>
   >;
 }
