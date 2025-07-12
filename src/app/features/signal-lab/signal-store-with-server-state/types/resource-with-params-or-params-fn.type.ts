@@ -12,7 +12,7 @@ export type ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
              */
             params: () => Params;
             loader: ResourceLoader<ResourceState, NoInfer<Params>>;
-            paramsFn?: never;
+            method?: never;
           }
         | {
             /**
@@ -20,7 +20,7 @@ export type ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
              * TODO PENSER A METTRE UN EQUAL TRUE ?
              */
             // TODO RENAME method accoding to signalStore
-            paramsFn: (args: ParamsArgs) => Params;
+            method: (args: ParamsArgs) => Params;
             loader: ResourceLoader<ResourceState, NoInfer<Params>>;
             params?: never;
           }

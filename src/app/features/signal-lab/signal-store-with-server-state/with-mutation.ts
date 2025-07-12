@@ -5,6 +5,7 @@ import {
   signalStoreFeature,
   SignalStoreFeatureResult,
   StateSignals,
+  withMethods,
   withProps,
   WritableStateSource,
 } from '@ngrx/signals';
@@ -25,12 +26,12 @@ import {
 export type MutationScope = any extends {
   state: any;
   params: any;
-  fnArgs: any;
+  methodArgs: any;
 }
   ? {
       state: object | undefined;
       params: unknown | undefined;
-      fnArgs: unknown;
+      methodArgs: unknown;
     }
   : never;
 export type MutationCoreType<T extends MutationScope> = T;
@@ -145,7 +146,7 @@ type MutationStoreOutput<
     }
   >;
   methods: {
-    [key in MutationName]: (mutationParams: MutationCore['fnArgs']) => void;
+    [key in MutationName]: (mutationParams: MutationCore['methodArgs']) => void;
   };
 };
 
@@ -375,6 +376,11 @@ export function withMutation<
             });
           }),
         }),
+      })),
+      withMethods(() => ({
+        [mutationName]: (mutationParams: MutationCore['methodArgs']) => {
+          mutationResourceParamsFnSignal.set(mutationParams);
+        },
       }))
       //@ts-ignore
     )(store);
