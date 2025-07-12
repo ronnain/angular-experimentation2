@@ -57,7 +57,7 @@ it('Should be well typed', () => {
       })
     ),
     withMutation('updateUser', () => ({
-      mutation: resource({
+      mutation: {
         params: () => '5',
         loader: ({ params }) => {
           return lastValueFrom(
@@ -68,7 +68,7 @@ it('Should be well typed', () => {
             } satisfies User)
           );
         },
-      }),
+      },
       queries: {
         user: {
           reload: {

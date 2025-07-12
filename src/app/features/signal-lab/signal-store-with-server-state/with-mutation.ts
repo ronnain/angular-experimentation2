@@ -1,19 +1,13 @@
-import { ResourceRef, EffectRef, effect, ResourceOptions } from '@angular/core';
+import { ResourceRef, effect, resource, signal } from '@angular/core';
 import {
-  patchState,
   Prettify,
   SignalStoreFeature,
   signalStoreFeature,
   SignalStoreFeatureResult,
   StateSignals,
   withProps,
-  withState,
   WritableStateSource,
 } from '@ngrx/signals';
-import {
-  ResourceData,
-  ResourceStatusData,
-} from './signal-store-with-server-state';
 import { Merge } from '../../../util/types/merge';
 import { MergeObject } from './types/util.type';
 
@@ -28,54 +22,67 @@ import {
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
 
-type OptimisticMutationEnum<QueryState, MutationState> = {
-  boolean: boolean;
-  function: (data: {
-    queryResource: ResourceRef<QueryState>;
-    mutationResource: ResourceRef<MutationState>;
-  }) => QueryState;
-};
+export type MutationScope = any extends {
+  state: any;
+  params: any;
+  fnArgs: any;
+}
+  ? {
+      state: object | undefined;
+      params: unknown | undefined;
+      fnArgs: unknown;
+    }
+  : never;
+export type MutationCoreType<T extends MutationScope> = T;
 
 type OptimisticMutationQuery<
-  MutationState extends object | undefined,
-  QueryState
-> = OptimisticMutationEnum<QueryState, MutationState>['function'];
+  QueryState,
+  MutationCore extends MutationScope
+> = (data: {
+  queryResource: ResourceRef<QueryState>;
+  mutationResource: ResourceRef<MutationCore['state']>;
+  mutationParams: MutationCore['params'] | undefined;
+}) => QueryState;
 
-type CustomReloadOnSpecificMutationStatus<QueryState, MutationState> = (data: {
+type CustomReloadOnSpecificMutationStatus<
+  QueryState,
+  MutationCore extends MutationScope
+> = (data: {
   queryResource: NoInfer<ResourceRef<QueryState>>;
-  mutationResource: NoInfer<ResourceRef<MutationState>>;
+  mutationResource: NoInfer<ResourceRef<MutationCore['state']>>;
+  mutationParams: NoInfer<MutationCore['params'] | undefined>;
 }) => boolean;
 
 // ? OptimisticMutationEnum<QueryState, MutationState>['boolean'] // can not be boolean, because MutationState does not expose a params
 // : ;
 
-type ReloadQueriesConfig<QueryState, MutationState> =
+type ReloadQueriesConfig<QueryState, MutationCore extends MutationScope> =
   | false
   | {
       onMutationError?:
         | boolean
-        | CustomReloadOnSpecificMutationStatus<QueryState, MutationState>;
+        | CustomReloadOnSpecificMutationStatus<QueryState, MutationCore>;
       onMutationResolved?:
         | boolean
-        | CustomReloadOnSpecificMutationStatus<QueryState, MutationState>;
+        | CustomReloadOnSpecificMutationStatus<QueryState, MutationCore>;
       onMutationLoading?:
         | boolean
-        | CustomReloadOnSpecificMutationStatus<QueryState, MutationState>;
+        | CustomReloadOnSpecificMutationStatus<QueryState, MutationCore>;
     };
 
 type OptimisticPatchQueryFn<
   QueryState,
-  MutationState extends object | undefined,
+  MutationCore extends MutationScope,
   TargetedType
 > = (data: {
   queryResource: NoInfer<ResourceRef<QueryState>>;
-  mutationResource: NoInfer<ResourceRef<MutationState>>;
+  mutationResource: NoInfer<ResourceRef<MutationCore['state']>>;
   targetedState: TargetedType;
 }) => TargetedType;
 
 type OptimisticPathMutationQuery<
   QueryState,
-  MutationState extends object | undefined
+  MutationCore extends MutationScope
 > = {
   [queryPatchPath in ObjectDeepPath<
     QueryState & {}
@@ -83,62 +90,84 @@ type OptimisticPathMutationQuery<
     QueryState & {},
     DottedPathPathToTuple<queryPatchPath>
   > extends infer TargetedType
-    ? OptimisticPatchQueryFn<QueryState, MutationState, TargetedType>
+    ? OptimisticPatchQueryFn<QueryState, MutationCore, TargetedType>
     : never;
 };
 
-type LinkedQueryConfig<MutationState extends object | undefined, QueryState> = {
+type LinkedQueryConfig<MutationCore extends MutationScope, QueryState> = {
   /**
    * Will update the query state with the mutation data.
    */
-  optimistic?: OptimisticMutationQuery<MutationState, QueryState>;
+  optimistic?: OptimisticMutationQuery<QueryState, MutationCore>;
   /**
    * Will reload the query when the mutation is in a specific state.
    * If not provided, it will reload the query onMutationResolved and onMutationError.
    * If the query is loading, it will not reload.
    */
-  reload?: ReloadQueriesConfig<QueryState, MutationState>;
+  reload?: ReloadQueriesConfig<QueryState, MutationCore>;
   /**
    * Will patch the query specific state with the mutation data.
    * If the query is loading, it will not patch.
    * If the mutation data is not compatible with the query state, it will not patch.
    */
-  optimisticPatch?: OptimisticPathMutationQuery<QueryState, MutationState>;
+  optimisticPatch?: OptimisticPathMutationQuery<QueryState, MutationCore>;
 };
 
 type MutationFactoryConfig<
-  MutationState extends object | undefined,
-  Input extends SignalStoreFeatureResult
-> = MergeObject<
-  {
-    mutation: ResourceRef<MutationState>;
-    queries?: Input['props'] extends {
-      __query: infer Queries;
+  Input extends SignalStoreFeatureResult,
+  MutationCore extends MutationScope
+> = {
+  queries?: Input['props'] extends {
+    __query: infer Queries;
+  }
+    ? {
+        [key in keyof Queries]: LinkedQueryConfig<MutationCore, Queries[key]>;
+      }
+    : never;
+};
+
+type MutationStoreOutput<
+  MutationName extends string,
+  MutationCore extends MutationScope
+> = {
+  state: {};
+  props: Merge<
+    {
+      [key in MutationName]: ResourceRef<MutationCore['state']>;
+    },
+    {
+      /**
+       * Does not exist, it is only used by the typing system to infer
+       */
+      __mutation: {
+        [key in MutationName]: MutationCore['state'];
+      };
     }
-      ? {
-          [key in keyof Queries]: LinkedQueryConfig<
-            MutationState,
-            Queries[key]
-          >;
-        }
-      : never;
-  },
-  {}
->;
+  >;
+  methods: {
+    [key in MutationName]: (mutationParams: MutationCore['fnArgs']) => void;
+  };
+};
 
 // todo withQuery... faire un state initial qui représente l'état et sera muté par la mutation, et préserver la réponse de la query dans un champs spécifique readonly
-
-function test<ResourceState, Params, ParamsArgs>(
-  data: ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs>
-) {}
-const testData = test({
-  params: () => 'test',
-});
 
 export function withMutation<
   Input extends SignalStoreFeatureResult,
   const MutationName extends string,
-  MutationState extends object | undefined
+  MutationState extends object | undefined,
+  MutationParams extends MutationScope['params'],
+  MutationArgsParams,
+  MutationCore extends MutationScope extends {
+    state: MutationState;
+    params: MutationParams;
+    args: MutationArgsParams;
+  }
+    ? {
+        state: MutationState;
+        params: MutationParams;
+        args: MutationArgsParams;
+      }
+    : never
 >(
   mutationName: MutationName,
   mutationFactory: (
@@ -148,44 +177,55 @@ export function withMutation<
         Input['methods'] & // todo remove methods ?
         WritableStateSource<Prettify<Input['state']>>
     >
-  ) => ResourceRef<MutationState> | MutationFactoryConfig<MutationState, Input>
-): SignalStoreFeature<
-  Input,
-  {
-    state: {};
-    props: Merge<
-      {
-        [key in MutationName]: ResourceData<MutationState>;
-      },
-      {
-        /**
-         * Does not exist, it is only used by the typing system to infer
-         */
-        __mutation: {
-          [key in MutationName]: MutationState;
-        };
-      }
-    >;
-    methods: {};
-  }
-> {
+  ) =>
+    | ResourceWithParamsOrParamsFn<
+        MutationState,
+        MutationParams,
+        MutationArgsParams
+      >
+    | MergeObject<
+        {
+          mutation: ResourceWithParamsOrParamsFn<
+            MutationState,
+            MutationParams,
+            MutationArgsParams
+          >;
+        },
+        MutationFactoryConfig<Input, MutationCore>
+      >
+): SignalStoreFeature<Input, MutationStoreOutput<MutationName, MutationCore>> {
   return ((store: SignalStoreFeatureResult) => {
     // todo rename to mutationConfig
-    const queryConfig = mutationFactory(
+    const mutationConfig = mutationFactory(
       store as unknown as StateSignals<Input['state']> &
         Input['props'] &
         Input['methods'] &
         WritableStateSource<Prettify<Input['state']>>
     );
-    const mutationResource =
-      typeof queryConfig === 'object' && 'mutation' in queryConfig
-        ? queryConfig.mutation
-        : queryConfig;
+    const mutationResourceOption =
+      typeof mutationConfig === 'object' && 'mutation' in mutationConfig
+        ? mutationConfig.mutation
+        : mutationConfig;
+
+    // resourceParamsFnSignal will be used has params signal to trigger the mutation loader
+    const mutationResourceParamsFnSignal = signal<
+      MutationCore['params'] | undefined
+    >(undefined);
+    const resourceParamsSrc =
+      mutationResourceOption.params ?? mutationResourceParamsFnSignal;
+
+    const mutationResource = resource<
+      MutationCore['state'],
+      MutationCore['params']
+    >({
+      ...mutationResourceOption,
+      params: resourceParamsSrc,
+    } as any);
 
     const queriesMutation =
-      typeof queryConfig === 'object' && 'queries' in queryConfig
-        ? queryConfig.queries
-        : ({} as Record<string, LinkedQueryConfig<MutationState, any>>);
+      typeof mutationConfig === 'object' && 'queries' in mutationConfig
+        ? mutationConfig.queries
+        : ({} as Record<string, LinkedQueryConfig<MutationCore, any>>);
     const queriesWithOptimisticMutation = Object.entries(
       queriesMutation
     ).filter(([, queryMutationConfig]) => queryMutationConfig.optimistic);
@@ -199,7 +239,7 @@ export function withMutation<
     return signalStoreFeature(
       withProps((store) => ({
         [mutationName]: mutationResource,
-        ...('queries' in queryConfig && {
+        ...('queries' in mutationConfig && {
           [`_${mutationName}Effect`]: effect(() => {
             const resourceData = mutationResource.hasValue()
               ? mutationResource.value()
@@ -216,6 +256,9 @@ export function withMutation<
                   const optimisticValue = queryMutationConfig?.optimistic?.({
                     mutationResource,
                     queryResource,
+                    mutationParams: resourceParamsSrc() as
+                      | MutationCore['params']
+                      | undefined,
                   });
 
                   if (!queryResource.isLoading()) {
@@ -277,7 +320,13 @@ export function withMutation<
                       mutationStatus === 'error'
                     ) {
                       if (typeof reloadConfig === 'function') {
-                        if (reloadConfig({ queryResource, mutationResource })) {
+                        if (
+                          reloadConfig({
+                            queryResource,
+                            mutationResource,
+                            mutationParams: mutationResourceParamsFnSignal(),
+                          })
+                        ) {
                           queryResource.reload();
                         }
                       } else if (reloadConfig) {
@@ -289,7 +338,13 @@ export function withMutation<
                       mutationStatus === 'resolved'
                     ) {
                       if (typeof reloadConfig === 'function') {
-                        if (reloadConfig({ queryResource, mutationResource })) {
+                        if (
+                          reloadConfig({
+                            queryResource,
+                            mutationResource,
+                            mutationParams: mutationResourceParamsFnSignal(),
+                          })
+                        ) {
                           queryResource.reload();
                         }
                       } else if (reloadConfig) {
@@ -301,7 +356,13 @@ export function withMutation<
                       mutationStatus === 'loading'
                     ) {
                       if (typeof reloadConfig === 'function') {
-                        if (reloadConfig({ queryResource, mutationResource })) {
+                        if (
+                          reloadConfig({
+                            queryResource,
+                            mutationResource,
+                            mutationParams: mutationResourceParamsFnSignal(),
+                          })
+                        ) {
                           queryResource.reload();
                         }
                       } else if (reloadConfig) {
@@ -319,42 +380,6 @@ export function withMutation<
     )(store);
   }) as unknown as SignalStoreFeature<
     Input,
-    {
-      state: {};
-      props: Merge<
-        {
-          [key in MutationName]: ResourceData<MutationState>;
-        },
-        {
-          /**
-           * Does not exist, it is only used by the typing system to infer
-           */
-          __mutation: {
-            [key in MutationName]: MutationState;
-          };
-        }
-      >;
-      methods: {};
-    }
+    MutationStoreOutput<MutationName, MutationCore>
   >;
 }
-
-function WrapperTest<
-  const Config extends {
-    key: string;
-  }
->(config: Config) {
-  return (data: {
-    [key in Config['key']]: true;
-  }) => {
-    return {
-      ...data,
-      [config.key]: true,
-    };
-  };
-}
-WrapperTest({
-  key: 'test3',
-})({
-  test3: true,
-});

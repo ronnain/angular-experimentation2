@@ -1,7 +1,7 @@
-import { ResourceOptions } from '@angular/core';
+import { ResourceLoader, ResourceOptions } from '@angular/core';
 
 export type ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
-  | Omit<ResourceOptions<ResourceState, Params>, 'params'> &
+  | Omit<ResourceOptions<ResourceState, Params>, 'params' | 'loader'> &
       (
         | {
             /**
@@ -11,6 +11,7 @@ export type ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
              * If a request function isn't provided, the loader won't rerun unless the resource is reloaded.
              */
             params: () => Params;
+            loader: ResourceLoader<ResourceState, NoInfer<Params>>;
             paramsFn?: never;
           }
         | {
@@ -18,7 +19,9 @@ export type ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
              * Used to generate a method in the store, when called will trigger the resource loader/stream.
              * TODO PENSER A METTRE UN EQUAL TRUE ?
              */
+            // TODO RENAME method accoding to signalStore
             paramsFn: (args: ParamsArgs) => Params;
+            loader: ResourceLoader<ResourceState, NoInfer<Params>>;
             params?: never;
           }
       );
