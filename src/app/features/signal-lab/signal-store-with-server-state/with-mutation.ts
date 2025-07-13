@@ -5,6 +5,7 @@ import {
   effect,
   resource,
   signal,
+  untracked,
 } from '@angular/core';
 import {
   Prettify,
@@ -226,7 +227,7 @@ type MutationStoreOutput<
     }
   >;
   methods: {
-    [key in MutationName as `trigger${Capitalize<key>}`]: (
+    [key in MutationName as `mutate${Capitalize<key>}`]: (
       mutationParams: MutationArgsParams
     ) => void;
   };
@@ -260,8 +261,6 @@ export function withMutation<
         MutationParams,
         MutationArgsParams
       >;
-      // No idea why this is needed, but without that the MutationState can not be passed as input, in query optimistic functions
-      tsTypeHelper?: (test: NoInfer<MutationState>) => void;
     },
     MutationFactoryConfig<
       Input,
@@ -327,164 +326,133 @@ export function withMutation<
         [mutationName]: mutationResource,
         ...('queries' in mutationConfig && {
           [`_${mutationName}Effect`]: effect(() => {
-            const resourceData = mutationResource.hasValue()
-              ? mutationResource.value()
-              : undefined;
             const mutationStatus = mutationResource.status();
+            console.log('mutationStatus', mutationStatus);
 
-            // Handle optimistic updates on loading
-            if (mutationStatus === 'loading') {
-              queriesWithOptimisticMutation.forEach(
-                ([queryName, queryMutationConfig]) => {
-                  const queryResource = (store as any)[
-                    `_${queryName}Resource`
-                  ] as ResourceRef<any>;
-                  const optimisticValue = queryMutationConfig?.optimistic?.({
-                    mutationResource,
-                    queryResource,
-                    mutationParams: resourceParamsSrc() as NonNullable<
-                      NoInfer<MutationParams>
-                    >,
-                  });
-
-                  if (!queryResource.isLoading()) {
-                    queryResource.set(optimisticValue);
-                  }
-                }
-              );
-            }
-            // Handle optimistic patch
-            if (mutationStatus === 'loading') {
-              queriesWithOptimisticPatch.forEach(
-                ([queryName, queryMutationConfig]) => {
-                  const queryResource = (store as any)[
-                    `_${queryName}Resource`
-                  ] as ResourceRef<any>;
-                  Object.entries(
-                    queryMutationConfig.optimisticPatch as Record<
-                      string,
-                      OptimisticPatchQueryFn<
-                        any,
-                        MutationState,
-                        MutationParams,
-                        MutationArgsParams,
-                        any
-                      >
-                    >
-                  ).forEach(([path, optimisticPatch]) => {
-                    const optimisticValue = optimisticPatch({
+            untracked(() => {
+              // Handle optimistic updates on loading
+              if (mutationStatus === 'loading') {
+                queriesWithOptimisticMutation.forEach(
+                  ([queryName, queryMutationConfig]) => {
+                    const queryResource = (store as any)[
+                      queryName
+                    ] as ResourceRef<any>;
+                    const optimisticValue = queryMutationConfig?.optimistic?.({
                       mutationResource,
                       queryResource,
-                      targetedState: getNestedStateValue({
-                        state: queryResource.hasValue()
-                          ? queryResource.value()
-                          : undefined,
-                        keysPath: path.split('.'),
-                      }),
+                      mutationParams: resourceParamsSrc() as NonNullable<
+                        NoInfer<MutationParams>
+                      >,
                     });
 
                     if (!queryResource.isLoading()) {
-                      queryResource.set(
-                        createNestedStateUpdate({
-                          state: queryResource.hasValue()
-                            ? queryResource.value()
-                            : undefined,
-                          keysPath: path.split('.'),
-                          value: optimisticValue,
-                        })
-                      );
-                    }
-                  });
-                }
-              );
-            }
-            // Handle reload queries
-            queriesWithReload.forEach(([queryName, queryMutationConfig]) => {
-              const queryResource = (store as any)[
-                `_${queryName}Resource`
-              ] as ResourceRef<any>;
-
-              if (queryMutationConfig.reload) {
-                Object.entries(queryMutationConfig.reload).forEach(
-                  ([reloadType, reloadConfig]) => {
-                    if (
-                      reloadType === 'onMutationError' &&
-                      mutationStatus === 'error'
-                    ) {
-                      if (typeof reloadConfig === 'function') {
-                        if (
-                          reloadConfig({
-                            queryResource,
-                            mutationResource,
-                            mutationParams:
-                              mutationResourceParamsFnSignal() as NonNullable<
-                                NoInfer<MutationParams>
-                              >,
-                          })
-                        ) {
-                          queryResource.reload();
-                        }
-                      } else if (reloadConfig) {
-                        queryResource.reload();
-                      }
-                    }
-                    if (
-                      reloadType === 'onMutationResolved' &&
-                      mutationStatus === 'resolved'
-                    ) {
-                      if (typeof reloadConfig === 'function') {
-                        if (
-                          reloadConfig({
-                            queryResource,
-                            mutationResource,
-                            mutationParams:
-                              mutationResourceParamsFnSignal() as NonNullable<
-                                NoInfer<MutationParams>
-                              >,
-                          })
-                        ) {
-                          queryResource.reload();
-                        }
-                      } else if (reloadConfig) {
-                        queryResource.reload();
-                      }
-                    }
-                    if (
-                      reloadType === 'onMutationLoading' &&
-                      mutationStatus === 'loading'
-                    ) {
-                      if (typeof reloadConfig === 'function') {
-                        if (
-                          reloadConfig({
-                            queryResource,
-                            mutationResource,
-                            mutationParams:
-                              mutationResourceParamsFnSignal() as NonNullable<
-                                NoInfer<MutationParams>
-                              >,
-                          })
-                        ) {
-                          queryResource.reload();
-                        }
-                      } else if (reloadConfig) {
-                        queryResource.reload();
-                      }
+                      queryResource.set(optimisticValue);
                     }
                   }
                 );
               }
             });
+
+            // Handle optimistic patch
+            untracked(() => {
+              if (mutationStatus === 'loading') {
+                queriesWithOptimisticPatch.forEach(
+                  ([queryName, queryMutationConfig]) => {
+                    const queryResource = (store as any)[
+                      queryName
+                    ] as ResourceRef<any>;
+                    Object.entries(
+                      queryMutationConfig.optimisticPatch as Record<
+                        string,
+                        OptimisticPatchQueryFn<
+                          any,
+                          MutationState,
+                          MutationParams,
+                          MutationArgsParams,
+                          any
+                        >
+                      >
+                    ).forEach(([path, optimisticPatch]) => {
+                      const queryValue = queryResource.hasValue()
+                        ? queryResource.value()
+                        : undefined;
+                      const optimisticValue = optimisticPatch({
+                        mutationResource,
+                        queryResource,
+                        targetedState: getNestedStateValue({
+                          state: queryValue,
+                          keysPath: path.split('.'),
+                        }),
+                      });
+
+                      if (!queryResource.isLoading()) {
+                        queryResource.set(
+                          createNestedStateUpdate({
+                            state: queryValue,
+                            keysPath: path.split('.'),
+                            value: optimisticValue,
+                          })
+                        );
+                      }
+                    });
+                  }
+                );
+              }
+            });
+            // Handle reload queries
+            untracked(() => {
+              queriesWithReload.forEach(([queryName, queryMutationConfig]) => {
+                const queryResource = (store as any)[
+                  queryName
+                ] as ResourceRef<any>;
+
+                if (queryMutationConfig.reload) {
+                  const statusMappings = {
+                    onMutationError: 'error',
+                    onMutationResolved: 'resolved',
+                    onMutationLoading: 'loading',
+                  };
+
+                  Object.entries(queryMutationConfig.reload).forEach(
+                    ([reloadType, reloadConfig]) => {
+                      const expectedStatus =
+                        statusMappings[
+                          reloadType as keyof typeof statusMappings
+                        ];
+
+                      if (expectedStatus && mutationStatus === expectedStatus) {
+                        if (typeof reloadConfig === 'function') {
+                          if (
+                            reloadConfig({
+                              queryResource,
+                              mutationResource,
+                              mutationParams: untracked(() =>
+                                mutationResourceParamsFnSignal()
+                              ) as NonNullable<NoInfer<MutationParams>>,
+                            })
+                          ) {
+                            queryResource.reload();
+                          }
+                        } else if (reloadConfig) {
+                          queryResource.reload();
+                        }
+                      }
+                    }
+                  );
+                }
+              });
+            });
           }),
         }),
       })),
-      withMethods(() => ({
-        [`trigger${capitalizedMutationName}`]: (
+      withMethods((_store) => ({
+        [`mutate${capitalizedMutationName}`]: (
           mutationParams: MutationArgsParams
         ) => {
           const mutationMethod = mutationConfig.mutation.method;
           if (mutationMethod) {
             const mutationParamsResult = mutationConfig.mutation.method?.(
-              store as any
+              _store as any
             )(mutationParams);
             mutationResourceParamsFnSignal.set(
               mutationParamsResult as MutationParams

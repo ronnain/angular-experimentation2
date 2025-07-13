@@ -7,11 +7,21 @@ import { testStore } from './test.store';
   standalone: true,
   imports: [CommonModule],
   template: `
-    userQueryWithAssociatedClientState:
-    {{ store.userQueryWithAssociatedClientState.value() | json }} &&
-    {{ store.userQueryWithAssociatedClientState.status() }}<br />
+    userQueryWithAssociatedClientState ({{
+      store.userQueryWithAssociatedClientState.status()
+    }}):
+    <pre>{{ store.userQueryWithAssociatedClientState.value() | json }}</pre>
     userState:
-    {{ store.userDetails() | json }}<br />
+    <pre>{{ store.userDetails() | json }}</pre>
+    <hr />
+    Update user ({{ store.updateUserName.status() }})
+    <pre>{{ store.updateUserName.value() | json }}</pre>
+
+    <br />
+
+    <button class="btn" (click)="store.mutateUpdateUserName('Romain Success')">
+      Update User
+    </button>
   `,
 })
 export default class ViewComponent {

@@ -101,7 +101,7 @@ export function withQuery<
         [resourceName]: resource,
         ...('clientStatePath' in queryConfig && {
           [`_${resourceName}Effect`]: effect(() => {
-            if (resource.status() !== 'resolved') {
+            if (!['resolved', 'local'].includes(resource.status())) {
               return;
             }
             patchState(store, (state) => {

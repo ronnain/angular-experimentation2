@@ -145,7 +145,6 @@ it('Should expose a method', () => {
           );
         },
       },
-      tsTypeHelper: tsTypeHelper(),
     })
   );
 
@@ -177,13 +176,13 @@ it('Should expose a method', () => {
   >;
 
   type ExpectToHaveAnExposedMethod = Expect<
-    Equal<keyof ResultTypeMutation['methods'], 'triggerUpdateUser'>
+    Equal<keyof ResultTypeMutation['methods'], 'mutateUpdateUser'>
   >;
 
-  type test2 = ResultTypeMutation['methods']['triggerUpdateUser'];
+  type test2 = ResultTypeMutation['methods']['mutateUpdateUser'];
   type ExpectToHaveAnExposedMethodWithTypedParams = Expect<
     Equal<
-      Parameters<ResultTypeMutation['methods']['triggerUpdateUser']>[0],
+      Parameters<ResultTypeMutation['methods']['mutateUpdateUser']>[0],
       {
         page: string;
       }
@@ -214,7 +213,6 @@ it('Should accept the store without loosing typing', () => {
           );
         },
       },
-      tsTypeHelper: tsTypeHelper(),
     })
   );
 });
