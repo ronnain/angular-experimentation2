@@ -18,11 +18,7 @@ import {
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
 
-// todo withLinkedClientStatePath("bla.bla.bla", ["userQuery", {resourceName: "userUpdate", mapResourceToState: (store, resource) => ...}])
-// withState(withLinkedClientStatePath({user:{...}}, ["userQuery", {resourceName: "userUpdate", mapResourceToState: (store, resource) => ...}]))
-// todo add queryChange: [associateToAClientStatePath('balba.bla.bla, ?(store, resource) => ...)]
 export function withQuery<
-  StateTest extends object | undefined,
   Input extends SignalStoreFeatureResult,
   const ResourceName extends string,
   const ClientStateDottedPath extends ObjectDeepPath<Input['state']>,
