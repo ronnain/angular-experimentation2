@@ -18,6 +18,24 @@ import {
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
 
+type WithQueryOutputStoreConfig<
+  ResourceName,
+  ResourceState extends object | undefined
+> = {
+  state: {};
+  props: Merge<
+    {
+      [key in ResourceName & string]: ResourceRef<ResourceState>;
+    },
+    {
+      __query: {
+        [key in ResourceName & string]: ResourceState;
+      };
+    }
+  >;
+  methods: {};
+};
+
 export function withQuery<
   Input extends SignalStoreFeatureResult,
   const ResourceName extends string,
@@ -67,18 +85,7 @@ export function withQuery<
       >
 ): SignalStoreFeature<
   Input,
-  {
-    state: {};
-    props: Merge<
-      { [key in ResourceName]: ResourceRef<ResourceState> },
-      {
-        __query: {
-          [key in ResourceName]: ResourceState;
-        };
-      }
-    >;
-    methods: {};
-  }
+  WithQueryOutputStoreConfig<ResourceName, ResourceState>
 > {
   return ((store: SignalStoreFeatureResult) => {
     const queryConfig = queryFactory(
@@ -124,17 +131,6 @@ export function withQuery<
     )(store);
   }) as unknown as SignalStoreFeature<
     Input,
-    {
-      state: {};
-      props: Merge<
-        { [key in ResourceName]: ResourceRef<ResourceState> },
-        {
-          __query: {
-            [key in ResourceName]: ResourceState;
-          };
-        }
-      >;
-      methods: {};
-    }
+    WithQueryOutputStoreConfig<ResourceName, ResourceState>
   >;
 }
