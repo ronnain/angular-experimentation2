@@ -1,13 +1,26 @@
 import { lastValueFrom, of } from 'rxjs';
 import { Equal, Expect } from '../../../../../test-type';
 import {
+  Prettify,
   signalStore,
   signalStoreFeature,
   SignalStoreFeature,
+  SignalStoreFeatureResult,
+  StateSignals,
+  withProps,
   withState,
+  WritableStateSource,
 } from '@ngrx/signals';
-import { query, withQuery } from './with-query';
+import {
+  clientState,
+  pipeQuery,
+  query,
+  queryTest,
+  testInfer,
+  withQuery,
+} from './with-query';
 import { resource, ResourceRef } from '@angular/core';
+import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
 
 type User = {
   id: string;
@@ -65,63 +78,78 @@ it('Should be well typed', () => {
         id: '5',
       },
       user: undefined as User | undefined,
+      test: 3,
     }),
-    withQuery('user', {
-      queryConfig: {
-        params: () => () => ({ id: '5' }),
-        loader: ({ params }) => {
-          type ExpectParamsToBeTyped = Expect<
-            Equal<
-              typeof params,
-              {
-                id: string;
-              }
-            >
-          >;
-          return lastValueFrom(
-            of({
-              id: params.id,
-              name: 'John Doe',
-              email: 'test@a.com',
-            } satisfies User)
-          );
+    withQuery('user', (store) =>
+      query(
+        {
+          // params: store.userSelected,
+          params: () => ({ id: '5' }),
+          loader: ({ params }) => {
+            type ExpectParamsToBeTyped = Expect<
+              Equal<
+                typeof params,
+                {
+                  id: string;
+                }
+              >
+            >;
+            return lastValueFrom(
+              of({
+                id: 'params.id',
+                name: 'John Doe',
+                email: 'test@a.com',
+              } satisfies User)
+            );
+          },
         },
-      },
-      clientState: {
-        clientStatePath: 'user',
-      },
-    }),
-    withQuery('user', {
-      queryConfig: {
-        // params: (store) => store.userSelected,
-        params: () => () => ({ id: '5' }),
-        loader: ({ params }) => {
-          type ExpectParamsToBeTyped = Expect<
-            Equal<
-              typeof params,
-              {
-                id: string;
-              }
-            >
-          >;
-          return lastValueFrom(
-            of({
-              id: params.id,
-              name: 'John Doe',
-              email: 'test@a.com',
-            } satisfies User)
-          );
-        },
-      },
-      clientState: {
-        test: 3,
-        clientStatePath: 'userSelected',
-        mapResourceToState: ({ queryResource }) => ({
-          // ...store.userSelected(),
-          ...queryResource.value(),
+        // todo pass the store without typing modification inside the config, it's avoid to set store and config
+        (config) =>
+          clientState(config, {
+            test: '',
+            // clientState: {
+            //   clientStatePath: 'lol',
+            // },
+          })
+
+        // (a) => ({})
+      )
+    ),
+    withQuery(
+      'user',
+      (store) =>
+        query({
+          // params: (store) => store.userSelected,
+          params: () => ({ id: '5' }),
+          loader: ({ params }) => {
+            type ExpectParamsToBeTyped = Expect<
+              Equal<
+                typeof params,
+                {
+                  id: string;
+                }
+              >
+            >;
+            return lastValueFrom(
+              of({
+                id: params.id,
+                name: 'John Doe',
+                email: 'test@a.com',
+              } satisfies User)
+            );
+          },
         }),
-      },
-    }),
+      (store) => ({
+        clientState: {
+          test: 3,
+          clientStatePath: 'userSelected',
+          mapResourceToState: ({ store }) => ({
+            ...store.userSelected(),
+            // ...queryResource.value(),
+          }),
+        },
+      })
+    ),
     withQuery('user', {
       queryConfig: {
         params: (store) => store.userSelected,
@@ -216,3 +244,24 @@ it('clientStatePath option should infer signalStore state path', () => {
 });
 
 // todo faire test avec typage en dur pour le clientStatePath
+
+// {
+//   params: store.userSelected,
+//   loader: ({ params }) => {
+//     type ExpectParamsToBeTyped = Expect<
+//       Equal<
+//         typeof params,
+//         {
+//           id: string;
+//         }
+//       >
+//     >;
+//     return lastValueFrom(
+//       of({
+//         id: 'params.id',
+//         name: 'John Doe',
+//         email: 'test@a.com',
+//       } satisfies User)
+//     );
+//   },
+// }

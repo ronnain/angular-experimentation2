@@ -10,13 +10,11 @@ import {
   WritableStateSource,
 } from '@ngrx/signals';
 
-export type ResourceWithParamsOrParamsFn<
-  Input extends SignalStoreFeatureResult,
-  ResourceState,
-  Params,
-  ParamsArgs
-> =
-  | Omit<ResourceOptions<NoInfer<ResourceState>, Params>, 'params' | 'loader'> &
+export type ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
+  | Omit<
+      ResourceOptions<NoInfer<ResourceState>, Params>,
+      'params' | 'loader' | 'stream'
+    > &
       (
         | {
             /**
@@ -25,14 +23,7 @@ export type ResourceWithParamsOrParamsFn<
              *
              * If a request function isn't provided, the loader won't rerun unless the resource is reloaded.
              */
-            params: (
-              store: Prettify<
-                StateSignals<Input['state']> &
-                  Input['props'] &
-                  Input['methods'] & // todo remove methods ?
-                  WritableStateSource<Prettify<Input['state']>>
-              >
-            ) => () => Params;
+            params: () => Params;
             loader: (
               param: ResourceLoaderParams<NoInfer<Params>>
             ) => Promise<ResourceState>;
@@ -44,14 +35,7 @@ export type ResourceWithParamsOrParamsFn<
              * TODO PENSER A METTRE UN EQUAL TRUE ?
              */
             // TODO RENAME method accoding to signalStore
-            method: (
-              store: Prettify<
-                StateSignals<Input['state']> &
-                  Input['props'] &
-                  Input['methods'] & // todo remove methods ?
-                  WritableStateSource<Prettify<Input['state']>>
-              >
-            ) => (args: ParamsArgs) => Params;
+            method: (args: ParamsArgs) => Params;
             loader: (
               param: ResourceLoaderParams<NoInfer<Params>>
             ) => Promise<ResourceState>;

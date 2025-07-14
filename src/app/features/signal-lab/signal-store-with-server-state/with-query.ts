@@ -18,6 +18,8 @@ import {
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
 import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
+import { Equal, Expect } from '../../../../../test-type';
+import { lastValueFrom, of } from 'rxjs';
 
 declare const __QueryBrandSymbol: unique symbol;
 type QueryBrand = {
@@ -45,28 +47,34 @@ type WithQueryOutputStoreConfig<
 export function query<
   queryState extends object | undefined,
   queryParams,
-  QueryArgsParams
+  QueryArgsParams,
+  Store
 >(
   queryResourceConfig: ResourceWithParamsOrParamsFn<
-    Input,
     queryState,
     queryParams,
     QueryArgsParams
-  >
-): ResourceWithParamsOrParamsFn<
-  Input,
-  queryState,
-  queryParams,
-  QueryArgsParams
-> &
-  QueryBrand {
+  >,
+  clientState: (config: {
+    state: NoInfer<queryState>
+    params: NoInfer<queryParams>;
+  }) => {
+    test: any;
+    clientState?: {
+      /**
+       * Will update the state at the given path with the resource data.
+       * If the state associated to the path does not exist, it will be created.
+       */
+      clientStatePath?: string;
+      mapResourceToState?: (data: unknown) => any;
+    }
+  }
+): ResourceWithParamsOrParamsFn<queryState, queryParams, QueryArgsParams> {
   return queryResourceConfig as ResourceWithParamsOrParamsFn<
-    Input,
     queryState,
     queryParams,
     QueryArgsParams
-  > &
-    QueryBrand;
+  >;
 }
 
 export function withQuery<
@@ -76,6 +84,17 @@ export function withQuery<
   ResourceState extends object | undefined,
   ResourceParams,
   ResourceArgsParams,
+  const StoreInput extends Prettify<
+    StateSignals<Input['state']> &
+      Input['props'] &
+      Input['methods'] &
+      WritableStateSource<Prettify<Input['state']>>
+  >,
+  QueryConfig extends ResourceWithParamsOrParamsFn<
+  ResourceState,
+  ResourceParams,
+  ResourceArgsParams
+>
   const ClientStateTypeByDottedPath extends AccessTypeObjectPropertyByDottedPath<
     Input['state'],
     ClientStateDottedPathTuple
@@ -85,63 +104,41 @@ export function withQuery<
   > = DottedPathPathToTuple<ClientStateDottedPath & string>
 >(
   resourceName: ResourceName,
-  queryFactory: MergeObject<
-    {
-      queryConfig: ResourceWithParamsOrParamsFn<
-        Input,
-        ResourceState,
-        ResourceParams,
-        ResourceArgsParams
-      >;
-    },
-    {
-      clientState?: MergeObject<
-        {
-          /**
-           * Will update the state at the given path with the resource data.
-           * If the state associated to the path does not exist, it will be created.
-           */
-          clientStatePath: ClientStateDottedPath;
-          test?: NoInfer<ResourceState>;
-          mapResourceToState?: (data: {
-            queryResource: ResourceRef<NoInfer<ResourceState>>;
-            queryParams: NoInfer<ResourceParams>;
-            store: Prettify<
-              StateSignals<Input['state']> &
-                Input['props'] &
-                Input['methods'] &
-                WritableStateSource<Prettify<Input['state']>>
-            >;
-          }) => NoInfer<ClientStateTypeByDottedPath>;
-        },
-        NoInfer<ResourceParams> extends ClientStateTypeByDottedPath
-          ? {
-              mapResourceToState?: (data: {
-                queryResource: ResourceRef<NoInfer<ResourceState>>;
-                queryParams: NoInfer<ResourceParams>;
-                store: Prettify<
-                  StateSignals<Input['state']> &
-                    Input['props'] &
-                    Input['methods'] &
-                    WritableStateSource<Prettify<Input['state']>>
-                >;
-              }) => NoInfer<ClientStateTypeByDottedPath>;
-            }
-          : {
-              mapResourceToState: (data: {
-                queryResource: ResourceRef<NoInfer<ResourceState>>;
-                queryParams: NoInfer<ResourceParams>;
-                store: Prettify<
-                  StateSignals<Input['state']> &
-                    Input['props'] &
-                    Input['methods'] &
-                    WritableStateSource<Prettify<Input['state']>>
-                >;
-              }) => NoInfer<ClientStateTypeByDottedPath>;
-            }
-      >;
-    }
-  >
+  queryFactory: (
+    store: StoreInput
+  ) => QueryConfig,
+  query2: (store: NoInfer<ResourceWithParamsOrParamsFn<
+    ResourceState,
+    ResourceParams,
+    ResourceArgsParams
+  >>) => {
+    clientState?: MergeObject<
+      {
+        /**
+         * Will update the state at the given path with the resource data.
+         * If the state associated to the path does not exist, it will be created.
+         */
+        clientStatePath: ClientStateDottedPath;
+        mapResourceToState?: (data: {
+          queryResource: ResourceRef<NoInfer<ResourceState>>;
+          queryParams: NoInfer<ResourceParams>;
+        }) => NoInfer<ClientStateTypeByDottedPath>;
+      },
+      NoInfer<ResourceState> extends ClientStateTypeByDottedPath
+        ? {
+            mapResourceToState?: (data: {
+              queryResource: ResourceRef<NoInfer<ResourceState>>;
+              queryParams: NoInfer<ResourceParams>;
+            }) => NoInfer<ClientStateTypeByDottedPath>;
+          }
+        : {
+            mapResourceToState: (data: {
+              queryResource: ResourceRef<NoInfer<ResourceState>>;
+              queryParams: NoInfer<ResourceParams>;
+            }) => NoInfer<ClientStateTypeByDottedPath>;
+          }
+    >;
+  }
 ): SignalStoreFeature<
   Input,
   WithQueryOutputStoreConfig<ResourceName, ResourceState>
@@ -206,3 +203,58 @@ export function withQuery<
     WithQueryOutputStoreConfig<ResourceName, ResourceState>
   >;
 }
+
+export function clientState<State extends object, InputStore extends WritableStateSource<State>,
+ResourceState,
+ResourceParams,
+ResourceArgsParams,
+QueryConfig extends {
+  state: ResourceState;
+  params: ResourceParams;
+},
+const ClientStateDottedPath extends ObjectDeepPath<InputStore>, // todo remove function ?
+const ClientStateTypeByDottedPath extends AccessTypeObjectPropertyByDottedPath<
+InputStore,
+ClientStateDottedPathTuple
+>,
+const ClientStateDottedPathTuple extends DottedPathPathToTuple<
+ClientStateDottedPath & string
+> = DottedPathPathToTuple<ClientStateDottedPath & string>,
+>(store: InputStore, queryConfig: QueryConfig, clientState: {
+  test: NoInfer<QueryConfig['state']>;
+  // clientState?: MergeObject<
+  //   {
+  //     /**
+  //      * Will update the state at the given path with the resource data.
+  //      * If the state associated to the path does not exist, it will be created.
+  //      */
+  //     clientStatePath: ClientStateDottedPath;
+  //     mapResourceToState?: (data: {
+  //       queryResource: ResourceRef<NoInfer<ResourceState>>;
+  //       queryParams: NoInfer<ResourceParams>;
+  //     }) => NoInfer<ClientStateTypeByDottedPath>;
+  //   },
+  //   NoInfer<ResourceState> extends ClientStateTypeByDottedPath
+  //     ? {
+  //         mapResourceToState?: (data: {
+  //           queryResource: ResourceRef<NoInfer<ResourceState>>;
+  //           queryParams: NoInfer<ResourceParams>;
+  //         }) => NoInfer<ClientStateTypeByDottedPath>;
+  //       }
+  //     : {
+  //         mapResourceToState: (data: {
+  //           queryResource: ResourceRef<NoInfer<ResourceState>>;
+  //           queryParams: NoInfer<ResourceParams>;
+  //         }) => NoInfer<ClientStateTypeByDottedPath>;
+  //       }
+  // >;
+}) {
+  return  clientState
+}
+
+type User = {
+  id: string;
+  name: string;
+  email: string;
+};
+
