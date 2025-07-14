@@ -6,7 +6,7 @@ import {
   SignalStoreFeature,
   withState,
 } from '@ngrx/signals';
-import { withQuery } from './with-query';
+import { query, withQuery } from './with-query';
 import { resource, ResourceRef } from '@angular/core';
 
 type User = {
@@ -20,9 +20,9 @@ type InferSignalStoreFeatureReturnedType<
 > = T extends SignalStoreFeature<any, infer R> ? R : never;
 
 it('Should be well typed', () => {
-  const queryByIdTest = withQuery('user', () =>
-    resource({
-      params: () => '5',
+  const queryByIdTest = withQuery('user', {
+    queryConfig: {
+      params: () => () => '5',
       loader: ({ params }) => {
         return lastValueFrom(
           of({
@@ -32,8 +32,8 @@ it('Should be well typed', () => {
           } satisfies User)
         );
       },
-    })
-  );
+    },
+  });
   type ResultType = InferSignalStoreFeatureReturnedType<typeof queryByIdTest>;
   type PropsKeys = keyof ResultType['props'];
 
@@ -42,43 +42,117 @@ it('Should be well typed', () => {
   >;
 
   type ExpectThePropsToHaveARecordWithResourceRef = Expect<
-    Equal<ResultType['props']['user'], ResourceRef<User | undefined>>
+    Equal<ResultType['props']['user'], ResourceRef<User>>
   >;
 
   type ExpectThePropsToHaveARecordWithQueryNameAndHisType = Expect<
     Equal<
       ResultType['props']['__query'],
       {
-        user:
-          | {
-              id: string;
-              name: string;
-              email: string;
-            }
-          | undefined;
+        user: {
+          id: string;
+          name: string;
+          email: string;
+        };
       }
     >
   >;
   // todo check if it can be merged
 
   const multiplesWithQuery = signalStoreFeature(
-    withQuery('user', () =>
-      resource({
-        params: () => '5',
+    withState({
+      userSelected: {
+        id: '5',
+      },
+      user: undefined as User | undefined,
+    }),
+    withQuery('user', {
+      queryConfig: {
+        params: () => () => ({ id: '5' }),
         loader: ({ params }) => {
+          type ExpectParamsToBeTyped = Expect<
+            Equal<
+              typeof params,
+              {
+                id: string;
+              }
+            >
+          >;
           return lastValueFrom(
             of({
-              id: params,
+              id: params.id,
               name: 'John Doe',
               email: 'test@a.com',
             } satisfies User)
           );
         },
-      })
-    ),
-    withQuery('users', () =>
-      resource({
-        params: () => '5',
+      },
+      clientState: {
+        clientStatePath: 'user',
+      },
+    }),
+    withQuery('user', {
+      queryConfig: {
+        // params: (store) => store.userSelected,
+        params: () => () => ({ id: '5' }),
+        loader: ({ params }) => {
+          type ExpectParamsToBeTyped = Expect<
+            Equal<
+              typeof params,
+              {
+                id: string;
+              }
+            >
+          >;
+          return lastValueFrom(
+            of({
+              id: params.id,
+              name: 'John Doe',
+              email: 'test@a.com',
+            } satisfies User)
+          );
+        },
+      },
+      clientState: {
+        test: 3,
+        clientStatePath: 'userSelected',
+        mapResourceToState: ({ queryResource }) => ({
+          // ...store.userSelected(),
+          ...queryResource.value(),
+        }),
+      },
+    }),
+    withQuery('user', {
+      queryConfig: {
+        params: (store) => store.userSelected,
+        // params: () => () => ({id: '5'}),
+        loader: ({ params }) => {
+          type ExpectParamsToBeTyped = Expect<
+            Equal<
+              typeof params,
+              {
+                id: string;
+              }
+            >
+          >;
+          return lastValueFrom(
+            of({
+              id: params.id,
+              name: 'John Doe',
+              email: 'test@a.com',
+            } satisfies User)
+          );
+        },
+      },
+      // clientState: {
+      //   clientStatePath: 'userSelected',
+      //   // mapResourceToState: ({ queryResource, queryParams, store }) =>
+      //   //   store.test(),
+      // },
+    }),
+    withQuery('users', {
+      queryConfig: query({
+        params: (store) => () => '5',
         loader: ({ params }) => {
           return lastValueFrom(
             of([
@@ -90,8 +164,8 @@ it('Should be well typed', () => {
             ] satisfies User[])
           );
         },
-      })
-    )
+      }),
+    })
   );
 
   type ResultTypeMultiplesQuery = InferSignalStoreFeatureReturnedType<
@@ -118,9 +192,9 @@ it('clientStatePath option should infer signalStore state path', () => {
       selectedUserId: undefined,
       user: undefined as User | undefined,
     }),
-    withQuery('userQuery', () => ({
-      resource: resource({
-        params: () => '5',
+    withQuery('userQuery', {
+      queryConfig: {
+        params: () => () => '5',
         loader: ({ params }) => {
           return lastValueFrom(
             of<User>({
@@ -130,9 +204,14 @@ it('clientStatePath option should infer signalStore state path', () => {
             })
           );
         },
-      }),
-      clientStatePath: 'user',
-    }))
+      },
+      clientState: {
+        clientStatePath: 'user',
+        test: 3,
+        testTarget: 'e',
+        equal: true,
+      },
+    })
   );
 });
 

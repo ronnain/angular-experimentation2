@@ -16,7 +16,7 @@ export type ResourceWithParamsOrParamsFn<
   Params,
   ParamsArgs
 > =
-  | Omit<ResourceOptions<ResourceState, Params>, 'params' | 'loader'> &
+  | Omit<ResourceOptions<NoInfer<ResourceState>, Params>, 'params' | 'loader'> &
       (
         | {
             /**

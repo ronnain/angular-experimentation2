@@ -17,6 +17,16 @@ type User = {
   email: string;
 };
 
+type Product = {
+  id: string;
+  name: string;
+  price: number;
+};
+type Category = {
+  id: string;
+  name: string;
+};
+
 export const testStore = signalStore(
   {
     providedIn: 'root',
@@ -32,25 +42,12 @@ export const testStore = signalStore(
         test: true,
       },
       user: undefined as User | undefined,
+      bff: {
+        products: [] as Product[],
+        categories: [] as Category[],
+      },
     },
   }),
-  // withQuery('simpleQuery', (store) =>
-  //   resource({
-  //     params: store.selectedUserId,
-  //     loader: ({ params }) => {
-  //       console.log('params', params);
-  //       return new Promise<User>((resolve) => {
-  //         setTimeout(() => {
-  //           resolve({
-  //             id: '1',
-  //             name: 'John Doe',
-  //             email: 'a@a.fr',
-  //           });
-  //         }, 3000);
-  //       });
-  //     },
-  //   })
-  // ),
   //! Ce qui n'est pas ouf, c'est que ça propose les méthodes de `resource` et pas de `rxResource`
   withQuery('userQueryWithAssociatedClientState', (store) => ({
     resource: rxResource({
@@ -81,6 +78,36 @@ export const testStore = signalStore(
       },
     }),
     clientStatePath: 'userDetails.user',
+  })),
+  withQuery('bffQueryProductsAndCategories', (store) => ({
+    resource: rxResource({
+      params: store.selectedUserId,
+      stream: ({ params }) => {
+        console.log('params', params);
+        const result = new BehaviorSubject<User | undefined>(undefined);
+        return of({
+          products: [
+            {
+              id: '1',
+              name: 'Product 1',
+              price: 100,
+            },
+          ] satisfies Product[],
+          categories: [
+            {
+              id: '1',
+              name: 'Category 1',
+            },
+          ] satisfies Category[],
+        }).pipe(delay(2000));
+      },
+    }),
+    clientStatePath: 'userDetails.bff',
+    // todo migrer withQuery comme pour withMuatation
+    mapResourceToState: ({ resource }) => ({
+      products: resource.value()?.products,
+      categories: resource.value()?.categories,
+    }),
   })),
   withProps(() => ({
     _updateUserSrc: signal<User | undefined>(undefined),

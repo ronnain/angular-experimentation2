@@ -31,6 +31,8 @@ import {
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
 
+declare const __MutationBrandSymbol: unique symbol;
+
 type OptimisticMutationQuery<
   QueryState,
   MutationState,
@@ -167,7 +169,7 @@ type LinkedQueryConfig<
   >;
 };
 
-type MutationFactoryConfig<
+type QueriesMutation<
   Input extends SignalStoreFeatureResult,
   MutationState,
   MutationParams,
@@ -192,7 +194,6 @@ type MutationFactoryConfig<
  */
 export function mutation<
   Input extends SignalStoreFeatureResult,
-  const MutationName extends string,
   MutationState extends object | undefined,
   MutationParams,
   MutationArgsParams
@@ -203,8 +204,22 @@ export function mutation<
     MutationParams,
     MutationArgsParams
   >
-) {
-  return mutationResourceConfig;
+): ResourceWithParamsOrParamsFn<
+  Input,
+  MutationState,
+  MutationParams,
+  MutationArgsParams
+> & {
+  [__MutationBrandSymbol]: unknown;
+} {
+  return mutationResourceConfig as ResourceWithParamsOrParamsFn<
+    Input,
+    MutationState,
+    MutationParams,
+    MutationArgsParams
+  > & {
+    [__MutationBrandSymbol]: unknown;
+  };
 }
 
 type MutationStoreOutput<
@@ -226,6 +241,7 @@ type MutationStoreOutput<
       };
     }
   >;
+  // todo add only if there is a mutation  fn and MutationArgsParams
   methods: {
     [key in MutationName as `mutate${Capitalize<key>}`]: (
       mutationParams: MutationArgsParams
@@ -262,12 +278,7 @@ export function withMutation<
         MutationArgsParams
       >;
     },
-    MutationFactoryConfig<
-      Input,
-      MutationState,
-      MutationParams,
-      MutationArgsParams
-    >
+    QueriesMutation<Input, MutationState, MutationParams, MutationArgsParams>
   >
 ): SignalStoreFeature<
   Input,
@@ -276,13 +287,9 @@ export function withMutation<
   return ((store: SignalStoreFeatureResult) => {
     // todo rename to mutationConfig
 
-    const mutationResourceOption =
-      typeof mutationConfig === 'object' && 'mutation' in mutationConfig
-        ? mutationConfig.mutation
-        : mutationConfig;
+    const mutationResourceOption = mutationConfig.mutation;
 
     // resourceParamsFnSignal will be used has params signal to trigger the mutation loader
-    // todo method
     const mutationResourceParamsFnSignal = signal<MutationParams | undefined>(
       undefined
     );
