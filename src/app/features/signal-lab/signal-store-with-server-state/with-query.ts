@@ -234,7 +234,6 @@ export function clientState<
   context: Input,
   queryConfig: QueryConfig,
   clientState: {
-    // test: NoInfer<QueryConfig['state']>;
     clientState?: MergeObject<
       {
         /**

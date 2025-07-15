@@ -104,13 +104,13 @@ it('Should be well typed', () => {
           },
         },
         // todo pass the store without typing modification inside the config, it's avoid to set store and config
-        (config) =>
-          clientState(context, config, {
+        (config) => {
+          return clientState(context, config, {
             clientState: {
               clientStatePath: 'user',
-              mapResourceToState: ({ queryParams, queryResource }) => ({}),
             },
-          })
+          });
+        }
 
         // (a) => ({})
       )
