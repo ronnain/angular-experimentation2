@@ -64,7 +64,6 @@ export function query<
   clientState?: (config: {
     state: NoInfer<queryState>;
     params: NoInfer<queryParams>;
-    store: StoreInput;
   }) => {
     clientState?: {
       /**
@@ -227,7 +226,6 @@ export function clientState<
   > = DottedPathPathToTuple<ClientStateDottedPath & string>
 >(
   context: Input,
-  queryConfig: QueryConfig,
   clientState: Prettify<
     MergeObject<
       {
@@ -257,7 +255,9 @@ export function clientState<
     >
   >
 ) {
-  return { clientState };
+  return (queryConfig: QueryConfig) => ({
+    clientState,
+  });
 }
 
 type User = {

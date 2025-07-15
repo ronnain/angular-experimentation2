@@ -72,41 +72,6 @@ it('Should be well typed', () => {
   >;
   // todo check if it can be merged
 
-  const q = query(
-    {
-      // params: store.userSelected,
-      params: () => ({ id: '5' }),
-      loader: ({ params }) => {
-        type ExpectParamsToBeTyped = Expect<
-          Equal<
-            typeof params,
-            {
-              id: string;
-            }
-          >
-        >;
-        return lastValueFrom(
-          of({
-            id: 'params.id',
-            name: 'John Doe',
-            email: 'test@a.com',
-          } satisfies User)
-        );
-      },
-    },
-    (config) => {
-      const result = clientState(
-        { state: {}, props: {}, methods: {} },
-        config,
-        {
-          //@ts-ignore
-          path: 'user',
-        }
-      );
-      return result;
-    }
-  );
-
   const multiplesWithQuery = signalStoreFeature(
     withState({
       userSelected: {
@@ -138,12 +103,12 @@ it('Should be well typed', () => {
             );
           },
         },
-        (config) => {
-          const result = clientState(context, config, {
-            path: 'user',
-          });
-          return result;
-        }
+        clientState(context, {
+          path: 'user',
+          mapResourceToState: ({ queryResource, queryParams }) => {
+            return undefined;
+          },
+        })
       )
     ),
     withProps((store) => store.__query.user),
