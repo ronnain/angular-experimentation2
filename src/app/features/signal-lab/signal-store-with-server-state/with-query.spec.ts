@@ -80,7 +80,7 @@ it('Should be well typed', () => {
       user: undefined as User | undefined,
       test: 3,
     }),
-    withQuery('user', (store) =>
+    withQuery('user', (store, context) =>
       query(
         {
           // params: store.userSelected,
@@ -105,11 +105,11 @@ it('Should be well typed', () => {
         },
         // todo pass the store without typing modification inside the config, it's avoid to set store and config
         (config) =>
-          clientState(config, {
-            test: '',
-            // clientState: {
-            //   clientStatePath: 'lol',
-            // },
+          clientState(context, config, {
+            clientState: {
+              clientStatePath: 'user',
+              mapResourceToState: ({ queryParams, queryResource }) => ({}),
+            },
           })
 
         // (a) => ({})

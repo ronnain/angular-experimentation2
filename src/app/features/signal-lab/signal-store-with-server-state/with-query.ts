@@ -48,7 +48,13 @@ export function query<
   queryState extends object | undefined,
   queryParams,
   QueryArgsParams,
-  Store
+  Input extends SignalStoreFeatureResult,
+  const StoreInput extends Prettify<
+    StateSignals<Input['state']> &
+      Input['props'] &
+      Input['methods'] &
+      WritableStateSource<Prettify<Input['state']>>
+  >
 >(
   queryResourceConfig: ResourceWithParamsOrParamsFn<
     queryState,
@@ -56,10 +62,10 @@ export function query<
     QueryArgsParams
   >,
   clientState: (config: {
-    state: NoInfer<queryState>
+    state: NoInfer<queryState>;
     params: NoInfer<queryParams>;
+    store: StoreInput;
   }) => {
-    test: any;
     clientState?: {
       /**
        * Will update the state at the given path with the resource data.
@@ -67,7 +73,7 @@ export function query<
        */
       clientStatePath?: string;
       mapResourceToState?: (data: unknown) => any;
-    }
+    };
   }
 ): ResourceWithParamsOrParamsFn<queryState, queryParams, QueryArgsParams> {
   return queryResourceConfig as ResourceWithParamsOrParamsFn<
@@ -84,17 +90,17 @@ export function withQuery<
   ResourceState extends object | undefined,
   ResourceParams,
   ResourceArgsParams,
+  QueryConfig extends ResourceWithParamsOrParamsFn<
+    ResourceState,
+    ResourceParams,
+    ResourceArgsParams
+  >,
   const StoreInput extends Prettify<
     StateSignals<Input['state']> &
       Input['props'] &
       Input['methods'] &
       WritableStateSource<Prettify<Input['state']>>
   >,
-  QueryConfig extends ResourceWithParamsOrParamsFn<
-  ResourceState,
-  ResourceParams,
-  ResourceArgsParams
->
   const ClientStateTypeByDottedPath extends AccessTypeObjectPropertyByDottedPath<
     Input['state'],
     ClientStateDottedPathTuple
@@ -104,14 +110,16 @@ export function withQuery<
   > = DottedPathPathToTuple<ClientStateDottedPath & string>
 >(
   resourceName: ResourceName,
-  queryFactory: (
-    store: StoreInput
-  ) => QueryConfig,
-  query2: (store: NoInfer<ResourceWithParamsOrParamsFn<
-    ResourceState,
-    ResourceParams,
-    ResourceArgsParams
-  >>) => {
+  queryFactory: (store: StoreInput, context: Input) => QueryConfig,
+  query2: (
+    store: NoInfer<
+      ResourceWithParamsOrParamsFn<
+        ResourceState,
+        ResourceParams,
+        ResourceArgsParams
+      >
+    >
+  ) => {
     clientState?: MergeObject<
       {
         /**
@@ -204,52 +212,58 @@ export function withQuery<
   >;
 }
 
-export function clientState<State extends object, InputStore extends WritableStateSource<State>,
-ResourceState,
-ResourceParams,
-ResourceArgsParams,
-QueryConfig extends {
-  state: ResourceState;
-  params: ResourceParams;
-},
-const ClientStateDottedPath extends ObjectDeepPath<InputStore>, // todo remove function ?
-const ClientStateTypeByDottedPath extends AccessTypeObjectPropertyByDottedPath<
-InputStore,
-ClientStateDottedPathTuple
->,
-const ClientStateDottedPathTuple extends DottedPathPathToTuple<
-ClientStateDottedPath & string
-> = DottedPathPathToTuple<ClientStateDottedPath & string>,
->(store: InputStore, queryConfig: QueryConfig, clientState: {
-  test: NoInfer<QueryConfig['state']>;
-  // clientState?: MergeObject<
-  //   {
-  //     /**
-  //      * Will update the state at the given path with the resource data.
-  //      * If the state associated to the path does not exist, it will be created.
-  //      */
-  //     clientStatePath: ClientStateDottedPath;
-  //     mapResourceToState?: (data: {
-  //       queryResource: ResourceRef<NoInfer<ResourceState>>;
-  //       queryParams: NoInfer<ResourceParams>;
-  //     }) => NoInfer<ClientStateTypeByDottedPath>;
-  //   },
-  //   NoInfer<ResourceState> extends ClientStateTypeByDottedPath
-  //     ? {
-  //         mapResourceToState?: (data: {
-  //           queryResource: ResourceRef<NoInfer<ResourceState>>;
-  //           queryParams: NoInfer<ResourceParams>;
-  //         }) => NoInfer<ClientStateTypeByDottedPath>;
-  //       }
-  //     : {
-  //         mapResourceToState: (data: {
-  //           queryResource: ResourceRef<NoInfer<ResourceState>>;
-  //           queryParams: NoInfer<ResourceParams>;
-  //         }) => NoInfer<ClientStateTypeByDottedPath>;
-  //       }
-  // >;
-}) {
-  return  clientState
+export function clientState<
+  State extends object,
+  Input extends SignalStoreFeatureResult,
+  ResourceState,
+  ResourceParams,
+  ResourceArgsParams,
+  QueryConfig extends {
+    state: ResourceState;
+    params: ResourceParams;
+  },
+  const ClientStateDottedPath extends ObjectDeepPath<Input['state']>, // todo remove function ?
+  const ClientStateTypeByDottedPath extends AccessTypeObjectPropertyByDottedPath<
+    Input['state'],
+    ClientStateDottedPathTuple
+  >,
+  const ClientStateDottedPathTuple extends DottedPathPathToTuple<
+    ClientStateDottedPath & string
+  > = DottedPathPathToTuple<ClientStateDottedPath & string>
+>(
+  context: Input,
+  queryConfig: QueryConfig,
+  clientState: {
+    // test: NoInfer<QueryConfig['state']>;
+    clientState?: MergeObject<
+      {
+        /**
+         * Will update the state at the given path with the resource data.
+         * If the state associated to the path does not exist, it will be created.
+         */
+        clientStatePath: ClientStateDottedPath;
+        mapResourceToState?: (data: {
+          queryResource: ResourceRef<NoInfer<QueryConfig['state']>>;
+          queryParams: NoInfer<QueryConfig['params']>;
+        }) => NoInfer<ClientStateTypeByDottedPath>;
+      },
+      NoInfer<QueryConfig['state']> extends ClientStateTypeByDottedPath
+        ? {
+            mapResourceToState?: (data: {
+              queryResource: ResourceRef<NoInfer<QueryConfig['state']>>;
+              queryParams: NoInfer<QueryConfig['params']>;
+            }) => NoInfer<ClientStateTypeByDottedPath>;
+          }
+        : {
+            mapResourceToState: (data: {
+              queryResource: ResourceRef<NoInfer<QueryConfig['state']>>;
+              queryParams: NoInfer<QueryConfig['params']>;
+            }) => NoInfer<ClientStateTypeByDottedPath>;
+          }
+    >;
+  }
+) {
+  return clientState;
 }
 
 type User = {
@@ -257,4 +271,3 @@ type User = {
   name: string;
   email: string;
 };
-
