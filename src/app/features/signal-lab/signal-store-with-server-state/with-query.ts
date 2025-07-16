@@ -292,9 +292,3 @@ export function clientState<
     clientState,
   });
 }
-
-type User = {
-  id: string;
-  name: string;
-  email: string;
-};
