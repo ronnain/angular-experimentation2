@@ -1,4 +1,10 @@
-import { ResourceRef, effect, resource, signal } from '@angular/core';
+import {
+  ResourceOptions,
+  ResourceRef,
+  effect,
+  resource,
+  signal,
+} from '@angular/core';
 import {
   patchState,
   Prettify,
@@ -18,8 +24,6 @@ import {
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
 import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
-import { Equal, Expect } from '../../../../../test-type';
-import { lastValueFrom, of } from 'rxjs';
 
 declare const __QueryBrandSymbol: unique symbol;
 type QueryBrand = {
@@ -62,22 +66,25 @@ export function query<
     QueryArgsParams
   >,
   clientState?: (
+    /**
+     * Only used to help type inference, not used in the actual implementation.
+     */
     config: {
       state: NoInfer<queryState>;
       params: NoInfer<queryParams>;
     },
+    /**
+     * Only used to help type inference, not used in the actual implementation.
+     */
     context: Input
   ) => {
     clientState?: {
-      /**
-       * Will update the state at the given path with the resource data.
-       * If the state associated to the path does not exist, it will be created.
-       */
-      clientStatePath?: string;
-      mapResourceToState?: (data: {
-        queryResource: ResourceRef<NoInfer<queryState>>;
-        queryParams: NoInfer<queryParams>;
-      }) => any;
+      path?: string;
+      mapResourceToState?: MapResourceToState<
+        NoInfer<queryState>,
+        NoInfer<queryParams>,
+        any
+      >;
     };
   }
 ): (
@@ -85,32 +92,37 @@ export function query<
   context: Input
 ) => {
   queryConfig: ResourceWithParamsOrParamsFn<
-    queryState,
-    queryParams,
-    QueryArgsParams
+    NoInfer<queryState>,
+    NoInfer<queryParams>,
+    NoInfer<QueryArgsParams>
   >;
   clientState?: {
-    clientStatePath: string;
-    mapResourceToState?: (data: {
-      queryResource: ResourceRef<NoInfer<queryState>>;
-      queryParams: NoInfer<queryParams>;
-    }) => any;
+    path: string;
+    mapResourceToState?: MapResourceToState<
+      NoInfer<queryState>,
+      NoInfer<queryParams>,
+      any
+    >;
   };
+  /**
+   * Only used to help type inference, not used in the actual implementation.
+   */
   __types: {
     queryState: NoInfer<queryState>;
     queryParams: NoInfer<queryParams>;
     queryArgsParams: NoInfer<QueryArgsParams>;
   };
 } {
-  return {
+  return (store, context) => ({
     queryConfig,
-    clientState: clientState?.({} as any) as any,
+    // clientState params are only used to help type inference
+    clientState: clientState?.({} as any, {} as any).clientState as any,
     __types: {
       queryState: {} as NoInfer<queryState>,
       queryParams: {} as NoInfer<queryParams>,
       queryArgsParams: {} as NoInfer<QueryArgsParams>,
     },
-  };
+  });
 }
 
 export function withQuery<
@@ -133,11 +145,8 @@ export function withQuery<
     context: Input
   ) => { queryConfig: QueryConfig } & {
     clientState?: {
-      clientStatePath: string;
-      mapResourceToState?: (QuerymapResourceToState: {
-        queryResource: ResourceRef<any>;
-        queryParams: any;
-      }) => any;
+      path: string;
+      mapResourceToState?: MapResourceToState<any, any, any>;
     };
   } & {
     __types: {
@@ -150,67 +159,84 @@ export function withQuery<
   Input,
   WithQueryOutputStoreConfig<ResourceName, ResourceState>
 > {
-  return ((store: SignalStoreFeatureResult) => {
-    const queryConfig = queryFactory(
-      store as unknown as StateSignals<Input['state']> &
-        Input['props'] &
-        Input['methods'] &
-        WritableStateSource<Prettify<Input['state']>>
-    );
-    const queryResourceParamsFnSignal = signal<ResourceParams | undefined>(
-      undefined
-    );
-
-    const resourceParamsSrc =
-      queryConfig.queryConfig.params?.(store as any) ??
-      queryResourceParamsFnSignal;
-
-    const queryResource = resource<ResourceState, ResourceParams>({
-      ...queryConfig.queryConfig,
-      params: resourceParamsSrc,
-    } as any);
-
+  return ((context: SignalStoreFeatureResult) => {
     return signalStoreFeature(
-      withProps((store) => ({
-        [resourceName]: resource,
-        ...('clientStatePath' in queryConfig && {
-          [`_${resourceName}Effect`]: effect(() => {
-            if (!['resolved', 'local'].includes(queryResource.status())) {
-              return;
-            }
-            patchState(store, (state) => {
-              const resourceData = queryResource.hasValue()
-                ? (queryResource.value() as ResourceState | undefined)
-                : undefined;
-              const clientStatePath = queryConfig.clientStatePath;
-              const mappedResourceToState =
-                'mapResourceToState' in queryConfig
-                  ? queryConfig.mapResourceToState({
-                      queryResource,
-                      queryParams: queryResourceParamsFnSignal() as NonNullable<
-                        NoInfer<ResourceParams>
-                      >,
-                    })
-                  : resourceData;
-              const keysPath = (clientStatePath as string).split('.');
+      withProps((store) => {
+        const queryConfigData = queryFactory(store as unknown as StoreInput)(
+          store as unknown as StoreInput,
+          context as unknown as Input
+        );
+        const queryResourceParamsFnSignal = signal<ResourceParams | undefined>(
+          undefined
+        );
 
-              return createNestedStateUpdate({
-                state,
-                keysPath,
-                value: mappedResourceToState,
-              });
-            });
-          }),
-        }),
-      }))
+        const resourceParamsSrc =
+          queryConfigData.queryConfig.params ?? queryResourceParamsFnSignal;
+
+        const queryResource = resource<ResourceState, ResourceParams>({
+          ...queryConfigData.queryConfig,
+          params: resourceParamsSrc,
+        } as ResourceOptions<any, any>);
+
+        const clientState = queryConfigData.clientState;
+
+        return {
+          [resourceName]: queryResource,
+          ...(clientState &&
+            'path' in clientState && {
+              [`_${resourceName}Effect`]: effect(() => {
+                if (!['resolved', 'local'].includes(queryResource.status())) {
+                  return;
+                }
+                patchState(store, (state) => {
+                  const resourceData = queryResource.hasValue()
+                    ? (queryResource.value() as ResourceState | undefined)
+                    : undefined;
+                  const path = clientState?.path;
+                  const mappedResourceToState =
+                    'mapResourceToState' in clientState
+                      ? clientState.mapResourceToState({
+                          queryResource,
+                          queryParams:
+                            queryResourceParamsFnSignal() as NonNullable<
+                              NoInfer<ResourceParams>
+                            >,
+                        })
+                      : resourceData;
+                  const keysPath = (path as string).split('.');
+
+                  return createNestedStateUpdate({
+                    state,
+                    keysPath,
+                    value: mappedResourceToState,
+                  });
+                });
+              }),
+            }),
+        };
+      })
       //@ts-ignore
-    )(store);
+    )(context);
   }) as unknown as SignalStoreFeature<
     Input,
     WithQueryOutputStoreConfig<ResourceName, ResourceState>
   >;
 }
 
+type MapResourceToState<
+  ResourceState,
+  ResourceParams,
+  ClientStateTypeByDottedPath
+> = (queryData: {
+  queryResource: ResourceRef<NoInfer<ResourceState>>;
+  queryParams: NoInfer<ResourceParams>;
+}) => NoInfer<ClientStateTypeByDottedPath>;
+
+/**
+ * Will update the state at the given path with the resource data.
+ * If the type of targeted state does not match the type of the resource,
+ * the mapResourceToState function is required.
+ */
 export function clientState<
   Input extends SignalStoreFeatureResult,
   ResourceState,
@@ -220,7 +246,7 @@ export function clientState<
     state: ResourceState;
     params: ResourceParams;
   },
-  const ClientStateDottedPath extends ObjectDeepPath<Input['state']>, // todo remove function ?
+  const ClientStateDottedPath extends ObjectDeepPath<Input['state']>,
   const ClientStateTypeByDottedPath extends AccessTypeObjectPropertyByDottedPath<
     Input['state'],
     ClientStateDottedPathTuple
@@ -232,28 +258,27 @@ export function clientState<
   clientState: Prettify<
     MergeObject<
       {
-        /**
-         * Will update the state at the given path with the resource data.
-         * If the state associated to the path does not exist, it will be created.
-         */
         path: ClientStateDottedPath;
-        mapResourceToState?: (mapResourceToStateData: {
-          queryResource: ResourceRef<NoInfer<QueryConfig['state']>>;
-          queryParams: NoInfer<QueryConfig['params']>;
-        }) => NoInfer<ClientStateTypeByDottedPath>;
+        mapResourceToState?: MapResourceToState<
+          NoInfer<QueryConfig['state']>,
+          NoInfer<QueryConfig['params']>,
+          ClientStateTypeByDottedPath
+        >;
       },
       NoInfer<QueryConfig['state']> extends ClientStateTypeByDottedPath
         ? {
-            mapResourceToState?: (mapResourceToStateData: {
-              queryResource: ResourceRef<NoInfer<QueryConfig['state']>>;
-              queryParams: NoInfer<QueryConfig['params']>;
-            }) => NoInfer<ClientStateTypeByDottedPath>;
+            mapResourceToState?: MapResourceToState<
+              NoInfer<QueryConfig['state']>,
+              NoInfer<QueryConfig['params']>,
+              ClientStateTypeByDottedPath
+            >;
           }
         : {
-            mapResourceToState: (mapResourceToStateData: {
-              queryResource: ResourceRef<NoInfer<QueryConfig['state']>>;
-              queryParams: NoInfer<QueryConfig['params']>;
-            }) => NoInfer<ClientStateTypeByDottedPath>;
+            mapResourceToState: MapResourceToState<
+              NoInfer<QueryConfig['state']>,
+              NoInfer<QueryConfig['params']>,
+              ClientStateTypeByDottedPath
+            >;
           }
     >
   >

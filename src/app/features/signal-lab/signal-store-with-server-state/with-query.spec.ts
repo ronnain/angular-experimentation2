@@ -1,26 +1,13 @@
 import { lastValueFrom, of } from 'rxjs';
 import { Equal, Expect } from '../../../../../test-type';
 import {
-  Prettify,
   signalStore,
   signalStoreFeature,
   SignalStoreFeature,
-  SignalStoreFeatureResult,
-  StateSignals,
-  withProps,
   withState,
-  WritableStateSource,
 } from '@ngrx/signals';
-import {
-  clientState,
-  pipeQuery,
-  query,
-  queryTest,
-  testInfer,
-  withQuery,
-} from './with-query';
-import { resource, ResourceRef } from '@angular/core';
-import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
+import { clientState, query, withQuery } from './with-query';
+import { ResourceRef } from '@angular/core';
 
 type User = {
   id: string;
@@ -33,9 +20,9 @@ type InferSignalStoreFeatureReturnedType<
 > = T extends SignalStoreFeature<any, infer R> ? R : never;
 
 it('Should be well typed', () => {
-  const queryByIdTest = withQuery('user', {
-    queryConfig: {
-      params: () => () => '5',
+  const queryByIdTest = withQuery('user', () =>
+    query({
+      params: () => '5',
       loader: ({ params }) => {
         return lastValueFrom(
           of({
@@ -45,8 +32,8 @@ it('Should be well typed', () => {
           } satisfies User)
         );
       },
-    },
-  });
+    })
+  );
   type ResultType = InferSignalStoreFeatureReturnedType<typeof queryByIdTest>;
   type PropsKeys = keyof ResultType['props'];
 
@@ -80,7 +67,7 @@ it('Should be well typed', () => {
       user: undefined as User | undefined,
       test: 3,
     }),
-    withQuery('user', (store) =>
+    withQuery('userDetails', (store) =>
       query(
         {
           params: store.userSelected,
@@ -110,10 +97,9 @@ it('Should be well typed', () => {
         })
       )
     ),
-    withProps((store) => store.__query.user),
-    withQuery('users', {
-      queryConfig: query({
-        params: (store) => () => '5',
+    withQuery('users', (store) =>
+      query({
+        params: () => '5',
         loader: ({ params }) => {
           return lastValueFrom(
             of([
@@ -125,8 +111,8 @@ it('Should be well typed', () => {
             ] satisfies User[])
           );
         },
-      }),
-    })
+      })
+    )
   );
 
   type ResultTypeMultiplesQuery = InferSignalStoreFeatureReturnedType<
@@ -134,7 +120,10 @@ it('Should be well typed', () => {
   >;
 
   type ExpectThePropsToHaveARecordWithMultipleQueryNameAndHisType = Expect<
-    Equal<keyof ResultTypeMultiplesQuery['props']['__query'], 'user' | 'users'>
+    Equal<
+      keyof ResultTypeMultiplesQuery['props']['__query'],
+      'userDetails' | 'users'
+    >
   >;
 });
 
@@ -153,48 +142,24 @@ it('clientStatePath option should infer signalStore state path', () => {
       selectedUserId: undefined,
       user: undefined as User | undefined,
     }),
-    withQuery('userQuery', {
-      queryConfig: {
-        params: () => () => '5',
-        loader: ({ params }) => {
-          return lastValueFrom(
-            of<User>({
-              id: params,
-              name: 'John Doe',
-              email: 'test@a.com',
-            })
-          );
+    withQuery('userQuery', () =>
+      query(
+        {
+          params: () => '5',
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of<User>({
+                id: params,
+                name: 'John Doe',
+                email: 'test@a.com',
+              })
+            );
+          },
         },
-      },
-      clientState: {
-        clientStatePath: 'user',
-        test: 3,
-        testTarget: 'e',
-        equal: true,
-      },
-    })
+        clientState({
+          path: 'user',
+        })
+      )
+    )
   );
 });
-
-// todo faire test avec typage en dur pour le clientStatePath
-
-// {
-//   params: store.userSelected,
-//   loader: ({ params }) => {
-//     type ExpectParamsToBeTyped = Expect<
-//       Equal<
-//         typeof params,
-//         {
-//           id: string;
-//         }
-//       >
-//     >;
-//     return lastValueFrom(
-//       of({
-//         id: 'params.id',
-//         name: 'John Doe',
-//         email: 'test@a.com',
-//       } satisfies User)
-//     );
-//   },
-// }

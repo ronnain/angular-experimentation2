@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, effect, inject } from '@angular/core';
-import { testStore } from './test.store';
+import { TestStore } from './test.store';
 
 @Component({
   selector: 'app-view',
@@ -14,23 +14,18 @@ import { testStore } from './test.store';
     userState:
     <pre>{{ store.userDetails() | json }}</pre>
     <hr />
-    Update user ({{ store.updateUserName.status() }})
-    <pre>{{ store.updateUserName.value() | json }}</pre>
+    <!-- Update user ({{ store.updateUserName.status() }})
+    <pre>{{ store.updateUserName.value() | json }}</pre> -->
 
     <br />
 
-    <button class="btn" (click)="store.mutateUpdateUserName('Romain Success')">
+    <!-- <button class="btn" (click)="store.mutateUpdateUserName('Romain Success')">
       Update User
-    </button>
+    </button> -->
   `,
 })
 export default class ViewComponent {
-  protected readonly store = inject(testStore);
+  protected readonly store = inject(TestStore);
 
-  constructor() {
-    // effect(() => {
-    //   const simpleQueryValue = this.store.simpleQuery.value();
-    //   console.log('simpleQueryValue:', simpleQueryValue);
-    // });
-  }
+  constructor() {}
 }
