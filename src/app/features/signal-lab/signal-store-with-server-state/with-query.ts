@@ -48,82 +48,14 @@ type WithQueryOutputStoreConfig<
   methods: {};
 };
 
-export function query<
-  queryState extends object | undefined,
-  queryParams,
-  QueryArgsParams,
-  Input extends SignalStoreFeatureResult,
-  const StoreInput extends Prettify<
-    StateSignals<Input['state']> &
-      Input['props'] &
-      Input['methods'] &
-      WritableStateSource<Prettify<Input['state']>>
-  >
->(
-  queryConfig: ResourceWithParamsOrParamsFn<
-    queryState,
-    queryParams,
-    QueryArgsParams
-  >,
-  clientState?: (
-    /**
-     * Only used to help type inference, not used in the actual implementation.
-     */
-    config: {
-      state: NoInfer<queryState>;
-      params: NoInfer<queryParams>;
-    },
-    /**
-     * Only used to help type inference, not used in the actual implementation.
-     */
-    context: Input
-  ) => {
-    clientState?: {
-      path?: string;
-      mapResourceToState?: MapResourceToState<
-        NoInfer<queryState>,
-        NoInfer<queryParams>,
-        any
-      >;
-    };
-  }
-): (
-  store: StoreInput,
-  context: Input
-) => {
-  queryConfig: ResourceWithParamsOrParamsFn<
-    NoInfer<queryState>,
-    NoInfer<queryParams>,
-    NoInfer<QueryArgsParams>
-  >;
-  clientState?: {
-    path: string;
-    mapResourceToState?: MapResourceToState<
-      NoInfer<queryState>,
-      NoInfer<queryParams>,
-      any
-    >;
-  };
-  /**
-   * Only used to help type inference, not used in the actual implementation.
-   */
-  __types: {
-    queryState: NoInfer<queryState>;
-    queryParams: NoInfer<queryParams>;
-    queryArgsParams: NoInfer<QueryArgsParams>;
-  };
-} {
-  return (store, context) => ({
-    queryConfig,
-    // clientState params are only used to help type inference
-    clientState: clientState?.({} as any, {} as any).clientState as any,
-    __types: {
-      queryState: {} as NoInfer<queryState>,
-      queryParams: {} as NoInfer<queryParams>,
-      queryArgsParams: {} as NoInfer<QueryArgsParams>,
-    },
-  });
-}
+type MapResourceToState<
+  ResourceState,
+  ResourceParams,
+  ClientStateTypeByDottedPath
+> = (queryData: {
+  queryResource: ResourceRef<NoInfer<ResourceState>>;
+  queryParams: NoInfer<ResourceParams>;
+}) => NoInfer<ClientStateTypeByDottedPath>;
 
 export function withQuery<
   Input extends SignalStoreFeatureResult,
@@ -154,7 +86,7 @@ export function withQuery<
       queryParams: ResourceParams;
       queryArgsParams: ResourceArgsParams;
     };
-  }
+  } & QueryBrand
 ): SignalStoreFeature<
   Input,
   WithQueryOutputStoreConfig<ResourceName, ResourceState>
@@ -223,14 +155,87 @@ export function withQuery<
   >;
 }
 
-type MapResourceToState<
-  ResourceState,
-  ResourceParams,
-  ClientStateTypeByDottedPath
-> = (queryData: {
-  queryResource: ResourceRef<NoInfer<ResourceState>>;
-  queryParams: NoInfer<ResourceParams>;
-}) => NoInfer<ClientStateTypeByDottedPath>;
+/**
+ * Configures a query.
+ * And optionally associates the query result to a client state.
+ */
+export function query<
+  queryState extends object | undefined,
+  queryParams,
+  QueryArgsParams,
+  Input extends SignalStoreFeatureResult,
+  const StoreInput extends Prettify<
+    StateSignals<Input['state']> &
+      Input['props'] &
+      Input['methods'] &
+      WritableStateSource<Prettify<Input['state']>>
+  >
+>(
+  queryConfig: ResourceWithParamsOrParamsFn<
+    queryState,
+    queryParams,
+    QueryArgsParams
+  >,
+  clientState?: (
+    /**
+     * Only used to help type inference, not used in the actual implementation.
+     */
+    config: {
+      state: NoInfer<queryState>;
+      params: NoInfer<queryParams>;
+    },
+    /**
+     * Only used to help type inference, not used in the actual implementation.
+     */
+    context: Input
+  ) => {
+    clientState?: {
+      path?: string;
+      mapResourceToState?: MapResourceToState<
+        NoInfer<queryState>,
+        NoInfer<queryParams>,
+        any
+      >;
+    };
+  }
+): (
+  store: StoreInput,
+  context: Input
+) => {
+  queryConfig: ResourceWithParamsOrParamsFn<
+    NoInfer<queryState>,
+    NoInfer<queryParams>,
+    NoInfer<QueryArgsParams>
+  >;
+  clientState?: {
+    path: string;
+    mapResourceToState?: MapResourceToState<
+      NoInfer<queryState>,
+      NoInfer<queryParams>,
+      any
+    >;
+  };
+  /**
+   * Only used to help type inference, not used in the actual implementation.
+   */
+  __types: {
+    queryState: NoInfer<queryState>;
+    queryParams: NoInfer<queryParams>;
+    queryArgsParams: NoInfer<QueryArgsParams>;
+  };
+} & QueryBrand {
+  return (store, context) => ({
+    queryConfig,
+    // clientState params are only used to help type inference
+    clientState: clientState?.({} as any, {} as any).clientState as any,
+    __types: {
+      queryState: {} as NoInfer<queryState>,
+      queryParams: {} as NoInfer<queryParams>,
+      queryArgsParams: {} as NoInfer<QueryArgsParams>,
+    },
+    [__QueryBrandSymbol]: undefined,
+  });
+}
 
 /**
  * Will update the state at the given path with the resource data.
