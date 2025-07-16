@@ -80,11 +80,10 @@ it('Should be well typed', () => {
       user: undefined as User | undefined,
       test: 3,
     }),
-    withQuery('user', (store, context) =>
+    withQuery('user', (store) =>
       query(
         {
           params: store.userSelected,
-          // params: () => ({ id: '5' }),
           loader: ({ params }) => {
             type ExpectParamsToBeTyped = Expect<
               Equal<
@@ -103,10 +102,10 @@ it('Should be well typed', () => {
             );
           },
         },
-        clientState(context, {
+        clientState({
           path: 'user',
           mapResourceToState: ({ queryResource, queryParams }) => {
-            return undefined;
+            return queryResource.value();
           },
         })
       )

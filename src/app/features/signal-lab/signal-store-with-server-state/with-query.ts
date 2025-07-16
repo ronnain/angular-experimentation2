@@ -61,10 +61,13 @@ export function query<
     queryParams,
     QueryArgsParams
   >,
-  clientState?: (config: {
-    state: NoInfer<queryState>;
-    params: NoInfer<queryParams>;
-  }) => {
+  clientState?: (
+    config: {
+      state: NoInfer<queryState>;
+      params: NoInfer<queryParams>;
+    },
+    context: Input
+  ) => {
     clientState?: {
       /**
        * Will update the state at the given path with the resource data.
@@ -77,7 +80,10 @@ export function query<
       }) => any;
     };
   }
-): {
+): (
+  store: StoreInput,
+  context: Input
+) => {
   queryConfig: ResourceWithParamsOrParamsFn<
     queryState,
     queryParams,
@@ -110,7 +116,6 @@ export function query<
 export function withQuery<
   Input extends SignalStoreFeatureResult,
   const ResourceName extends string,
-  const ClientStateDottedPath extends ObjectDeepPath<Input['state']>,
   ResourceState extends object | undefined,
   ResourceParams,
   ResourceArgsParams,
@@ -123,7 +128,7 @@ export function withQuery<
   >
 >(
   resourceName: ResourceName,
-  queryFactory: (
+  queryFactory: (store: StoreInput) => (
     store: StoreInput,
     context: Input
   ) => { queryConfig: QueryConfig } & {
@@ -207,7 +212,6 @@ export function withQuery<
 }
 
 export function clientState<
-  State extends object,
   Input extends SignalStoreFeatureResult,
   ResourceState,
   ResourceParams,
@@ -225,7 +229,6 @@ export function clientState<
     ClientStateDottedPath & string
   > = DottedPathPathToTuple<ClientStateDottedPath & string>
 >(
-  context: Input,
   clientState: Prettify<
     MergeObject<
       {
@@ -255,7 +258,7 @@ export function clientState<
     >
   >
 ) {
-  return (queryConfig: QueryConfig) => ({
+  return (queryConfig: QueryConfig, context: Input) => ({
     clientState,
   });
 }
