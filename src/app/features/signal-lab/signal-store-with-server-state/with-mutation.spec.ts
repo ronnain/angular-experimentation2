@@ -2,13 +2,13 @@ import {
   signalStoreFeature,
   SignalStoreFeature,
   withProps,
+  withState,
 } from '@ngrx/signals';
 import { Equal, Expect } from '../../../../../test-type';
-import { withQuery } from './with-query';
-import { delay, lastValueFrom, of } from 'rxjs';
-import { resource, ResourceRef, signal } from '@angular/core';
-import { mutation, tsTypeHelper, withMutation } from './with-mutation';
-import { id } from 'fp-ts/lib/Refinement';
+import { query, withQuery } from './with-query';
+import { lastValueFrom, of } from 'rxjs';
+import { ResourceRef, signal } from '@angular/core';
+import { mutation, withMutation } from './with-mutation';
 import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
 import {
   AccessTypeObjectPropertyByDottedPath,
@@ -30,8 +30,11 @@ type InferSignalStoreFeatureReturnedType<
 
 it('Should be well typed', () => {
   const multiplesWithQueryAndMutation = signalStoreFeature(
+    withState({
+      userSelected: undefined as { id: string } | undefined,
+    }),
     withQuery('user', () =>
-      resource({
+      query({
         params: () => '5',
         loader: ({ params }) => {
           return lastValueFrom(
@@ -45,7 +48,7 @@ it('Should be well typed', () => {
       })
     ),
     withQuery('users', () =>
-      resource({
+      query({
         params: () => '5',
         loader: ({ params }) => {
           return lastValueFrom(
@@ -60,65 +63,65 @@ it('Should be well typed', () => {
         },
       })
     ),
-    withMutation('updateUser', {
-      mutation: mutation({
-        params: () => () => ({
-          id: '3',
-        }),
-        loader: ({ params }) => {
-          return lastValueFrom(
-            of({
-              id: params.id,
-              name: 'Updated User',
-              email: 'er@d',
-            } satisfies User)
-          );
-        },
-      }),
-      queries: {
-        user: {
-          reload: {
-            onMutationError: true,
+    withMutation(
+      'updateUser',
+      (store) =>
+        mutation({
+          params: store.userSelected,
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params.id,
+                name: 'Updated User',
+                email: 'er@d',
+              } satisfies User)
+            );
           },
+        })
+      // queries: {
+      //   user: {
+      //     reload: {
+      //       onMutationError: true,
+      //     },
 
-          optimisticPatch: {
-            'address.street': () => 'true',
-          },
-        },
-        users: {
-          optimistic: ({ queryResource, mutationResource, mutationParams }) => {
-            type ExpectQueryResourceType = Expect<
-              Equal<
-                typeof queryResource,
-                ResourceRef<
-                  | {
-                      id: string;
-                      name: string;
-                      email: string;
-                    }[]
-                  | undefined
-                >
-              >
-            >;
-            type ExpectMutationResourceType = Expect<
-              Equal<
-                typeof mutationResource,
-                ResourceRef<{
-                  id: string;
-                  name: string;
-                  email: string;
-                }>
-              >
-            >;
+      //     optimisticPatch: {
+      //       'address.street': () => 'true',
+      //     },
+      //   },
+      //   users: {
+      //     optimistic: ({ queryResource, mutationResource, mutationParams }) => {
+      //       type ExpectQueryResourceType = Expect<
+      //         Equal<
+      //           typeof queryResource,
+      //           ResourceRef<
+      //             | {
+      //                 id: string;
+      //                 name: string;
+      //                 email: string;
+      //               }[]
+      //             | undefined
+      //           >
+      //         >
+      //       >;
+      //       type ExpectMutationResourceType = Expect<
+      //         Equal<
+      //           typeof mutationResource,
+      //           ResourceRef<{
+      //             id: string;
+      //             name: string;
+      //             email: string;
+      //           }>
+      //         >
+      //       >;
 
-            type ExpectMutationParamsType = Expect<
-              Equal<typeof mutationParams, { id: string }>
-            >;
-            return queryResource.value();
-          },
-        },
-      },
-    })
+      //       type ExpectMutationParamsType = Expect<
+      //         Equal<typeof mutationParams, { id: string }>
+      //       >;
+      //       return queryResource.value();
+      //     },
+      //   },
+      // },
+    )
   );
 
   type ResultTypeMultiplesQuery = InferSignalStoreFeatureReturnedType<
@@ -132,9 +135,9 @@ it('Should be well typed', () => {
 
 it('Should expose a method', () => {
   const mutationOutput = signalStoreFeature(
-    withMutation('updateUser', {
-      mutation: {
-        method: () => (data: { page: string }) => data.page,
+    withMutation('updateUser', () =>
+      mutation({
+        method: (data: { page: string }) => data.page,
         loader: ({ params }) => {
           return lastValueFrom(
             of({
@@ -144,8 +147,8 @@ it('Should expose a method', () => {
             } satisfies User)
           );
         },
-      },
-    })
+      })
+    )
   );
 
   type ResultTypeMutation = InferSignalStoreFeatureReturnedType<
@@ -197,9 +200,9 @@ it('Should accept the store without loosing typing', () => {
         id: '4',
       }),
     })),
-    withMutation('updateUser', {
-      mutation: {
-        params: (store) => store.sourceId,
+    withMutation('updateUser', (store) =>
+      mutation({
+        params: store.sourceId,
         loader: ({ params }) => {
           type ExpectParamsToBeAnObjectWithStringId = Expect<
             Equal<typeof params, { id: string }>
@@ -212,8 +215,8 @@ it('Should accept the store without loosing typing', () => {
             } satisfies User)
           );
         },
-      },
-    })
+      })
+    )
   );
 });
 

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, effect, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { TestStore } from './test.store';
 
 @Component({
@@ -7,25 +7,52 @@ import { TestStore } from './test.store';
   standalone: true,
   imports: [CommonModule],
   template: `
-    userQueryWithAssociatedClientState ({{
+    <!-- userQueryWithAssociatedClientState ({{
       store.userQueryWithAssociatedClientState.status()
     }}):
-    <pre>{{ store.userQueryWithAssociatedClientState.value() | json }}</pre>
+    <pre>{{ store.userQueryWithAssociatedClientState.value() | json }}</pre> -->
     userState:
     <pre>{{ store.userDetails() | json }}</pre>
     <hr />
-    <!-- Update user ({{ store.updateUserName.status() }})
-    <pre>{{ store.updateUserName.value() | json }}</pre> -->
+    Update user ({{ store.userName.status() }})
+    <pre>{{
+      (store.userName.hasValue() ? store.userName.value() : null) | json
+    }}</pre>
+    error:
+    <pre>{{ $any(store.userName).error() | json }}</pre>
+
+    resourceTest :
+    <pre>{{ store.resourceTest.value() | json }}</pre>
 
     <br />
 
-    <!-- <button class="btn" (click)="store.mutateUpdateUserName('Romain Success')">
+    <button class="btn" (click)="store.mutateUserName('Romain Success')">
       Update User
-    </button> -->
+    </button>
+    <button
+      class="btn"
+      (click)="
+        store.updateUserSrc.set({
+          id: 'mutated',
+          name: 'Romain Success',
+          email: ''
+        })
+      "
+    >
+      Update User Src
+    </button>
   `,
 })
 export default class ViewComponent {
   protected readonly store = inject(TestStore);
 
-  constructor() {}
+  testCountRef = signal('Test');
+
+  constructor() {
+    // effect(() => {
+    //   const t = this.testCountRef();
+    //   this.store.userQueryWithAssociatedClientState.value(); //used to trigger a re-evaluation
+    //   console.log('this', this);
+    // });
+  }
 }

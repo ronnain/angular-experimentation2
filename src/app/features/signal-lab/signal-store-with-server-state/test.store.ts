@@ -1,7 +1,8 @@
 import { signalStore, withProps, withState } from '@ngrx/signals';
 import { clientState, query, withQuery } from './with-query';
 import { BehaviorSubject, delay, lastValueFrom, of } from 'rxjs';
-import { signal } from '@angular/core';
+import { resource, signal } from '@angular/core';
+import { mutation, withMutation } from './with-mutation';
 
 type User = {
   id: string;
@@ -39,6 +40,7 @@ export const TestStore = signalStore(
         categories: [] as Category[],
       },
     },
+    testRef: null,
   }),
   //! Ce qui n'est pas ouf, c'est que ça propose les méthodes de `resource` et pas de `rxResource`
   withQuery('userQueryWithAssociatedClientState', (store) =>
@@ -112,38 +114,54 @@ export const TestStore = signalStore(
       })
     )
   ),
-  withProps(() => ({
-    _updateUserSrc: signal<User | undefined>(undefined),
-  }))
-  // withMutation('updateUserName', {
-  //   mutation: {
-  //     method: (store) => (userName: string) => {
-  //       const user = store.userDetails().user;
-  //       return {
-  //         ...store.userDetails().user,
-  //         name: userName,
-  //       };
-  //     },
-  //     loader: ({ params }) => {
-  //       console.log('params', params);
-  //       return lastValueFrom(of(params).pipe(delay(2000)));
-  //     },
-  //   },
-  //   queries: {
-  //     userQueryWithAssociatedClientState: {
-  //       optimistic: ({ mutationParams, queryResource }) => {
-  //         const queryValue = queryResource.value();
-  //         if (!queryValue) {
-  //           throw new Error('Query resource is not available');
-  //         }
-  //         return {
-  //           ...queryValue,
-  //           ...mutationParams,
-  //         };
-  //       },
-  //     },
-  //   },
-  // })
+  withProps(() => {
+    const updateUserSrc = signal<User | undefined>(undefined);
+    const resourceTest = resource({
+      params: updateUserSrc,
+      loader: ({ params }) => {
+        console.log('params', params);
+        return lastValueFrom(of(params).pipe(delay(2000)));
+      },
+    });
+
+    console.log('resourceTest', resourceTest);
+    return {
+      updateUserSrc,
+      resourceTest,
+    };
+  }),
+  withMutation(
+    'userName',
+    (store) =>
+      mutation({
+        method: (userName: string) => {
+          console.log('userName', userName);
+          return {
+            ...store.userDetails().user,
+            name: userName,
+          };
+        },
+        // params: store.updateUserSrc,
+        loader: ({ params }) => {
+          console.log('params', params);
+          return lastValueFrom(of(params).pipe(delay(2000)));
+        },
+      })
+    // queries: {
+    //   userQueryWithAssociatedClientState: {
+    //     optimistic: ({ mutationParams, queryResource }) => {
+    //       const queryValue = queryResource.value();
+    //       if (!queryValue) {
+    //         throw new Error('Query resource is not available');
+    //       }
+    //       return {
+    //         ...queryValue,
+    //         ...mutationParams,
+    //       };
+    //     },
+    //   },
+    // },
+  )
 );
 
 // todo checker pourquoi il n'y a pas de value quand ça charge

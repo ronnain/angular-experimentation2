@@ -25,7 +25,7 @@ import {
 } from './types/access-type-object-property-by-dotted-path.type';
 import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
 
-declare const __QueryBrandSymbol: unique symbol;
+const __QueryBrandSymbol: unique symbol = Symbol();
 type QueryBrand = {
   [__QueryBrandSymbol]: unknown;
 };

@@ -25,7 +25,7 @@ export type ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
              */
             params: () => Params;
             loader: (
-              param: ResourceLoaderParams<NoInfer<Params>>
+              param: NoInfer<ResourceLoaderParams<Params>>
             ) => Promise<ResourceState>;
             method?: never;
           }
@@ -37,7 +37,7 @@ export type ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
             // TODO RENAME method accoding to signalStore
             method: (args: ParamsArgs) => Params;
             loader: (
-              param: ResourceLoaderParams<NoInfer<Params>>
+              param: NoInfer<ResourceLoaderParams<Params>>
             ) => Promise<ResourceState>;
             params?: never;
           }
