@@ -8,7 +8,12 @@ import { Equal, Expect } from '../../../../../test-type';
 import { query, withQuery } from './with-query';
 import { lastValueFrom, of } from 'rxjs';
 import { ResourceRef, signal } from '@angular/core';
-import { mutation, withMutation } from './with-mutation';
+import {
+  mutation,
+  withMutation,
+  queryEffect,
+  queryEffect2,
+} from './with-mutation';
 import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
 import {
   AccessTypeObjectPropertyByDottedPath,
@@ -64,7 +69,7 @@ it('Should be well typed', () => {
       })
     ),
     withMutation(
-      'updateUser',
+      'updateUserAddress',
       (store) =>
         mutation({
           params: store.userSelected,
@@ -77,17 +82,56 @@ it('Should be well typed', () => {
               } satisfies User)
             );
           },
-        })
+        }),
+      (clientStore) => {
+        return {
+          queries: {
+            user: (store, context, __mutationTypes, __queryTypes) => {
+              type ExpectStoreTypeToBeRetrieved = Expect<
+                Equal<(typeof clientStore)['user'], ResourceRef<User>>
+              >;
+              type Expect_StoreTypeToBeRetrieved = Expect<
+                Equal<(typeof clientStore)['user'], ResourceRef<User>>
+              >;
+              type ExpectContextStoreToBeRetrieved = Expect<
+                Equal<
+                  (typeof context)['state']['userSelected'],
+                  { id: string } | undefined
+                >
+              >;
+              type ExpectMutationTypesToBeRetrieved = Expect<
+                Equal<
+                  typeof __mutationTypes,
+                  {
+                    state: {
+                      id: string;
+                      name: string;
+                      email: string;
+                    };
+                    params:
+                      | {
+                          id: string;
+                        }
+                      | undefined;
+                    args: unknown;
+                  }
+                >
+              >;
+              type ExpectQueryTypesToBeRetrieved = Expect<
+                Equal<
+                  typeof __queryTypes,
+                  {
+                    state: User;
+                  }
+                >
+              >;
+              return {};
+            },
+          },
+        };
+      }
       // queries: {
-      //   user: {
-      //     reload: {
-      //       onMutationError: true,
-      //     },
 
-      //     optimisticPatch: {
-      //       'address.street': () => 'true',
-      //     },
-      //   },
       //   users: {
       //     optimistic: ({ queryResource, mutationResource, mutationParams }) => {
       //       type ExpectQueryResourceType = Expect<
@@ -121,6 +165,27 @@ it('Should be well typed', () => {
       //     },
       //   },
       // },
+    ),
+    withMutation(
+      'updateName',
+      (store) =>
+        mutation({
+          params: store.userSelected,
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params.id,
+                name: 'Updated Name',
+                email: 'er@d',
+              } satisfies User)
+            );
+          },
+        }),
+      (store) => ({
+        queries: {
+          user: test(''),
+        },
+      })
     )
   );
 
@@ -230,3 +295,14 @@ const test: {
 } = {
   'address.street': 'test',
 };
+function test<QueryState>(data: ObjectDeepPath<NoInfer<QueryState & {}>>) {
+  return (
+    store,
+    context,
+    mutationTypes,
+    queryTypes,
+    queryState: QueryState
+  ) => {
+    return {};
+  };
+}
