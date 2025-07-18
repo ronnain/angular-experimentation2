@@ -48,22 +48,6 @@ export const TestStore = signalStore(
         params: store.selectedUserId,
         loader: ({ params }) => {
           console.log('params', params);
-          const result = new BehaviorSubject<User | undefined>(undefined);
-
-          // setTimeout(() => {
-          //   result.next({
-          //     id: '1',
-          //     name: 'John Doe',
-          //     email: 'a@a.fr',
-          //   });
-          // }, 3000);
-          // setTimeout(() => {
-          //   result.next({
-          //     id: '2',
-          //     name: 'John Doe2',
-          //     email: 'a@a.fr',
-          //   });
-          // }, 6000);
           return lastValueFrom(
             of({
               id: '1',
@@ -92,6 +76,11 @@ export const TestStore = signalStore(
                   id: '1',
                   name: 'Product 1',
                   price: 100,
+                },
+                {
+                  id: '2',
+                  name: 'Product 2',
+                  price: 200,
                 },
               ] satisfies Product[],
               categories: [
@@ -156,6 +145,33 @@ export const TestStore = signalStore(
               ...queryValue,
               ...mutationParams,
             };
+          },
+        },
+      },
+    })
+  ),
+  withMutation(
+    'addCategory',
+    () =>
+      mutation({
+        method: (category: Category) => category,
+        loader: ({ params }) => {
+          console.log('params', params);
+          return lastValueFrom(of(params).pipe(delay(2000)));
+        },
+      }),
+    () => ({
+      queriesEffects: {
+        bffQueryProductsAndCategories: {
+          optimisticPatch: {
+            categories: ({ mutationParams, queryResource }) => {
+              const queryValue = queryResource.value();
+              if (!queryValue) {
+                throw new Error('Query resource is not available');
+              }
+              const newCategories = [...queryValue.categories, mutationParams];
+              return newCategories;
+            },
           },
         },
       },

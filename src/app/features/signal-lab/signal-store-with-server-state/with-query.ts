@@ -136,12 +136,12 @@ export function withQuery<
                         })
                       : resourceData;
                   const keysPath = (path as string).split('.');
-
-                  return createNestedStateUpdate({
+                  const result = createNestedStateUpdate({
                     state,
                     keysPath,
                     value: mappedResourceToState,
                   });
+                  return result;
                 });
               }),
             }),

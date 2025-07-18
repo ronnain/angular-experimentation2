@@ -1,3 +1,4 @@
+// todo handle update of array of objects
 export function createNestedStateUpdate({
   state,
   keysPath,
@@ -18,7 +19,9 @@ export function createNestedStateUpdate({
     ...state,
     [currentKey]:
       remainingKeys.length === 0
-        ? { ...currentState, ...value }
+        ? Array.isArray(currentState)
+          ? value
+          : { ...currentState, ...value }
         : createNestedStateUpdate({
             state: currentState,
             keysPath: remainingKeys,

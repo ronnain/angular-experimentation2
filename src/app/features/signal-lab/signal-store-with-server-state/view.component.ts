@@ -41,6 +41,13 @@ import { TestStore } from './test.store';
     >
       Update User Src
     </button>
+    <button
+      class="btn"
+      (click)="addCategory()"
+      [disabled]="store.addCategory.status() === 'loading'"
+    >
+      Add category
+    </button>
   `,
 })
 export default class ViewComponent {
@@ -48,11 +55,12 @@ export default class ViewComponent {
 
   testCountRef = signal('Test');
 
-  constructor() {
-    // effect(() => {
-    //   const t = this.testCountRef();
-    //   this.store.userQueryWithAssociatedClientState.value(); //used to trigger a re-evaluation
-    //   console.log('this', this);
-    // });
+  constructor() {}
+
+  addCategory() {
+    this.store.mutateAddCategory({
+      id: 'new-category',
+      name: 'New Category',
+    });
   }
 }

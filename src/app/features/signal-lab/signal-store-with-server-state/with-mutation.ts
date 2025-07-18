@@ -157,6 +157,7 @@ type QueryEffect<
    * Will patch the query specific state with the mutation data.
    * If the query is loading, it will not patch.
    * If the mutation data is not compatible with the query state, it will not patch.
+   * ! If the mutation is already in a loading state, it will not patch with the new value. Maybe disable the source/button that triggers the mutation.
    */
   optimisticPatch?: OptimisticPathMutationQuery<
     QueryState,
@@ -431,13 +432,12 @@ export function withMutation<
                         });
 
                         if (!queryResource.isLoading()) {
-                          queryResource.set(
-                            createNestedStateUpdate({
-                              state: queryValue,
-                              keysPath: path.split('.'),
-                              value: optimisticValue,
-                            })
-                          );
+                          const updatedValue = createNestedStateUpdate({
+                            state: queryValue,
+                            keysPath: path.split('.'),
+                            value: optimisticValue,
+                          });
+                          queryResource.set(updatedValue);
                         }
                       });
                     }
