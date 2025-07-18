@@ -101,7 +101,8 @@ type OptimisticPatchQueryFn<
 > = (data: {
   queryResource: NoInfer<ResourceRef<QueryState>>;
   mutationResource: NoInfer<ResourceRef<MutationState>>;
-  targetedState: TargetedType;
+  mutationParams: NonNullable<NoInfer<MutationParams>>;
+  targetedState: TargetedType | undefined;
 }) => TargetedType;
 
 type OptimisticPathMutationQuery<
@@ -109,36 +110,29 @@ type OptimisticPathMutationQuery<
   MutationState,
   MutationParams,
   MutationArgsParams
-> = {
-  [queryPatchPath in ObjectDeepPath<
-    QueryState & {}
-  >]?: AccessTypeObjectPropertyByDottedPath<
-    QueryState & {},
-    DottedPathPathToTuple<queryPatchPath>
-  > extends infer TargetedType
-    ? OptimisticPatchQueryFn<
+> = QueryState extends object
+  ? {
+      [queryPatchPath in ObjectDeepPath<QueryState>]?: AccessTypeObjectPropertyByDottedPath<
         QueryState,
-        MutationState,
-        MutationParams,
-        MutationArgsParams,
-        TargetedType
-      >
-    : never;
-};
+        DottedPathPathToTuple<queryPatchPath>
+      > extends infer TargetedType
+        ? OptimisticPatchQueryFn<
+            QueryState,
+            MutationState,
+            MutationParams,
+            MutationArgsParams,
+            TargetedType
+          >
+        : never;
+    }
+  : never;
 
 type QueryEffect<
   QueryState,
   MutationState,
   MutationParams,
-  MutationArgsParams,
-  DeepPath extends ObjectDeepPath<NoInfer<QueryState> & {}> = ObjectDeepPath<
-    NoInfer<QueryState> & {}
-  >
+  MutationArgsParams
 > = {
-  // test1: NoInfer<MutationState>;
-  // test: NoInfer<(data: NoInfer<MutationState>) => boolean>;
-  // test2: (data: NoInfer<MutationParams>) => boolean;
-  // test?: NoInfer<MutationState>;
   /**
    * Will update the query state with the mutation data.
    */
@@ -164,15 +158,12 @@ type QueryEffect<
    * If the query is loading, it will not patch.
    * If the mutation data is not compatible with the query state, it will not patch.
    */
-  optimisticPatch?: Prettify<
-    OptimisticPathMutationQuery<
-      QueryState,
-      MutationState,
-      MutationParams,
-      MutationArgsParams
-    >
+  optimisticPatch?: OptimisticPathMutationQuery<
+    QueryState,
+    MutationState,
+    MutationParams,
+    MutationArgsParams
   >;
-  testPath?: Prettify<DeepPath>;
 };
 
 type QueriesMutation<
@@ -187,31 +178,16 @@ type QueriesMutation<
   MutationParams,
   MutationArgsParams
 > = {
-  queries?: Input['props'] extends {
+  queriesEffects?: Input['props'] extends {
     __query: infer Queries;
   }
     ? {
-        [key in keyof Queries]?: (
-          store: StoreInput,
-          context: Input,
-          __mutationTypes: {
-            state: NoInfer<MutationState>;
-            params: NoInfer<MutationParams>;
-            args: NoInfer<MutationArgsParams>;
-          },
-          __queryTypes: {
-            state: Queries[key];
-          },
-          queryPath: Queries[key] extends object
-            ? ObjectDeepPath<NoInfer<Queries[key]>>
-            : never
-        ) => any;
-        //   QueryEffect<
-        //   Queries[key], // todo return infer type from ResourceRef<Queries[key]>,
-        //   MutationState,
-        //   MutationParams,
-        //   MutationArgsParams
-        // >;
+        [key in keyof Queries]?: QueryEffect<
+          Queries[key],
+          MutationState,
+          MutationParams,
+          MutationArgsParams
+        >;
       }
     : never;
 };
@@ -268,6 +244,7 @@ export function mutation<
 type MutationStoreOutput<
   MutationName extends string,
   MutationState,
+  ResourceParams,
   MutationArgsParams
 > = {
   state: {};
@@ -288,80 +265,9 @@ type MutationStoreOutput<
   methods: {
     [key in MutationName as `mutate${Capitalize<key>}`]: (
       mutationParams: MutationArgsParams
-    ) => void;
+    ) => ResourceParams;
   };
 };
-
-// export function queryEffect<
-//   Input extends SignalStoreFeatureResult,
-//   const StoreInput extends Prettify<
-//     StateSignals<Input['state']> &
-//       Input['props'] &
-//       Input['methods'] &
-//       WritableStateSource<Prettify<Input['state']>>
-//   >,
-//   QueryState,
-//   QueryTypes extends {
-//     state: QueryState;
-//   },
-//   MutationState,
-//   MutationParams,
-//   MutationArgsParams,
-//   MutationType extends {
-//     state: MutationState;
-//     params: MutationParams;
-//     args: MutationArgsParams;
-//   }
-// >(queryEffect?: //  QueryEffect<
-// //   NoInfer<QueryTypes['state']>,
-// //   NoInfer<MutationType['state']>,
-// //   NoInfer<MutationType['params']>,
-// //   NoInfer<MutationType['args']>
-// // > &
-// {
-//   test: NoInfer<QueryTypes['state']>;
-// }) {
-//   // todo add __queryTypes to withMutation and harmoniser MutationConfig properties
-//   return (
-//     store: StoreInput,
-//     context: Input,
-//     __mutationTypes: MutationType,
-//     __queryTypes: QueryTypes
-//   ) => queryEffect;
-// }
-
-export function queryEffect2<
-  QueryPath,
-  Input extends SignalStoreFeatureResult,
-  const StoreInput extends Prettify<
-    StateSignals<Input['state']> &
-      Input['props'] &
-      Input['methods'] &
-      WritableStateSource<Prettify<Input['state']>>
-  >,
-  QueryState,
-  QueryTypes extends {
-    state: QueryState;
-  },
-  MutationState,
-  MutationParams,
-  MutationArgsParams,
-  MutationType extends {
-    state: MutationState;
-    params: MutationParams;
-    args: MutationArgsParams;
-  }
->(path: NoInfer<QueryPath>) {
-  return (
-    store: StoreInput,
-    context: Input,
-    mutationTypes: MutationType,
-    queryTypes: QueryTypes,
-    queryPath: QueryPath
-  ) => {};
-}
-
-// todo withQuery... faire un state initial qui représente l'état et sera muté par la mutation, et préserver la réponse de la query dans un champs spécifique readonly
 
 export function withMutation<
   Input extends SignalStoreFeatureResult,
@@ -388,7 +294,7 @@ export function withMutation<
       mutationArgsParams: ResourceArgsParams;
     };
   },
-  test?: (
+  queriesEffectsFn?: (
     store: StoreInput
   ) => QueriesMutation<
     Input,
@@ -399,12 +305,18 @@ export function withMutation<
   >
 ): SignalStoreFeature<
   Input,
-  MutationStoreOutput<MutationName, ResourceState, ResourceArgsParams>
+  MutationStoreOutput<
+    MutationName,
+    ResourceState,
+    ResourceParams,
+    ResourceArgsParams
+  >
 > {
   return ((context: SignalStoreFeatureResult) => {
     const capitalizedMutationName =
       mutationName.charAt(0).toUpperCase() + mutationName.slice(1);
 
+    // mutationResourceParamsFnSignal will be used has params signal to trigger the mutation loader
     const mutationResourceParamsFnSignal = signal<ResourceParams | undefined>(
       undefined
     );
@@ -415,7 +327,6 @@ export function withMutation<
           store as unknown as StoreInput
         )(store as unknown as StoreInput, context as unknown as Input);
         const mutationConfig = mutationResourceOption.mutationConfig;
-        // resourceParamsFnSignal will be used has params signal to trigger the mutation loader
 
         const resourceParamsSrc =
           mutationConfig.params ?? mutationResourceParamsFnSignal;
@@ -425,17 +336,13 @@ export function withMutation<
           params: resourceParamsSrc,
         } as any);
 
-        const queriesMutation = mutationResourceOption.queries
-          ? mutationResourceOption.queries
-          : ({} as Record<
-              string,
-              QueryEffect<
-                any,
-                ResourceState,
-                ResourceParams,
-                ResourceArgsParams
-              >
-            >);
+        const queriesMutation = (queriesEffectsFn?.(
+          store as unknown as StoreInput
+        )?.queriesEffects ?? {}) as Record<
+          string,
+          QueryEffect<any, ResourceState, ResourceParams, ResourceArgsParams>
+        >;
+
         const queriesWithOptimisticMutation = Object.entries(
           queriesMutation
         ).filter(([, queryMutationConfig]) => queryMutationConfig.optimistic);
@@ -448,23 +355,18 @@ export function withMutation<
           ([, queryMutationConfig]) => queryMutationConfig.reload
         );
 
+        const hasQueriesEffects =
+          queriesWithOptimisticMutation.length ||
+          queriesWithOptimisticPatch.length ||
+          queriesWithReload.length;
         console.log('mutationResource', mutationResource);
-        effect(() =>
-          console.log(
-            'mutationResource effect',
-            mutationResource.hasValue()
-              ? mutationResource.value()
-              : mutationResource.error()
-          )
-        );
 
         return {
           // todo name it mutationName Mutation (same for query)
           [mutationName]: mutationResource,
-          ...('queries' in mutationConfig && {
+          ...(hasQueriesEffects && {
             [`_${mutationName}Effect`]: effect(() => {
               const mutationStatus = mutationResource.status();
-              console.log('mutationStatus', mutationStatus);
 
               untracked(() => {
                 // Handle optimistic updates on loading
@@ -474,6 +376,7 @@ export function withMutation<
                       const queryResource = (store as any)[
                         queryName
                       ] as ResourceRef<any>;
+
                       const optimisticValue = queryMutationConfig?.optimistic?.(
                         {
                           mutationResource,
@@ -518,6 +421,9 @@ export function withMutation<
                         const optimisticValue = optimisticPatch({
                           mutationResource,
                           queryResource,
+                          mutationParams: resourceParamsSrc() as NonNullable<
+                            NoInfer<ResourceParams>
+                          >,
                           targetedState: getNestedStateValue({
                             state: queryValue,
                             keysPath: path.split('.'),
@@ -614,6 +520,11 @@ export function withMutation<
     )(context);
   }) as unknown as SignalStoreFeature<
     Input,
-    MutationStoreOutput<MutationName, ResourceState, ResourceArgsParams>
+    MutationStoreOutput<
+      MutationName,
+      ResourceState,
+      ResourceParams,
+      ResourceArgsParams
+    >
   >;
 }

@@ -40,7 +40,6 @@ export const TestStore = signalStore(
         categories: [] as Category[],
       },
     },
-    testRef: null,
   }),
   //! Ce qui n'est pas ouf, c'est que ça propose les méthodes de `resource` et pas de `rxResource`
   withQuery('userQueryWithAssociatedClientState', (store) =>
@@ -124,7 +123,6 @@ export const TestStore = signalStore(
       },
     });
 
-    console.log('resourceTest', resourceTest);
     return {
       updateUserSrc,
       resourceTest,
@@ -141,26 +139,27 @@ export const TestStore = signalStore(
             name: userName,
           };
         },
-        // params: store.updateUserSrc,
         loader: ({ params }) => {
           console.log('params', params);
           return lastValueFrom(of(params).pipe(delay(2000)));
         },
-      })
-    // queries: {
-    //   userQueryWithAssociatedClientState: {
-    //     optimistic: ({ mutationParams, queryResource }) => {
-    //       const queryValue = queryResource.value();
-    //       if (!queryValue) {
-    //         throw new Error('Query resource is not available');
-    //       }
-    //       return {
-    //         ...queryValue,
-    //         ...mutationParams,
-    //       };
-    //     },
-    //   },
-    // },
+      }),
+    (store) => ({
+      queriesEffects: {
+        userQueryWithAssociatedClientState: {
+          optimistic: ({ mutationParams, queryResource }) => {
+            const queryValue = queryResource.value();
+            if (!queryValue) {
+              throw new Error('Query resource is not available');
+            }
+            return {
+              ...queryValue,
+              ...mutationParams,
+            };
+          },
+        },
+      },
+    })
   )
 );
 

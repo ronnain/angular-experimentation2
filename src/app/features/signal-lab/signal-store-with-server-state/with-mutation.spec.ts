@@ -1,6 +1,7 @@
 import {
   signalStoreFeature,
   SignalStoreFeature,
+  StateSignals,
   withProps,
   withState,
 } from '@ngrx/signals';
@@ -8,12 +9,7 @@ import { Equal, Expect } from '../../../../../test-type';
 import { query, withQuery } from './with-query';
 import { lastValueFrom, of } from 'rxjs';
 import { ResourceRef, signal } from '@angular/core';
-import {
-  mutation,
-  withMutation,
-  queryEffect,
-  queryEffect2,
-} from './with-mutation';
+import { mutation, withMutation } from './with-mutation';
 import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
 import {
   AccessTypeObjectPropertyByDottedPath,
@@ -69,107 +65,19 @@ it('Should be well typed', () => {
         },
       })
     ),
-    withMutation(
-      'updateUserAddress',
-      (store) =>
-        mutation({
-          params: store.userSelected,
-          loader: ({ params }) => {
-            return lastValueFrom(
-              of({
-                id: params.id,
-                name: 'Updated User',
-                email: 'er@d',
-              } satisfies User)
-            );
-          },
-        }),
-      (clientStore) => {
-        return {
-          queries: {
-            user: (store, context, __mutationTypes, __queryTypes, path) => {
-              type ExpectStoreTypeToBeRetrieved = Expect<
-                Equal<(typeof clientStore)['user'], ResourceRef<User>>
-              >;
-              type Expect_StoreTypeToBeRetrieved = Expect<
-                Equal<(typeof clientStore)['user'], ResourceRef<User>>
-              >;
-              type ExpectContextStoreToBeRetrieved = Expect<
-                Equal<
-                  (typeof context)['state']['userSelected'],
-                  { id: string } | undefined
-                >
-              >;
-              type ExpectMutationTypesToBeRetrieved = Expect<
-                Equal<
-                  typeof __mutationTypes,
-                  {
-                    state: {
-                      id: string;
-                      name: string;
-                      email: string;
-                    };
-                    params:
-                      | {
-                          id: string;
-                        }
-                      | undefined;
-                    args: unknown;
-                  }
-                >
-              >;
-              type ExpectQueryTypesToBeRetrieved = Expect<
-                Equal<
-                  typeof __queryTypes,
-                  {
-                    state: User;
-                  }
-                >
-              >;
-
-              type PathObject = (typeof __queryTypes)['state'];
-              type Path = Prettify<ObjectDeepPath<PathObject>>;
-              const test: typeof path = 'id';
-              return {};
-            },
-          },
-        };
-      }
-      // queries: {
-
-      //   users: {
-      //     optimistic: ({ queryResource, mutationResource, mutationParams }) => {
-      //       type ExpectQueryResourceType = Expect<
-      //         Equal<
-      //           typeof queryResource,
-      //           ResourceRef<
-      //             | {
-      //                 id: string;
-      //                 name: string;
-      //                 email: string;
-      //               }[]
-      //             | undefined
-      //           >
-      //         >
-      //       >;
-      //       type ExpectMutationResourceType = Expect<
-      //         Equal<
-      //           typeof mutationResource,
-      //           ResourceRef<{
-      //             id: string;
-      //             name: string;
-      //             email: string;
-      //           }>
-      //         >
-      //       >;
-
-      //       type ExpectMutationParamsType = Expect<
-      //         Equal<typeof mutationParams, { id: string }>
-      //       >;
-      //       return queryResource.value();
-      //     },
-      //   },
-      // },
+    withMutation('updateUserAddress', (store) =>
+      mutation({
+        params: store.userSelected,
+        loader: ({ params }) => {
+          return lastValueFrom(
+            of({
+              id: params.id,
+              name: 'Updated User',
+              email: 'er@d',
+            } satisfies User)
+          );
+        },
+      })
     ),
     withMutation(
       'updateName',
@@ -186,11 +94,78 @@ it('Should be well typed', () => {
             );
           },
         }),
-      (store) => ({
-        queries: {
-          user: queryEffect2('address.street'),
-        },
-      })
+      (store) => {
+        type ExpectStoreTypeToBeRetrieved = Expect<
+          Equal<
+            ReturnType<(typeof store)['userSelected']>,
+            | {
+                id: string;
+              }
+            | undefined
+          >
+        >;
+        return {
+          queriesEffects: {
+            user: {
+              optimisticPatch: {
+                name: ({ mutationResource, queryResource, targetedState }) => {
+                  type ExpectMutationResourceToBeRetrieved = Expect<
+                    Equal<
+                      typeof mutationResource,
+                      ResourceRef<
+                        NoInfer<{
+                          id: string;
+                          name: string;
+                          email: string;
+                        }>
+                      >
+                    >
+                  >;
+
+                  type ExpectQueryResourceToBeRetrieved = Expect<
+                    Equal<typeof queryResource, ResourceRef<NoInfer<User>>>
+                  >;
+
+                  type ExpectTargetedStateToBeRetrieved = Expect<
+                    Equal<typeof targetedState, string | undefined>
+                  >;
+                  return (
+                    targetedState ?? store.userSelected()?.id + ': Romain '
+                  );
+                },
+              },
+              optimistic: ({
+                mutationParams,
+                mutationResource,
+                queryResource,
+              }) => {
+                type ExpectMutationParamsToBeRetrieved = Expect<
+                  Equal<typeof mutationParams, { id: string }>
+                >;
+
+                type ExpectMutationResourceToBeRetrieved = Expect<
+                  Equal<
+                    typeof mutationResource,
+                    ResourceRef<
+                      NoInfer<{ id: string; name: string; email: string }>
+                    >
+                  >
+                >;
+
+                type ExpectQueryResourceToBeRetrieved = Expect<
+                  Equal<typeof queryResource, ResourceRef<User>>
+                >;
+
+                return {
+                  id: mutationResource.value()?.id,
+                  email: mutationResource.value()?.email,
+                  name: mutationResource.value()?.name,
+                };
+              },
+            },
+          },
+        };
+      }
     )
   );
 
@@ -252,7 +227,6 @@ it('Should expose a method', () => {
     Equal<keyof ResultTypeMutation['methods'], 'mutateUpdateUser'>
   >;
 
-  type test2 = ResultTypeMutation['methods']['mutateUpdateUser'];
   type ExpectToHaveAnExposedMethodWithTypedParams = Expect<
     Equal<
       Parameters<ResultTypeMutation['methods']['mutateUpdateUser']>[0],
@@ -290,24 +264,71 @@ it('Should accept the store without loosing typing', () => {
   );
 });
 
-type testUserPath = ObjectDeepPath<User & {}>;
+it('Should expose the mutation resource and mutation method', () => {
+  const mutationOutput = signalStoreFeature(
+    withProps(() => ({
+      sourceId: signal({
+        id: '4',
+      }),
+    })),
+    withMutation('updateUser', (store) =>
+      mutation({
+        params: store.sourceId,
+        loader: ({ params }) => {
+          type ExpectParamsToBeAnObjectWithStringId = Expect<
+            Equal<typeof params, { id: string }>
+          >;
+          return lastValueFrom(
+            of({
+              id: params.id,
+              name: 'Updated User',
+              email: 'er@d',
+            } satisfies User)
+          );
+        },
+      })
+    ),
+    withMutation('testExposeMutationMethod', (store) =>
+      mutation({
+        method: ({ id }: { id: string }) => ({
+          id,
+        }),
+        loader: ({ params }) => {
+          type ExpectParamsToBeAnObjectWithStringId = Expect<
+            Equal<typeof params, { id: string }>
+          >;
+          return lastValueFrom(
+            of({
+              id: params.id,
+              name: 'Updated User',
+              email: 'er@d',
+            } satisfies User)
+          );
+        },
+      })
+    )
+  );
 
-const test: {
-  [key in testUserPath]?: AccessTypeObjectPropertyByDottedPath<
-    User,
-    DottedPathPathToTuple<key>
+  type MutationStoreOutputType = ReturnType<typeof mutationOutput>;
+
+  type ExpectMutationStoreOutputTypeToHaveMutationResource = Expect<
+    Equal<
+      MutationStoreOutputType['props']['updateUser'],
+      ResourceRef<{
+        id: string;
+        name: string;
+        email: string;
+      }>
+    >
   >;
-} = {
-  'address.street': 'test',
-};
-function test<QueryState>(data: ObjectDeepPath<NoInfer<QueryState & {}>>) {
-  return (
-    store,
-    context,
-    mutationTypes,
-    queryTypes,
-    queryState: QueryState
-  ) => {
-    return {};
-  };
-}
+
+  type t = MutationStoreOutputType['methods']['mutateTestExposeMutationMethod'];
+  type ExpectMutationStoreOutputTypeToHaveMutationMethod = Expect<
+    Equal<
+      MutationStoreOutputType['methods']['mutateTestExposeMutationMethod'],
+      (params: { id: string }) => {
+        id: string;
+      }
+    >
+  >;
+});

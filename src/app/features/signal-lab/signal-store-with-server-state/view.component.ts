@@ -7,10 +7,10 @@ import { TestStore } from './test.store';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <!-- userQueryWithAssociatedClientState ({{
+    userQueryWithAssociatedClientState ({{
       store.userQueryWithAssociatedClientState.status()
     }}):
-    <pre>{{ store.userQueryWithAssociatedClientState.value() | json }}</pre> -->
+    <pre>{{ store.userQueryWithAssociatedClientState.value() | json }}</pre>
     userState:
     <pre>{{ store.userDetails() | json }}</pre>
     <hr />
