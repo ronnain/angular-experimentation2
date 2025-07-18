@@ -19,6 +19,7 @@ import {
   AccessTypeObjectPropertyByDottedPath,
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
+import { Prettify } from '../../../util/types/prettify';
 
 type User = {
   id: string;
@@ -86,7 +87,7 @@ it('Should be well typed', () => {
       (clientStore) => {
         return {
           queries: {
-            user: (store, context, __mutationTypes, __queryTypes) => {
+            user: (store, context, __mutationTypes, __queryTypes, path) => {
               type ExpectStoreTypeToBeRetrieved = Expect<
                 Equal<(typeof clientStore)['user'], ResourceRef<User>>
               >;
@@ -125,6 +126,10 @@ it('Should be well typed', () => {
                   }
                 >
               >;
+
+              type PathObject = (typeof __queryTypes)['state'];
+              type Path = Prettify<ObjectDeepPath<PathObject>>;
+              const test: typeof path = 'id';
               return {};
             },
           },
@@ -183,7 +188,7 @@ it('Should be well typed', () => {
         }),
       (store) => ({
         queries: {
-          user: test(''),
+          user: queryEffect2('address.street'),
         },
       })
     )

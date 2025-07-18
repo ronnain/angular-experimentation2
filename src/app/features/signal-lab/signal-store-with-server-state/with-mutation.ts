@@ -202,7 +202,9 @@ type QueriesMutation<
           __queryTypes: {
             state: Queries[key];
           },
-          queryState: NoInfer<Queries[key]>
+          queryPath: Queries[key] extends object
+            ? ObjectDeepPath<NoInfer<Queries[key]>>
+            : never
         ) => any;
         //   QueryEffect<
         //   Queries[key], // todo return infer type from ResourceRef<Queries[key]>,
@@ -329,6 +331,7 @@ type MutationStoreOutput<
 // }
 
 export function queryEffect2<
+  QueryPath,
   Input extends SignalStoreFeatureResult,
   const StoreInput extends Prettify<
     StateSignals<Input['state']> &
@@ -348,12 +351,13 @@ export function queryEffect2<
     params: MutationParams;
     args: MutationArgsParams;
   }
->() {
+>(path: NoInfer<QueryPath>) {
   return (
     store: StoreInput,
     context: Input,
     mutationTypes: MutationType,
-    queryTypes: QueryTypes
+    queryTypes: QueryTypes,
+    queryPath: QueryPath
   ) => {};
 }
 
