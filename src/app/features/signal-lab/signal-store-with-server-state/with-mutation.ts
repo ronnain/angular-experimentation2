@@ -135,6 +135,7 @@ type QueryEffect<
 > = {
   /**
    * Will update the query state with the mutation data.
+   * Be careful! If the mutation is already in a loading state, trigger the mutation again will cancelled the previous mutation loader and will patch with the new value.
    */
   optimistic?: OptimisticMutationQuery<
     QueryState,
@@ -157,7 +158,7 @@ type QueryEffect<
    * Will patch the query specific state with the mutation data.
    * If the query is loading, it will not patch.
    * If the mutation data is not compatible with the query state, it will not patch.
-   * ! If the mutation is already in a loading state, it will not patch with the new value. Maybe disable the source/button that triggers the mutation.
+   * Be careful! If the mutation is already in a loading state, trigger the mutation again will cancelled the previous mutation loader and will patch with the new value.
    */
   optimisticPatch?: OptimisticPathMutationQuery<
     QueryState,
@@ -368,6 +369,8 @@ export function withMutation<
           ...(hasQueriesEffects && {
             [`_${mutationName}Effect`]: effect(() => {
               const mutationStatus = mutationResource.status();
+              const mutationParamsChange = resourceParamsSrc();
+              console.log('mutationParamsChange', mutationParamsChange);
 
               untracked(() => {
                 // Handle optimistic updates on loading

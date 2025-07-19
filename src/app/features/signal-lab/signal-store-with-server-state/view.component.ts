@@ -7,10 +7,24 @@ import { TestStore } from './test.store';
   standalone: true,
   imports: [CommonModule],
   template: `
-    userQueryWithAssociatedClientState ({{
+    <button
+      class="btn"
+      (click)="addCategory()"
+      [disabled]="store.addCategory.status() === 'loading'"
+    >
+      Add category
+    </button>
+    <button
+      class="btn"
+      (click)="addCategory2()"
+      [disabled]="store.addCategory.status() === 'loading'"
+    >
+      Add category
+    </button>
+    <!-- userQueryWithAssociatedClientState ({{
       store.userQueryWithAssociatedClientState.status()
     }}):
-    <pre>{{ store.userQueryWithAssociatedClientState.value() | json }}</pre>
+    <pre>{{ store.userQueryWithAssociatedClientState.value() | json }}</pre> -->
     userState:
     <pre>{{ store.userDetails() | json }}</pre>
     <hr />
@@ -41,13 +55,6 @@ import { TestStore } from './test.store';
     >
       Update User Src
     </button>
-    <button
-      class="btn"
-      (click)="addCategory()"
-      [disabled]="store.addCategory.status() === 'loading'"
-    >
-      Add category
-    </button>
   `,
 })
 export default class ViewComponent {
@@ -61,6 +68,12 @@ export default class ViewComponent {
     this.store.mutateAddCategory({
       id: 'new-category',
       name: 'New Category',
+    });
+  }
+  addCategory2() {
+    this.store.mutateAddCategory({
+      id: 'new-category2',
+      name: 'New Category2',
     });
   }
 }
