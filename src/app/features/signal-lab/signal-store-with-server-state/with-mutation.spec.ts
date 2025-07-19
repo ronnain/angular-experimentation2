@@ -2,22 +2,15 @@ import {
   signalStore,
   signalStoreFeature,
   SignalStoreFeature,
-  StateSignals,
   withProps,
   withState,
 } from '@ngrx/signals';
 import { Equal, Expect } from '../../../../../test-type';
 import { query, withQuery } from './with-query';
-import { lastValueFrom, of } from 'rxjs';
+import { delay, lastValueFrom, of, tap } from 'rxjs';
 import { ResourceRef, signal } from '@angular/core';
 import { mutation, withMutation } from './with-mutation';
-import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
-import {
-  AccessTypeObjectPropertyByDottedPath,
-  DottedPathPathToTuple,
-} from './types/access-type-object-property-by-dotted-path.type';
-import { Prettify } from '../../../util/types/prettify';
-import { TestBed } from '@angular/core/testing';
+import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 
 type User = {
   id: string;
@@ -35,7 +28,7 @@ type InferSignalStoreFeatureReturnedType<
 describe('withMutation', () => {
   it('The signalStore should expose a mutation resource and mutation method', () => {
     const MutationStore = signalStore(
-      withMutation('updateUser', (store) =>
+      withMutation('updateUser', () =>
         mutation({
           method: (id: string) => ({ id }),
           loader: ({ params }) => {
@@ -59,6 +52,132 @@ describe('withMutation', () => {
     expect(store.updateUser.hasValue()).toBe(false);
     expect(store.mutateUpdateUser).toBeDefined();
   });
+
+  it('When the mutation loader is triggered it should update optimistically the associated query value', fakeAsync(() => {
+    const MutationStore = signalStore(
+      withState({
+        userSelected: undefined as { id: string } | undefined,
+      }),
+      withQuery('user', (store) =>
+        query({
+          params: store.userSelected,
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params?.id,
+                name: 'John Doe',
+                email: 'john.doe@example.com',
+              } satisfies User).pipe(delay(2000))
+            );
+          },
+        })
+      ),
+      withMutation(
+        'updateUser',
+        () =>
+          mutation({
+            method: (user: User) => user,
+            loader: ({ params: user }) => {
+              return lastValueFrom(of(user satisfies User));
+            },
+          }),
+        () => ({
+          queriesEffects: {
+            user: {
+              optimistic: ({ mutationParams, queryResource }) => ({
+                ...(queryResource.hasValue() ? queryResource.value() : {}),
+                ...mutationParams,
+              }),
+            },
+          },
+        })
+      )
+    );
+    TestBed.configureTestingModule({
+      providers: [MutationStore],
+    });
+    const store = TestBed.inject(MutationStore);
+    expect(store.user.hasValue()).toBe(false);
+    store.mutateUpdateUser({
+      id: '1',
+      name: 'Updated User',
+      email: 'updated@example.com',
+    });
+    tick();
+    console.log('store.user.hasValue()', store.user.hasValue());
+    expect(store.user.hasValue()).toBe(true);
+    console.log('store.user.value()', store.user.value());
+    expect(store.user.value()).toEqual({
+      id: '1',
+      name: 'Updated User',
+      email: 'updated@example.com',
+    });
+  }));
+  it('When the mutation loader is triggered it should reload the associated query when the mutation is resolved', fakeAsync(() => {
+    const MutationStore = signalStore(
+      withState({
+        userSelected: { id: 'init' } as { id: string } | undefined,
+      }),
+      withQuery('user', (store) =>
+        query({
+          params: store.userSelected,
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params?.id,
+                name: 'John Doe',
+                email: 'john.doe@example.com',
+              } satisfies User).pipe(delay(1000))
+            );
+          },
+        })
+      ),
+      withMutation(
+        'updateUser',
+        () =>
+          mutation({
+            method: (user: User) => user,
+            loader: ({ params: user }) => {
+              return lastValueFrom(
+                of(user satisfies User).pipe(
+                  delay(1000),
+                  tap((data) => console.log('mutation resolved', data))
+                )
+              );
+            },
+          }),
+        () => ({
+          queriesEffects: {
+            user: {
+              reload: {
+                onMutationResolved: true,
+              },
+            },
+          },
+        })
+      )
+    );
+    TestBed.configureTestingModule({
+      providers: [MutationStore],
+    });
+    const store = TestBed.inject(MutationStore);
+    tick();
+    // Set userSelected so that the query can be loaded and reloaded
+    tick(2000); // Wait for the query to resolve
+    console.log('resolve: store.user.status()', store.user.status());
+    expect(store.user.status()).toEqual('resolved');
+
+    store.mutateUpdateUser({
+      id: '1',
+      name: 'Updated User',
+      email: 'updated@example.com',
+    });
+    tick(1000); // Wait for the mutation to resolve
+    console.log('store.updateUser.status()', store.updateUser.status());
+
+    console.log('store.user.status()', store.user.status());
+    expect(store.user.status()).toEqual('loading');
+  }));
 });
 
 // Types testing 👇
@@ -107,7 +226,7 @@ it('Should be well typed', () => {
               id: params.id,
               name: 'Updated User',
               email: 'er@d',
-            } satisfies User)
+            } satisfies User).pipe(delay(2000))
           );
         },
       })

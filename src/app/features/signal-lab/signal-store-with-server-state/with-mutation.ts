@@ -361,7 +361,6 @@ export function withMutation<
           queriesWithOptimisticMutation.length ||
           queriesWithOptimisticPatch.length ||
           queriesWithReload.length;
-        console.log('mutationResource', mutationResource);
 
         return {
           // todo name it mutationName Mutation (same for query)
@@ -370,7 +369,6 @@ export function withMutation<
             [`_${mutationName}Effect`]: effect(() => {
               const mutationStatus = mutationResource.status();
               const mutationParamsChange = resourceParamsSrc();
-              console.log('mutationParamsChange', mutationParamsChange);
 
               untracked(() => {
                 // Handle optimistic updates on loading
@@ -512,7 +510,6 @@ export function withMutation<
           if (mutationMethod) {
             const mutationParamsResult = mutationMethod(mutationParams);
 
-            console.log('mutationParamsResult', mutationParamsResult);
             mutationResourceParamsFnSignal.set(
               mutationParamsResult as ResourceParams
             );
