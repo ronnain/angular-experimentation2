@@ -6,7 +6,7 @@ import {
   SignalStoreFeature,
   withState,
 } from '@ngrx/signals';
-import { clientState, query, withQuery } from './with-query';
+import { query, withQuery } from './with-query';
 import { ResourceRef } from '@angular/core';
 
 type User = {
@@ -67,9 +67,10 @@ it('Should be well typed', () => {
       user: undefined as User | undefined,
       test: 3,
     }),
-    withQuery('userDetails', (store) =>
-      query(
-        {
+    withQuery(
+      'userDetails',
+      (store) =>
+        query({
           params: store.userSelected,
           loader: ({ params }) => {
             type ExpectParamsToBeTyped = Expect<
@@ -81,21 +82,19 @@ it('Should be well typed', () => {
               >
             >;
             return lastValueFrom(
-              of({
+              of<User>({
                 id: 'params.id',
                 name: 'John Doe',
                 email: 'test@a.com',
-              } satisfies User)
+              })
             );
           },
-        },
-        clientState({
+        }),
+      (store) => ({
+        associatedClientState: {
           path: 'user',
-          mapResourceToState: ({ queryResource, queryParams }) => {
-            return queryResource.value();
-          },
-        })
-      )
+        },
+      })
     ),
     withQuery('users', (store) =>
       query({
@@ -142,24 +141,39 @@ it('clientStatePath option should infer signalStore state path', () => {
       selectedUserId: undefined,
       user: undefined as User | undefined,
     }),
-    withQuery('userQuery', () =>
-      query(
-        {
-          params: () => '5',
+    withQuery(
+      'userQuery',
+      () =>
+        query({
+          params: () => ({
+            id: '5',
+          }),
           loader: ({ params }) => {
             return lastValueFrom(
-              of<User>({
-                id: params,
+              of<Omit<User, 'id'>>({
                 name: 'John Doe',
                 email: 'test@a.com',
               })
             );
           },
-        },
-        clientState({
+        }),
+      () => ({
+        associatedClientState: {
           path: 'user',
-        })
-      )
+          mapResourceToState: ({ queryParams, queryResource }) => {
+            type ExpectQueryParamsToBeTyped = Expect<
+              Equal<typeof queryParams, { id: string }>
+            >;
+            type ExpectQueryResourceToBeTyped = Expect<
+              Equal<typeof queryResource, ResourceRef<Omit<User, 'id'>>>
+            >;
+            return {
+              id: queryParams.id,
+              ...queryResource.value(),
+            };
+          },
+        },
+      })
     )
   );
 });

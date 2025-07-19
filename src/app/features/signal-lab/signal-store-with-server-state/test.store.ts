@@ -173,6 +173,9 @@ export const TestStore = signalStore(
               return newCategories;
             },
           },
+          reload: {
+            onMutationResolved: true,
+          },
         },
       },
     })

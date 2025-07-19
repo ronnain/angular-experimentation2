@@ -21,10 +21,11 @@ import { TestStore } from './test.store';
     >
       Add category
     </button>
-    <!-- userQueryWithAssociatedClientState ({{
-      store.userQueryWithAssociatedClientState.status()
-    }}):
-    <pre>{{ store.userQueryWithAssociatedClientState.value() | json }}</pre> -->
+    <br />
+
+    bffQueryProductsAndCategories:
+    <pre>{{ store.bffQueryProductsAndCategories.status() | json }}</pre>
+    <br />
     userState:
     <pre>{{ store.userDetails() | json }}</pre>
     <hr />

@@ -57,6 +57,26 @@ type MapResourceToState<
   queryParams: NoInfer<ResourceParams>;
 }) => NoInfer<ClientStateTypeByDottedPath>;
 
+/**
+ *
+ * @param resourceName
+ * @param queryFactory
+ * @param options To help for type inference, you may always get the store as a parameter. Otherwise the mapResourceToState may be requested without the real needs
+ * @example
+ * ```ts
+withQuery(
+      'userDetails',
+      (store) =>
+        query(...),
+      (store) => ({
+        associatedClientState: {
+          path: 'user',
+        },
+      })
+    ),
+ * ```
+ * @returns
+ */
 export function withQuery<
   Input extends SignalStoreFeatureResult,
   const ResourceName extends string,
@@ -69,7 +89,15 @@ export function withQuery<
       Input['props'] &
       Input['methods'] &
       WritableStateSource<Prettify<Input['state']>>
-  >
+  >,
+  const ClientStateDottedPath extends ObjectDeepPath<Input['state']>,
+  const ClientStateTypeByDottedPath extends AccessTypeObjectPropertyByDottedPath<
+    Input['state'],
+    ClientStateDottedPathTuple
+  >,
+  const ClientStateDottedPathTuple extends DottedPathPathToTuple<
+    ClientStateDottedPath & string
+  > = DottedPathPathToTuple<NoInfer<ClientStateDottedPath> & string>
 >(
   resourceName: ResourceName,
   queryFactory: (store: StoreInput) => (
@@ -77,6 +105,7 @@ export function withQuery<
     context: Input
   ) => { queryConfig: QueryConfig } & {
     clientState?: {
+      // todo remove clientState
       path: string;
       mapResourceToState?: MapResourceToState<any, any, any>;
     };
@@ -86,7 +115,42 @@ export function withQuery<
       queryParams: ResourceParams;
       queryArgsParams: ResourceArgsParams;
     };
-  } & QueryBrand
+  } & QueryBrand,
+  optionsFactory?: (store: StoreInput) => {
+    // Exclude path from the MergeObject, it will enable the const type inference, otherwise it will be inferred as string
+    /**
+     * Will update the state at the given path with the resource data.
+     * If the type of targeted state does not match the type of the resource,
+     * the mapResourceToState function is required.
+     * - If the mapResourceToState is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
+     */
+    associatedClientState?: { path: NoInfer<ClientStateDottedPath> } & Prettify<
+      MergeObject<
+        {
+          mapResourceToState?: MapResourceToState<
+            NoInfer<ResourceState>,
+            NoInfer<ResourceParams>,
+            ClientStateTypeByDottedPath
+          >;
+        },
+        NoInfer<ResourceState> extends ClientStateTypeByDottedPath
+          ? {
+              mapResourceToState?: MapResourceToState<
+                NoInfer<ResourceState>,
+                NoInfer<ResourceParams>,
+                ClientStateTypeByDottedPath
+              >;
+            }
+          : {
+              mapResourceToState: MapResourceToState<
+                NoInfer<ResourceState>,
+                NoInfer<ResourceParams>,
+                ClientStateTypeByDottedPath
+              >;
+            }
+      >
+    >;
+  }
 ): SignalStoreFeature<
   Input,
   WithQueryOutputStoreConfig<ResourceName, ResourceState>
@@ -234,61 +298,5 @@ export function query<
       queryArgsParams: {} as NoInfer<QueryArgsParams>,
     },
     [__QueryBrandSymbol]: undefined,
-  });
-}
-
-/**
- * Will update the state at the given path with the resource data.
- * If the type of targeted state does not match the type of the resource,
- * the mapResourceToState function is required.
- */
-export function clientState<
-  Input extends SignalStoreFeatureResult,
-  ResourceState,
-  ResourceParams,
-  ResourceArgsParams,
-  QueryConfig extends {
-    state: ResourceState;
-    params: ResourceParams;
-  },
-  const ClientStateDottedPath extends ObjectDeepPath<Input['state']>,
-  const ClientStateTypeByDottedPath extends AccessTypeObjectPropertyByDottedPath<
-    Input['state'],
-    ClientStateDottedPathTuple
-  >,
-  const ClientStateDottedPathTuple extends DottedPathPathToTuple<
-    ClientStateDottedPath & string
-  > = DottedPathPathToTuple<ClientStateDottedPath & string>
->(
-  clientState: Prettify<
-    MergeObject<
-      {
-        path: ClientStateDottedPath;
-        mapResourceToState?: MapResourceToState<
-          NoInfer<QueryConfig['state']>,
-          NoInfer<QueryConfig['params']>,
-          ClientStateTypeByDottedPath
-        >;
-      },
-      NoInfer<QueryConfig['state']> extends ClientStateTypeByDottedPath
-        ? {
-            mapResourceToState?: MapResourceToState<
-              NoInfer<QueryConfig['state']>,
-              NoInfer<QueryConfig['params']>,
-              ClientStateTypeByDottedPath
-            >;
-          }
-        : {
-            mapResourceToState: MapResourceToState<
-              NoInfer<QueryConfig['state']>,
-              NoInfer<QueryConfig['params']>,
-              ClientStateTypeByDottedPath
-            >;
-          }
-    >
-  >
-) {
-  return (queryConfig: QueryConfig, context: Input) => ({
-    clientState,
   });
 }
