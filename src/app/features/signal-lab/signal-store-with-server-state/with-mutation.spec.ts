@@ -1,4 +1,5 @@
 import {
+  signalStore,
   signalStoreFeature,
   SignalStoreFeature,
   StateSignals,
@@ -16,6 +17,7 @@ import {
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
 import { Prettify } from '../../../util/types/prettify';
+import { TestBed } from '@angular/core/testing';
 
 type User = {
   id: string;
@@ -29,6 +31,37 @@ type User = {
 type InferSignalStoreFeatureReturnedType<
   T extends SignalStoreFeature<any, any>
 > = T extends SignalStoreFeature<any, infer R> ? R : never;
+
+describe('withMutation', () => {
+  it('The signalStore should expose a mutation resource and mutation method', () => {
+    const MutationStore = signalStore(
+      withMutation('updateUser', (store) =>
+        mutation({
+          method: (id: string) => ({ id }),
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params.id,
+                name: 'Updated User',
+                email: 'er@d',
+              } satisfies User)
+            );
+          },
+        })
+      )
+    );
+    TestBed.configureTestingModule({
+      providers: [MutationStore],
+    });
+    const store = TestBed.inject(MutationStore);
+    expect(store.updateUser).toBeDefined();
+    console.log('store.updateUser.hasValue()', store.updateUser.hasValue());
+    expect(store.updateUser.hasValue()).toBe(false);
+    expect(store.mutateUpdateUser).toBeDefined();
+  });
+});
+
+// Types testing 👇
 
 it('Should be well typed', () => {
   const multiplesWithQueryAndMutation = signalStoreFeature(
@@ -321,8 +354,6 @@ it('Should expose the mutation resource and mutation method', () => {
       }>
     >
   >;
-
-  type t = MutationStoreOutputType['methods']['mutateTestExposeMutationMethod'];
   type ExpectMutationStoreOutputTypeToHaveMutationMethod = Expect<
     Equal<
       MutationStoreOutputType['methods']['mutateTestExposeMutationMethod'],

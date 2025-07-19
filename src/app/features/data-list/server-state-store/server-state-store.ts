@@ -313,9 +313,6 @@ const myStore = serverStateStore(
   // })
 );
 
-const result = myStore.value[0];
-//    ^?
-
 type InputOutputFn<
   Inputs extends StoreConstraints = StoreDefaultConfig,
   Outputs extends StoreConstraints = StoreDefaultConfig
