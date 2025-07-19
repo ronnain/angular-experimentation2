@@ -252,7 +252,7 @@ type MutationStoreOutput<
   state: {};
   props: Merge<
     {
-      [key in MutationName]: ResourceRef<MutationState>;
+      [key in `${MutationName}Mutation`]: ResourceRef<MutationState>;
     },
     {
       /**
@@ -364,7 +364,7 @@ export function withMutation<
 
         return {
           // todo name it mutationName Mutation (same for query)
-          [mutationName]: mutationResource,
+          [`${mutationName}Mutation`]: mutationResource,
           ...(hasQueriesEffects && {
             [`_${mutationName}Effect`]: effect(() => {
               const mutationStatus = mutationResource.status();
@@ -376,7 +376,7 @@ export function withMutation<
                   queriesWithOptimisticMutation.forEach(
                     ([queryName, queryMutationConfig]) => {
                       const queryResource = (store as any)[
-                        queryName
+                        `${queryName}Query`
                       ] as ResourceRef<any>;
 
                       const optimisticValue = queryMutationConfig?.optimistic?.(
@@ -403,7 +403,7 @@ export function withMutation<
                   queriesWithOptimisticPatch.forEach(
                     ([queryName, queryMutationConfig]) => {
                       const queryResource = (store as any)[
-                        queryName
+                        `${queryName}Query`
                       ] as ResourceRef<any>;
                       Object.entries(
                         queryMutationConfig.optimisticPatch as Record<
@@ -450,7 +450,7 @@ export function withMutation<
                 queriesWithReload.forEach(
                   ([queryName, queryMutationConfig]) => {
                     const queryResource = (store as any)[
-                      queryName
+                      `${queryName}Query`
                     ] as ResourceRef<any>;
 
                     if (queryMutationConfig.reload) {

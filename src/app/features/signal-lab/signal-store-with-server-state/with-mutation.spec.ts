@@ -47,9 +47,12 @@ describe('withMutation', () => {
       providers: [MutationStore],
     });
     const store = TestBed.inject(MutationStore);
-    expect(store.updateUser).toBeDefined();
-    console.log('store.updateUser.hasValue()', store.updateUser.hasValue());
-    expect(store.updateUser.hasValue()).toBe(false);
+    expect(store.updateUserMutation).toBeDefined();
+    console.log(
+      'store.updateUser.hasValue()',
+      store.updateUserMutation.hasValue()
+    );
+    expect(store.updateUserMutation.hasValue()).toBe(false);
     expect(store.mutateUpdateUser).toBeDefined();
   });
 
@@ -73,7 +76,7 @@ describe('withMutation', () => {
         })
       ),
       withMutation(
-        'updateUser',
+        'user',
         () =>
           mutation({
             method: (user: User) => user,
@@ -97,17 +100,17 @@ describe('withMutation', () => {
       providers: [MutationStore],
     });
     const store = TestBed.inject(MutationStore);
-    expect(store.user.hasValue()).toBe(false);
-    store.mutateUpdateUser({
+    expect(store.userQuery.hasValue()).toBe(false);
+    store.mutateUser({
       id: '1',
       name: 'Updated User',
       email: 'updated@example.com',
     });
     tick();
-    console.log('store.user.hasValue()', store.user.hasValue());
-    expect(store.user.hasValue()).toBe(true);
-    console.log('store.user.value()', store.user.value());
-    expect(store.user.value()).toEqual({
+    console.log('store.user.hasValue()', store.userQuery.hasValue());
+    expect(store.userQuery.hasValue()).toBe(true);
+    console.log('store.user.value()', store.userQuery.value());
+    expect(store.userQuery.value()).toEqual({
       id: '1',
       name: 'Updated User',
       email: 'updated@example.com',
@@ -164,8 +167,8 @@ describe('withMutation', () => {
     tick();
     // Set userSelected so that the query can be loaded and reloaded
     tick(2000); // Wait for the query to resolve
-    console.log('resolve: store.user.status()', store.user.status());
-    expect(store.user.status()).toEqual('resolved');
+    console.log('resolve: store.user.status()', store.userQuery.status());
+    expect(store.userQuery.status()).toEqual('resolved');
 
     store.mutateUpdateUser({
       id: '1',
@@ -173,10 +176,10 @@ describe('withMutation', () => {
       email: 'updated@example.com',
     });
     tick(1000); // Wait for the mutation to resolve
-    console.log('store.updateUser.status()', store.updateUser.status());
+    console.log('store.updateUser.status()', store.updateUserMutation.status());
 
-    console.log('store.user.status()', store.user.status());
-    expect(store.user.status()).toEqual('loading');
+    console.log('store.user.status()', store.userQuery.status());
+    expect(store.userQuery.status()).toEqual('loading');
   }));
 });
 
@@ -332,7 +335,7 @@ it('Should be well typed', () => {
 
 it('Should expose a method', () => {
   const mutationOutput = signalStoreFeature(
-    withMutation('updateUser', () =>
+    withMutation('user', () =>
       mutation({
         method: (data: { page: string }) => data.page,
         loader: ({ params }) => {
@@ -355,7 +358,7 @@ it('Should expose a method', () => {
 
   type ExpectPropsToHaveMutationNameWithResourceRef = Expect<
     Equal<
-      MutationProps['updateUser'],
+      MutationProps['userMutation'],
       ResourceRef<{
         id: string;
         name: string;
@@ -366,7 +369,7 @@ it('Should expose a method', () => {
 
   type ExpectPropsToHaveARecordWithMutationNameWithMutationState = Expect<
     Equal<
-      MutationProps['__mutation']['updateUser'],
+      MutationProps['__mutation']['user'],
       {
         id: string;
         name: string;
@@ -376,12 +379,12 @@ it('Should expose a method', () => {
   >;
 
   type ExpectToHaveAnExposedMethod = Expect<
-    Equal<keyof ResultTypeMutation['methods'], 'mutateUpdateUser'>
+    Equal<keyof ResultTypeMutation['methods'], 'mutateUser'>
   >;
 
   type ExpectToHaveAnExposedMethodWithTypedParams = Expect<
     Equal<
-      Parameters<ResultTypeMutation['methods']['mutateUpdateUser']>[0],
+      Parameters<ResultTypeMutation['methods']['mutateUser']>[0],
       {
         page: string;
       }
@@ -423,7 +426,7 @@ it('Should expose the mutation resource and mutation method', () => {
         id: '4',
       }),
     })),
-    withMutation('updateUser', (store) =>
+    withMutation('user', (store) =>
       mutation({
         params: store.sourceId,
         loader: ({ params }) => {
@@ -465,7 +468,7 @@ it('Should expose the mutation resource and mutation method', () => {
 
   type ExpectMutationStoreOutputTypeToHaveMutationResource = Expect<
     Equal<
-      MutationStoreOutputType['props']['updateUser'],
+      MutationStoreOutputType['props']['userMutation'],
       ResourceRef<{
         id: string;
         name: string;

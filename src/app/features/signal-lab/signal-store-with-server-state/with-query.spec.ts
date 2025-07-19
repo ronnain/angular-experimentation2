@@ -1,4 +1,4 @@
-import { lastValueFrom, of } from 'rxjs';
+import { delay, lastValueFrom, of } from 'rxjs';
 import { Equal, Expect } from '../../../../../test-type';
 import {
   signalStore,
@@ -8,12 +8,132 @@ import {
 } from '@ngrx/signals';
 import { query, withQuery } from './with-query';
 import { ResourceRef } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
 
 type User = {
   id: string;
   name: string;
   email: string;
 };
+
+describe('withQuery', () => {
+  it('Should expose a query resource', () => {
+    const Store = signalStore(
+      withQuery('user', () =>
+        query({
+          params: () => '5',
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params,
+                name: 'John Doe',
+                email: 'test@a.com',
+              })
+            );
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store],
+    });
+    const store = TestBed.inject(Store);
+
+    expect(store.userQuery).toBeDefined();
+  });
+
+  it('should have idle state when query params are undefined', () => {
+    const Store = signalStore(
+      withQuery('user', () =>
+        query({
+          params: () => undefined,
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params,
+                name: 'John Doe',
+                email: 'test@a.com',
+              })
+            );
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store],
+    });
+    const store = TestBed.inject(Store);
+
+    expect(store.userQuery.status()).toBe('idle');
+  });
+
+  it('should have loading state when query params are defined', () => {
+    const Store = signalStore(
+      withQuery('user', () =>
+        query({
+          params: () => '5',
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params,
+                name: 'John Doe',
+                email: 'test@a.com',
+              }).pipe(delay(100))
+            );
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store],
+    });
+    const store = TestBed.inject(Store);
+
+    expect(store.userQuery.status()).toBe('loading');
+  });
+
+  it('should have resolved status when loader completes successfully', async () => {
+    const Store = signalStore(
+      withQuery('user', () =>
+        query({
+          params: () => '5',
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params,
+                name: 'John Doe',
+                email: 'test@a.com',
+              }).pipe(delay(1))
+            );
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store],
+    });
+    const store = TestBed.inject(Store);
+
+    //@ts-ignore
+    expect(store.userQuery.value()).toEqual(undefined);
+
+    // Wait for the query to resolve
+    await new Promise((resolve) => setTimeout(resolve, 4));
+
+    expect(store.userQuery.status()).toBe('resolved');
+    expect(store.userQuery.value()).toEqual({
+      id: '5',
+      name: 'John Doe',
+      email: 'test@a.com',
+    });
+  });
+});
+
+// Typing test👇
 
 type InferSignalStoreFeatureReturnedType<
   T extends SignalStoreFeature<any, any>
@@ -38,11 +158,11 @@ it('Should be well typed', () => {
   type PropsKeys = keyof ResultType['props'];
 
   type ExpectTheResourceNameAndQueriesTypeRecord = Expect<
-    Equal<PropsKeys, 'user' | '__query'>
+    Equal<PropsKeys, 'userQuery' | '__query'>
   >;
 
   type ExpectThePropsToHaveARecordWithResourceRef = Expect<
-    Equal<ResultType['props']['user'], ResourceRef<User>>
+    Equal<ResultType['props']['userQuery'], ResourceRef<User>>
   >;
 
   type ExpectThePropsToHaveARecordWithQueryNameAndHisType = Expect<

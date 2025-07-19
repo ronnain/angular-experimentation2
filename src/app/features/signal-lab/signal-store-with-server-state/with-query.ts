@@ -37,7 +37,7 @@ type WithQueryOutputStoreConfig<
   state: {};
   props: Merge<
     {
-      [key in ResourceName & string]: ResourceRef<ResourceState>;
+      [key in `${ResourceName & string}Query`]: ResourceRef<ResourceState>;
     },
     {
       __query: {
@@ -104,12 +104,6 @@ export function withQuery<
     store: StoreInput,
     context: Input
   ) => { queryConfig: QueryConfig } & {
-    clientState?: {
-      // todo remove clientState
-      path: string;
-      mapResourceToState?: MapResourceToState<any, any, any>;
-    };
-  } & {
     __types: {
       queryState: ResourceState;
       queryParams: ResourceParams;
@@ -174,12 +168,14 @@ export function withQuery<
           params: resourceParamsSrc,
         } as ResourceOptions<any, any>);
 
-        const clientState = queryConfigData.clientState;
+        const associatedClientState = optionsFactory?.(
+          store as unknown as StoreInput
+        ).associatedClientState;
 
         return {
-          [resourceName]: queryResource,
-          ...(clientState &&
-            'path' in clientState && {
+          [`${resourceName}Query`]: queryResource,
+          ...(associatedClientState &&
+            'path' in associatedClientState && {
               [`_${resourceName}Effect`]: effect(() => {
                 if (!['resolved', 'local'].includes(queryResource.status())) {
                   return;
@@ -188,11 +184,12 @@ export function withQuery<
                   const resourceData = queryResource.hasValue()
                     ? (queryResource.value() as ResourceState | undefined)
                     : undefined;
-                  const path = clientState?.path;
+                  const path = associatedClientState?.path;
                   const mappedResourceToState =
-                    'mapResourceToState' in clientState
-                      ? clientState.mapResourceToState({
-                          queryResource,
+                    'mapResourceToState' in associatedClientState
+                      ? associatedClientState.mapResourceToState({
+                          queryResource:
+                            queryResource as ResourceRef<ResourceState>,
                           queryParams:
                             queryResourceParamsFnSignal() as NonNullable<
                               NoInfer<ResourceParams>

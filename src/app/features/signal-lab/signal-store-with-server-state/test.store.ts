@@ -1,7 +1,7 @@
 import { signalStore, withProps, withState } from '@ngrx/signals';
-import { clientState, query, withQuery } from './with-query';
+import { query, withQuery } from './with-query';
 import { BehaviorSubject, delay, lastValueFrom, of } from 'rxjs';
-import { resource, signal } from '@angular/core';
+import { inject, resource, signal } from '@angular/core';
 import { mutation, withMutation } from './with-mutation';
 
 type User = {
@@ -56,10 +56,10 @@ export const TestStore = signalStore(
             }).pipe(delay(2000))
           );
         },
-      },
-      clientState({
-        path: 'userDetails.user',
-      })
+      }
+      // clientState({
+      //   path: 'userDetails.user',
+      // })
     )
   ),
   withQuery('bffQueryProductsAndCategories', (store) =>
@@ -92,14 +92,14 @@ export const TestStore = signalStore(
             }).pipe(delay(2000))
           );
         },
-      },
-      clientState({
-        path: 'userDetails.bff',
-        mapResourceToState: ({ queryResource }) => ({
-          products: queryResource.value()?.products,
-          categories: queryResource.value()?.categories,
-        }),
-      })
+      }
+      // clientState({
+      //   path: 'userDetails.bff',
+      //   mapResourceToState: ({ queryResource }) => ({
+      //     products: queryResource.value()?.products,
+      //     categories: queryResource.value()?.categories,
+      //   }),
+      // })
     )
   ),
   withProps(() => {
@@ -182,4 +182,64 @@ export const TestStore = signalStore(
   )
 );
 
-// todo checker pourquoi il n'y a pas de value quand ça charge
+const Store = signalStore(
+  {
+    providedIn: 'root',
+  },
+  withState({
+    selectedUserId: undefined as string | undefined,
+    user: undefined as User | undefined,
+  }),
+  withQuery(
+    'userDetails',
+    (store) =>
+      query({
+        params: store.selectedUserId,
+        loader: ({ params }) =>
+          lastValueFrom(
+            of({
+              id: params,
+              name: 'John Doe',
+              email: 'a@a.fr',
+            }).pipe(delay(2000))
+          ),
+      }),
+    (store) => ({
+      associatedClientState: {
+        path: 'user',
+      },
+    })
+  ),
+  withMutation(
+    'user',
+    (store) =>
+      mutation({
+        method: (user: User) => user,
+        // Or  params: store.user
+        loader: ({ params }) => lastValueFrom(of(params).pipe(delay(2000)));
+      }),
+    (store) => ({
+      queriesEffects: {
+        userDetails: {
+          optimistic: ({ mutationParams }) => mutationParams,
+          reload: {
+            onMutationError: true,
+          },
+        },
+      },
+    })
+  )
+);
+
+const store = inject(Store);
+const queryStatus = store.userDetailsQuery.status(); // "idle" | "error" | "loading" | "reloading" | "resolved" | "local"
+const queryValue = store.userDetailsQuery.value(); // {  id: string;  name: string;  email: string; }
+
+const mutationStatus = store.userMutation.status(); // "idle" | "error" | "loading" | "reloading" | "resolved" | "local"
+const mutationValue = store.userMutation.value(); // {  id: string;  name: string;  email: string; }
+
+store.mutateUser({
+  id: '1',
+  name: 'Jane Doe',
+  email: 'jane.doe@example.com',
+});
