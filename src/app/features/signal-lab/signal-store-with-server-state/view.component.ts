@@ -1,5 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import {
+  Component,
+  effect,
+  inject,
+  resource,
+  Signal,
+  signal,
+} from '@angular/core';
 import { TestStore } from './test.store';
 
 @Component({
@@ -63,7 +70,19 @@ export default class ViewComponent {
 
   testCountRef = signal('Test');
 
-  constructor() {}
+  // testStream = resource({
+  //   params: () => '5',
+  //   stream: ({ params }) => {
+  //     const testSignal = signal(5);
+  //     return new Promise<number>((resolve) => {
+  //       resolve(testSignal());
+  //     });
+  //   },
+  // });
+
+  // constructor() {
+  //   effect(() => console.log('test', this.testStream.value()));
+  // }
 
   addCategory() {
     this.store.mutateAddCategory({

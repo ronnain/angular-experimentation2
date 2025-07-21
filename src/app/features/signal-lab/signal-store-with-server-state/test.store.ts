@@ -216,7 +216,7 @@ const Store = signalStore(
       mutation({
         method: (user: User) => user,
         // Or  params: store.user
-        loader: ({ params }) => lastValueFrom(of(params).pipe(delay(2000)));
+        loader: ({ params }) => lastValueFrom(of(params).pipe(delay(2000))),
       }),
     (store) => ({
       queriesEffects: {

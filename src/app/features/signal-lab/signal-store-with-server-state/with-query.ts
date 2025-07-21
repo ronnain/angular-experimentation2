@@ -24,6 +24,8 @@ import {
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
 import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
+import { lastValueFrom, of } from 'rxjs';
+import { rxResource } from '@angular/core/rxjs-interop';
 
 const __QueryBrandSymbol: unique symbol = Symbol();
 type QueryBrand = {
@@ -215,6 +217,16 @@ export function withQuery<
     WithQueryOutputStoreConfig<ResourceName, ResourceState>
   >;
 }
+
+const testResource = resource({
+  loader: () => lastValueFrom(of(5)),
+  defaultValue: 0,
+});
+
+const testRxResource = rxResource<number, number>({
+  // params: () => 5,
+  stream: () => of(5),
+});
 
 /**
  * Configures a query.

@@ -7,7 +7,7 @@ import {
   withState,
 } from '@ngrx/signals';
 import { query, withQuery } from './with-query';
-import { ResourceRef } from '@angular/core';
+import { resource, ResourceRef, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
 type User = {
@@ -94,6 +94,8 @@ describe('withQuery', () => {
 
     expect(store.userQuery.status()).toBe('loading');
   });
+
+  // todo tester avec fakeAsync et withRxQuery
 
   it('should have resolved status when loader completes successfully', async () => {
     const Store = signalStore(

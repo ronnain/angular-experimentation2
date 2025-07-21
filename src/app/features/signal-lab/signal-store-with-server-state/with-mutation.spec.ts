@@ -116,7 +116,7 @@ describe('withMutation', () => {
       email: 'updated@example.com',
     });
   }));
-  it('When the mutation loader is triggered it should reload the associated query when the mutation is resolved', fakeAsync(() => {
+  it('When the mutation loader is triggered it should reload the associated query when the mutation is resolved', async () => {
     const MutationStore = signalStore(
       withState({
         userSelected: { id: 'init' } as { id: string } | undefined,
@@ -130,7 +130,7 @@ describe('withMutation', () => {
                 id: params?.id,
                 name: 'John Doe',
                 email: 'john.doe@example.com',
-              } satisfies User).pipe(delay(1000))
+              } satisfies User).pipe(delay(10))
             );
           },
         })
@@ -164,10 +164,9 @@ describe('withMutation', () => {
       providers: [MutationStore],
     });
     const store = TestBed.inject(MutationStore);
-    tick();
-    // Set userSelected so that the query can be loaded and reloaded
-    tick(2000); // Wait for the query to resolve
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     console.log('resolve: store.user.status()', store.userQuery.status());
+
     expect(store.userQuery.status()).toEqual('resolved');
 
     store.mutateUpdateUser({
@@ -175,12 +174,14 @@ describe('withMutation', () => {
       name: 'Updated User',
       email: 'updated@example.com',
     });
-    tick(1000); // Wait for the mutation to resolve
+
+    // Wait for the query to resolve
+    await new Promise((resolve) => setTimeout(resolve, 20));
     console.log('store.updateUser.status()', store.updateUserMutation.status());
 
     console.log('store.user.status()', store.userQuery.status());
     expect(store.userQuery.status()).toEqual('loading');
-  }));
+  });
 });
 
 // Types testing 👇
