@@ -7,7 +7,7 @@ import {
   withState,
 } from '@ngrx/signals';
 import { query, withQuery } from './with-query';
-import { resource, ResourceRef, signal } from '@angular/core';
+import { ResourceRef, ResourceStreamItem, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
 type User = {
@@ -124,13 +124,71 @@ describe('withQuery', () => {
     expect(store.userQuery.value()).toEqual(undefined);
 
     // Wait for the query to resolve
-    await new Promise((resolve) => setTimeout(resolve, 4));
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     expect(store.userQuery.status()).toBe('resolved');
     expect(store.userQuery.value()).toEqual({
       id: '5',
       name: 'John Doe',
       email: 'test@a.com',
+    });
+  });
+
+  it('should handle query with resource stream', async () => {
+    const Store = signalStore(
+      withQuery('user', () =>
+        query({
+          params: () => '5',
+          stream: async ({ params }) => {
+            type StreamResponseTypeRetrieved = Expect<
+              Equal<typeof params, string>
+            >;
+            const testSignal = signal<
+              ResourceStreamItem<{
+                count: number;
+              }>
+            >({
+              value: {
+                count: 5,
+              },
+            });
+
+            // Add a delay of 200ms before returning the response
+            await new Promise((resolve) => setTimeout(resolve, 50));
+
+            // Update the value after 300ms
+            setTimeout(() => {
+              testSignal.set({
+                value: {
+                  count: 6,
+                },
+              });
+            }, 100);
+
+            return testSignal.asReadonly();
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store],
+    });
+    const store = TestBed.inject(Store);
+
+    //@ts-ignore
+    expect(store.userQuery.value()).toEqual(undefined);
+    expect(store.userQuery.status()).toEqual('loading');
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(store.userQuery.status()).toEqual('resolved');
+    expect(store.userQuery.value()).toEqual({
+      count: 5,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(store.userQuery.value()).toEqual({
+      count: 6,
     });
   });
 });

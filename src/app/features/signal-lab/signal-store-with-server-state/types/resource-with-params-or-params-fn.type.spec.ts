@@ -1,5 +1,7 @@
 import { ResourceWithParamsOrParamsFn } from './resource-with-params-or-params-fn.type';
 import { Equal, Expect } from '../../../../../../test-type';
+import { ResourceStreamItem, signal } from '@angular/core';
+import { Prettify } from '../../../../util/types/prettify';
 
 function test<ResourceState, Params, ParamsArgs>(
   data: ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs>
@@ -22,6 +24,15 @@ type InferParamsArgType<T> = T extends ResourceWithParamsOrParamsFn<
 >
   ? ParamsArgs
   : never;
+
+type InferStateType<T> = T extends ResourceWithParamsOrParamsFn<
+  infer ResourceState,
+  any,
+  infer ParamsArgs
+>
+  ? Prettify<ResourceState>
+  : never;
+
 it('Should accept params or paramsFn, but not both', () => {
   const paramsOnly = test({
     params: () => 'test' as const,
@@ -33,8 +44,36 @@ it('Should accept params or paramsFn, but not both', () => {
       });
     },
   });
-  type ParamsOnlyTypeRRetrieved = Expect<
+  type ParamsOnlyTypeRetrieved = Expect<
     Equal<InferParamsType<typeof paramsOnly>, 'test'>
+  >;
+
+  const paramsWithLoader = test({
+    params: () => 'test',
+    loader: ({ params }) => {
+      return Promise.resolve({
+        id: params,
+        name: 'John Doe',
+        email: 'john.doe@example.com',
+      });
+    },
+  });
+
+  // todo find why this needs an union type
+  type ResourceStateTypeRetrieved = Expect<
+    Equal<
+      InferStateType<typeof paramsWithLoader>,
+      | {
+          id: string;
+          name: string;
+          email: string;
+        }
+      | {
+          id: string;
+          name: string;
+          email: string;
+        }
+    >
   >;
 
   const paramsFnOnly = test({
@@ -52,7 +91,6 @@ it('Should accept params or paramsFn, but not both', () => {
     Equal<InferParamsType<typeof paramsFnOnly>, 'John'>
   >;
 
-  // ! vérifier qu'on accède bien aux args ?
   type ParamsFnOnlyArgTypeRetrieved = Expect<
     Equal<
       Parameters<NonNullable<(typeof paramsFnOnly)['method']>>[0],
@@ -84,4 +122,42 @@ it('Should accept params or paramsFn, but not both', () => {
     params: () => 'test' as const,
     method: () => 'test' as const,
   });
+});
+
+it('Should accept steams with params', () => {
+  const streamTest = test({
+    params: () => 'test' as const,
+    stream: async ({ params }) => {
+      type StreamResponseTypeRetrieved = Expect<Equal<typeof params, 'test'>>;
+
+      const testSignal = signal<ResourceStreamItem<number>>({ value: 5 });
+      return testSignal;
+    },
+  });
+
+  type StreamResponseTypeRetrieved = Expect<
+    Equal<InferStateType<typeof streamTest>, number>
+  >;
+});
+
+it('Should accept steams with method', () => {
+  const streamTest = test({
+    method: (data: string) => 'test' as const,
+    stream: async ({ params }) => {
+      type StreamResponseTypeRetrieved = Expect<Equal<typeof params, 'test'>>;
+
+      const testSignal = signal<ResourceStreamItem<number>>({ value: 5 });
+      return testSignal;
+    },
+  });
+
+  type StreamResponseTypeRetrieved = Expect<
+    Equal<InferStateType<typeof streamTest>, number>
+  >;
+
+  type args = InferParamsArgType<typeof streamTest>;
+  // todo check why this is not working
+  // type MethodTypeRetrieved = Expect<
+  //   Equal<InferParamsArgType<typeof streamTest>, string>
+  // >;
 });

@@ -218,16 +218,6 @@ export function withQuery<
   >;
 }
 
-const testResource = resource({
-  loader: () => lastValueFrom(of(5)),
-  defaultValue: 0,
-});
-
-const testRxResource = rxResource<number, number>({
-  // params: () => 5,
-  stream: () => of(5),
-});
-
 /**
  * Configures a query.
  * And optionally associates the query result to a client state.
