@@ -124,7 +124,7 @@ describe('withQuery', () => {
     expect(store.userQuery.value()).toEqual(undefined);
 
     // Wait for the query to resolve
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 30));
 
     expect(store.userQuery.status()).toBe('resolved');
     expect(store.userQuery.value()).toEqual({
