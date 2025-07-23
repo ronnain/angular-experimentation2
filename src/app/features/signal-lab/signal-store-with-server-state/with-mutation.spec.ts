@@ -378,9 +378,15 @@ it('Should expose a method', () => {
     Equal<
       MutationProps['__mutation']['user'],
       {
-        id: string;
-        name: string;
-        email: string;
+        state: {
+          id: string;
+          name: string;
+          email: string;
+        };
+        params: string;
+        args: {
+          page: string;
+        };
       }
     >
   >;

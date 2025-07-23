@@ -18,7 +18,7 @@ import {
   WritableStateSource,
 } from '@ngrx/signals';
 import { Merge } from '../../../util/types/merge';
-import { MergeObject } from './types/util.type';
+import { InternalType, MergeObject } from './types/util.type';
 
 import {
   createNestedStateUpdate,
@@ -185,7 +185,7 @@ type QueriesMutation<
   }
     ? {
         [key in keyof Queries]?: QueryEffect<
-          Queries[key],
+          'state' extends keyof Queries[key] ? Queries[key]['state'] : never,
           MutationState,
           MutationParams,
           MutationArgsParams
@@ -227,26 +227,26 @@ export function mutation<
   /**
    * Only used to help type inference, not used in the actual implementation.
    */
-  __types: {
-    mutationState: NoInfer<mutationState>;
-    mutationParams: NoInfer<mutationParams>;
-    mutationArgsParams: NoInfer<MutationArgsParams>;
-  };
+  __types: InternalType<
+    NoInfer<mutationState>,
+    NoInfer<mutationParams>,
+    NoInfer<MutationArgsParams>
+  >;
 } {
   return (store, context) => ({
     mutationConfig: mutationConfig,
-    __types: {
-      mutationState: {} as NoInfer<mutationState>,
-      mutationParams: {} as NoInfer<mutationParams>,
-      mutationArgsParams: {} as NoInfer<MutationArgsParams>,
-    },
+    __types: {} as InternalType<
+      NoInfer<mutationState>,
+      NoInfer<mutationParams>,
+      NoInfer<MutationArgsParams>
+    >,
   });
 }
 
 type MutationStoreOutput<
   MutationName extends string,
   MutationState,
-  ResourceParams,
+  MutationParams,
   MutationArgsParams
 > = {
   state: {};
@@ -259,7 +259,11 @@ type MutationStoreOutput<
        * Does not exist, it is only used by the typing system to infer
        */
       __mutation: {
-        [key in MutationName]: MutationState;
+        [key in MutationName]: InternalType<
+          MutationState,
+          MutationParams,
+          MutationArgsParams
+        >;
       };
     }
   >;
@@ -267,7 +271,7 @@ type MutationStoreOutput<
   methods: {
     [key in MutationName as `mutate${Capitalize<key>}`]: (
       mutationParams: MutationArgsParams
-    ) => ResourceParams;
+    ) => MutationParams;
   };
 };
 
@@ -290,11 +294,7 @@ export function withMutation<
     store: StoreInput,
     context: Input
   ) => { mutationConfig: MutationConfig } & {
-    __types: {
-      mutationState: ResourceState;
-      mutationParams: ResourceParams;
-      mutationArgsParams: ResourceArgsParams;
-    };
+    __types: InternalType<ResourceState, ResourceParams, ResourceArgsParams>;
   },
   queriesEffectsFn?: (
     store: StoreInput

@@ -15,7 +15,7 @@ import {
   withProps,
   WritableStateSource,
 } from '@ngrx/signals';
-import { MergeObject } from './types/util.type';
+import { InternalType, MergeObject } from './types/util.type';
 import { Merge } from '../../../util/types/merge';
 import { createNestedStateUpdate } from './update-state.util';
 import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
@@ -24,8 +24,6 @@ import {
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
 import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
-import { lastValueFrom, of } from 'rxjs';
-import { rxResource } from '@angular/core/rxjs-interop';
 
 const __QueryBrandSymbol: unique symbol = Symbol();
 type QueryBrand = {
@@ -34,7 +32,9 @@ type QueryBrand = {
 
 type WithQueryOutputStoreConfig<
   ResourceName,
-  ResourceState extends object | undefined
+  ResourceState extends object | undefined,
+  ResourceParams,
+  ResourceArgsParams
 > = {
   state: {};
   props: Merge<
@@ -43,7 +43,11 @@ type WithQueryOutputStoreConfig<
     },
     {
       __query: {
-        [key in ResourceName & string]: ResourceState;
+        [key in ResourceName & string]: InternalType<
+          ResourceState,
+          ResourceParams,
+          ResourceArgsParams
+        >;
       };
     }
   >;
@@ -106,11 +110,7 @@ export function withQuery<
     store: StoreInput,
     context: Input
   ) => { queryConfig: QueryConfig } & {
-    __types: {
-      queryState: ResourceState;
-      queryParams: ResourceParams;
-      queryArgsParams: ResourceArgsParams;
-    };
+    __types: InternalType<ResourceState, ResourceParams, ResourceArgsParams>;
   } & QueryBrand,
   optionsFactory?: (store: StoreInput) => {
     // Exclude path from the MergeObject, it will enable the const type inference, otherwise it will be inferred as string
@@ -146,10 +146,39 @@ export function withQuery<
             }
       >
     >;
+    on?: Input['props'] extends {
+      __mutation: infer Mutations;
+    }
+      ? {
+          [key in keyof Mutations as `${key &
+            string}Mutation`]?: Mutations[key] extends InternalType<
+            infer MutationState,
+            infer MutationParams,
+            infer MutationArgsParams
+          >
+            ? {
+                optimisticUpdate?: ({
+                  queryResource,
+                  mutationResource,
+                  mutationParams,
+                }: {
+                  queryResource: ResourceRef<NoInfer<ResourceState>>;
+                  mutationResource: ResourceRef<MutationState>;
+                  mutationParams: NoInfer<MutationParams>;
+                }) => NoInfer<ResourceState>;
+              }
+            : never;
+        }
+      : never;
   }
 ): SignalStoreFeature<
   Input,
-  WithQueryOutputStoreConfig<ResourceName, ResourceState>
+  WithQueryOutputStoreConfig<
+    ResourceName,
+    ResourceState,
+    ResourceParams,
+    ResourceArgsParams
+  >
 > {
   return ((context: SignalStoreFeatureResult) => {
     return signalStoreFeature(
@@ -214,7 +243,12 @@ export function withQuery<
     )(context);
   }) as unknown as SignalStoreFeature<
     Input,
-    WithQueryOutputStoreConfig<ResourceName, ResourceState>
+    WithQueryOutputStoreConfig<
+      ResourceName,
+      ResourceState,
+      ResourceParams,
+      ResourceArgsParams
+    >
   >;
 }
 
@@ -281,21 +315,21 @@ export function query<
   /**
    * Only used to help type inference, not used in the actual implementation.
    */
-  __types: {
-    queryState: NoInfer<queryState>;
-    queryParams: NoInfer<queryParams>;
-    queryArgsParams: NoInfer<QueryArgsParams>;
-  };
+  __types: InternalType<
+    NoInfer<queryState>,
+    NoInfer<queryParams>,
+    NoInfer<QueryArgsParams>
+  >;
 } & QueryBrand {
   return (store, context) => ({
     queryConfig,
     // clientState params are only used to help type inference
     clientState: clientState?.({} as any, {} as any).clientState as any,
-    __types: {
-      queryState: {} as NoInfer<queryState>,
-      queryParams: {} as NoInfer<queryParams>,
-      queryArgsParams: {} as NoInfer<QueryArgsParams>,
-    },
+    __types: {} as InternalType<
+      NoInfer<queryState>,
+      NoInfer<queryParams>,
+      NoInfer<QueryArgsParams>
+    >,
     [__QueryBrandSymbol]: undefined,
   });
 }

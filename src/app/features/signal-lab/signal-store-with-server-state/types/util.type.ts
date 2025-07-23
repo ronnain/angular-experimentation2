@@ -7,3 +7,9 @@ export type MakeOptionalPropertiesRequired<
 };
 
 export type MergeObject<A, B> = A & B;
+
+export type InternalType<State, Params, Args> = {
+  state: State;
+  params: Params;
+  args: Args;
+};

@@ -10,6 +10,7 @@ import { query, withQuery } from './with-query';
 import { ResourceRef, ResourceStreamItem, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
+import { mutation, withMutation } from './with-mutation';
 
 type User = {
   id: string;
@@ -194,167 +195,262 @@ describe('withQuery', () => {
   });
 });
 
+describe('Declarative server state, withQuery and withMutation', () => {
+  it('withQuery should react to all mutation changes', () => {
+    const Store = signalStore(
+      withQuery('user', () =>
+        query({
+          params: () => '5',
+          loader: async ({ params }) => {
+            type StreamResponseTypeRetrieved = Expect<
+              Equal<typeof params, string>
+            >;
+            return {
+              id: params,
+              name: 'John Doe',
+              email: 'test@a.com',
+            };
+          },
+        })
+      )
+    );
+  });
+});
+
 // Typing test👇
 
 type InferSignalStoreFeatureReturnedType<
   T extends SignalStoreFeature<any, any>
 > = T extends SignalStoreFeature<any, infer R> ? R : never;
 
-it('Should be well typed', () => {
-  const queryByIdTest = withQuery('user', () =>
-    query({
-      params: () => '5',
-      loader: ({ params }) => {
-        return lastValueFrom(
-          of({
-            id: params,
-            name: 'John Doe',
-            email: 'test@a.com',
-          } satisfies User)
-        );
-      },
-    })
-  );
-  type ResultType = InferSignalStoreFeatureReturnedType<typeof queryByIdTest>;
-  type PropsKeys = keyof ResultType['props'];
-
-  type ExpectTheResourceNameAndQueriesTypeRecord = Expect<
-    Equal<PropsKeys, 'userQuery' | '__query'>
-  >;
-
-  type ExpectThePropsToHaveARecordWithResourceRef = Expect<
-    Equal<ResultType['props']['userQuery'], ResourceRef<User>>
-  >;
-
-  type ExpectThePropsToHaveARecordWithQueryNameAndHisType = Expect<
-    Equal<
-      ResultType['props']['__query'],
-      {
-        user: {
-          id: string;
-          name: string;
-          email: string;
-        };
-      }
-    >
-  >;
-  // todo check if it can be merged
-
-  const multiplesWithQuery = signalStoreFeature(
-    withState({
-      userSelected: {
-        id: '5',
-      },
-      user: undefined as User | undefined,
-      test: 3,
-    }),
-    withQuery(
-      'userDetails',
-      (store) =>
-        query({
-          params: store.userSelected,
-          loader: ({ params }) => {
-            type ExpectParamsToBeTyped = Expect<
-              Equal<
-                typeof params,
-                {
-                  id: string;
-                }
-              >
-            >;
-            return lastValueFrom(
-              of<User>({
-                id: 'params.id',
-                name: 'John Doe',
-                email: 'test@a.com',
-              })
-            );
-          },
-        }),
-      (store) => ({
-        associatedClientState: {
-          path: 'user',
-        },
-      })
-    ),
-    withQuery('users', (store) =>
+describe('withQuery typing', () => {
+  it('Should be well typed', () => {
+    const queryByIdTest = withQuery('user', () =>
       query({
         params: () => '5',
         loader: ({ params }) => {
           return lastValueFrom(
-            of([
-              {
-                id: params,
-                name: 'John Doe',
-                email: 'test@a.com',
-              },
-            ] satisfies User[])
+            of({
+              id: params,
+              name: 'John Doe',
+              email: 'test@a.com',
+            } satisfies User)
           );
         },
       })
-    )
-  );
+    );
+    type ResultType = InferSignalStoreFeatureReturnedType<typeof queryByIdTest>;
+    type PropsKeys = keyof ResultType['props'];
 
-  type ResultTypeMultiplesQuery = InferSignalStoreFeatureReturnedType<
-    typeof multiplesWithQuery
-  >;
+    type ExpectTheResourceNameAndQueriesTypeRecord = Expect<
+      Equal<PropsKeys, 'userQuery' | '__query'>
+    >;
 
-  type ExpectThePropsToHaveARecordWithMultipleQueryNameAndHisType = Expect<
-    Equal<
-      keyof ResultTypeMultiplesQuery['props']['__query'],
-      'userDetails' | 'users'
-    >
-  >;
-});
+    type ExpectThePropsToHaveARecordWithResourceRef = Expect<
+      Equal<ResultType['props']['userQuery'], ResourceRef<User>>
+    >;
 
-it('clientStatePath option should infer signalStore state path', () => {
-  const queryByIdTest = signalStore(
-    withState({
-      pagination: {
-        page: 1,
-        pageSize: 10,
-        filters: {
-          search: '',
-          sort: '',
-          order: 'asc',
+    type ExpectThePropsToHaveARecordWithQueryNameAndHisType = Expect<
+      Equal<
+        ResultType['props']['__query'],
+        {
+          user: {
+            id: string;
+            name: string;
+            email: string;
+          };
+        }
+      >
+    >;
+    // todo check if it can be merged
+
+    const multiplesWithQuery = signalStoreFeature(
+      withState({
+        userSelected: {
+          id: '5',
         },
-      },
-      selectedUserId: undefined,
-      user: undefined as User | undefined,
-    }),
-    withQuery(
-      'userQuery',
-      () =>
-        query({
-          params: () => ({
-            id: '5',
+        user: undefined as User | undefined,
+        test: 3,
+      }),
+      withQuery(
+        'userDetails',
+        (store) =>
+          query({
+            params: store.userSelected,
+            loader: ({ params }) => {
+              type ExpectParamsToBeTyped = Expect<
+                Equal<
+                  typeof params,
+                  {
+                    id: string;
+                  }
+                >
+              >;
+              return lastValueFrom(
+                of<User>({
+                  id: 'params.id',
+                  name: 'John Doe',
+                  email: 'test@a.com',
+                })
+              );
+            },
           }),
+        (store) => ({
+          associatedClientState: {
+            path: 'user',
+          },
+        })
+      ),
+      withQuery('users', (store) =>
+        query({
+          params: () => '5',
           loader: ({ params }) => {
             return lastValueFrom(
-              of<Omit<User, 'id'>>({
-                name: 'John Doe',
-                email: 'test@a.com',
-              })
+              of([
+                {
+                  id: params,
+                  name: 'John Doe',
+                  email: 'test@a.com',
+                },
+              ] satisfies User[])
             );
           },
-        }),
-      () => ({
-        associatedClientState: {
-          path: 'user',
-          mapResourceToState: ({ queryParams, queryResource }) => {
-            type ExpectQueryParamsToBeTyped = Expect<
-              Equal<typeof queryParams, { id: string }>
-            >;
-            type ExpectQueryResourceToBeTyped = Expect<
-              Equal<typeof queryResource, ResourceRef<Omit<User, 'id'>>>
-            >;
-            return {
-              id: queryParams.id,
-              ...queryResource.value(),
-            };
+        })
+      )
+    );
+
+    type ResultTypeMultiplesQuery = InferSignalStoreFeatureReturnedType<
+      typeof multiplesWithQuery
+    >;
+
+    type ExpectThePropsToHaveARecordWithMultipleQueryNameAndHisType = Expect<
+      Equal<
+        keyof ResultTypeMultiplesQuery['props']['__query'],
+        'userDetails' | 'users'
+      >
+    >;
+  });
+
+  it('clientStatePath option should infer signalStore state path', () => {
+    const queryByIdTest = signalStore(
+      withState({
+        pagination: {
+          page: 1,
+          pageSize: 10,
+          filters: {
+            search: '',
+            sort: '',
+            order: 'asc',
           },
         },
-      })
-    )
-  );
+        selectedUserId: undefined,
+        user: undefined as User | undefined,
+      }),
+      withQuery(
+        'userQuery',
+        () =>
+          query({
+            params: () => ({
+              id: '5',
+            }),
+            loader: ({ params }) => {
+              return lastValueFrom(
+                of<Omit<User, 'id'>>({
+                  name: 'John Doe',
+                  email: 'test@a.com',
+                })
+              );
+            },
+          }),
+        () => ({
+          associatedClientState: {
+            path: 'user',
+            mapResourceToState: ({ queryParams, queryResource }) => {
+              type ExpectQueryParamsToBeTyped = Expect<
+                Equal<typeof queryParams, { id: string }>
+              >;
+              type ExpectQueryResourceToBeTyped = Expect<
+                Equal<typeof queryResource, ResourceRef<Omit<User, 'id'>>>
+              >;
+              return {
+                id: queryParams.id,
+                ...queryResource.value(),
+              };
+            },
+          },
+        })
+      )
+    );
+  });
+
+  it('Should react to mutation changes', async () => {
+    const Store = signalStore(
+      withMutation('userName', () =>
+        mutation({
+          method: (id: string) => ({ id }),
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params.id,
+                name: 'Updated Name',
+                email: 'er@d',
+              } satisfies User)
+            );
+          },
+        })
+      ),
+      withMutation('userEmail', () =>
+        mutation({
+          method: (id: string) => ({ id }),
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params.id,
+                name: 'Updated Name',
+                email: 'er@d',
+              } satisfies User)
+            );
+          },
+        })
+      ),
+      withQuery(
+        'user',
+        () =>
+          query({
+            params: () => '5',
+            loader: ({ params }) => {
+              return lastValueFrom(
+                of({
+                  id: params,
+                  name: 'John Doe',
+                  email: '',
+                } satisfies User)
+              );
+            },
+          }),
+        () => ({
+          on: {
+            userNameMutation: {
+              optimisticUpdate: ({
+                queryResource,
+                mutationResource,
+                mutationParams,
+              }) => {
+                type ExpectQueryResourceToBeTyped = Expect<
+                  Equal<typeof queryResource, ResourceRef<User>>
+                >;
+                type ExpectMutationParamsToBeTyped = Expect<
+                  Equal<typeof mutationParams, { id: string }>
+                >;
+                type ExpectMutationResourceToBeTyped = Expect<
+                  Equal<typeof mutationResource, ResourceRef<User>>
+                >;
+                return queryResource.value();
+              },
+            },
+          },
+        })
+      )
+    );
+  });
 });

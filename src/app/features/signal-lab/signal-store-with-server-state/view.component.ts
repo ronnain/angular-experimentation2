@@ -17,31 +17,34 @@ import { TestStore } from './test.store';
     <button
       class="btn"
       (click)="addCategory()"
-      [disabled]="store.addCategory.status() === 'loading'"
+      [disabled]="store.addCategoryMutation.status() === 'loading'"
     >
       Add category
     </button>
     <button
       class="btn"
       (click)="addCategory2()"
-      [disabled]="store.addCategory.status() === 'loading'"
+      [disabled]="store.addCategoryMutation.status() === 'loading'"
     >
       Add category
     </button>
     <br />
 
     bffQueryProductsAndCategories:
-    <pre>{{ store.bffQueryProductsAndCategories.status() | json }}</pre>
+    <pre>{{ store.bffQueryProductsAndCategoriesQuery.status() | json }}</pre>
     <br />
     userState:
     <pre>{{ store.userDetails() | json }}</pre>
     <hr />
-    Update user ({{ store.userName.status() }})
+    Update user ({{ store.userNameMutation.status() }})
     <pre>{{
-      (store.userName.hasValue() ? store.userName.value() : null) | json
+      (store.userNameMutation.hasValue()
+        ? store.userNameMutation.value()
+        : null
+      ) | json
     }}</pre>
     error:
-    <pre>{{ $any(store.userName).error() | json }}</pre>
+    <pre>{{ $any(store.userNameMutation).error() | json }}</pre>
 
     resourceTest :
     <pre>{{ store.resourceTest.value() | json }}</pre>
