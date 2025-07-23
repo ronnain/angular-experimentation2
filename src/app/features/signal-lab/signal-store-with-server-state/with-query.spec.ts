@@ -196,24 +196,72 @@ describe('withQuery', () => {
 });
 
 describe('Declarative server state, withQuery and withMutation', () => {
-  it('withQuery should react to all mutation changes', () => {
+  it('1- withQuery should react to all mutation changes', async () => {
     const Store = signalStore(
-      withQuery('user', () =>
-        query({
-          params: () => '5',
-          loader: async ({ params }) => {
-            type StreamResponseTypeRetrieved = Expect<
-              Equal<typeof params, string>
-            >;
-            return {
-              id: params,
-              name: 'John Doe',
-              email: 'test@a.com',
-            };
+      withMutation('userEmail', () =>
+        mutation({
+          method: ({ id, email }: { id: string; email: string }) => ({
+            id,
+            email,
+          }),
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params.id,
+                name: 'Updated Name',
+                email: params.email,
+              } satisfies User)
+            );
+          },
+        })
+      ),
+      withQuery(
+        'user',
+        () =>
+          query({
+            params: () => '5',
+            loader: async ({ params }) => {
+              type StreamResponseTypeRetrieved = Expect<
+                Equal<typeof params, string>
+              >;
+              return {
+                id: params,
+                name: 'John Doe',
+                email: 'test@a.com',
+              };
+            },
+          }),
+        () => ({
+          on: {
+            userEmailMutation: {
+              optimisticUpdate: ({ queryResource, mutationParams }) => {
+                return {
+                  ...queryResource.value(),
+                  email: mutationParams.email,
+                };
+              },
+            },
           },
         })
       )
     );
+
+    TestBed.configureTestingModule({
+      providers: [Store],
+    });
+    const store = TestBed.inject(Store);
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(store.userQuery.status()).toBe('resolved');
+
+    store.mutateUserEmail({
+      id: '5',
+      email: 'mutated@test.com',
+    });
+    // not implemented yet todo
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(store.userQuery.status()).toBe('local');
+    expect(store.userQuery.value().email).toBe('mutated@test.com');
   });
 });
 
