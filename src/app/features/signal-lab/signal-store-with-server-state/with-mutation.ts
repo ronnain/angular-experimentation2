@@ -27,60 +27,37 @@ import {
   OptimisticPatchQueryFn,
   OptimisticPathMutationQuery,
   ReloadQueriesConfig,
+  TypeResourceConstraints,
 } from './types/shared.type';
 
 declare const __MutationBrandSymbol: unique symbol;
 
-type OptimisticMutationQuery<
-  QueryState,
-  MutationState,
-  MutationParams,
-  MutationArgsParams
-> = (data: {
-  queryResource: ResourceRef<QueryState>;
-  mutationResource: ResourceRef<NoInfer<MutationState>>;
-  mutationParams: NonNullable<NoInfer<MutationParams>>;
-}) => QueryState;
+type OptimisticMutationQuery<ServerState extends TypeResourceConstraints> =
+  (data: {
+    queryResource: ResourceRef<ServerState['query']['state']>;
+    mutationResource: ResourceRef<NoInfer<ServerState['mutation']['state']>>;
+    mutationParams: NonNullable<NoInfer<ServerState['mutation']['params']>>;
+  }) => ServerState['query']['state'];
 
-type QueryEffect<
-  QueryState,
-  MutationState,
-  MutationParams,
-  MutationArgsParams
-> = {
+type QueryEffect<ServerState extends TypeResourceConstraints> = {
   /**
    * Will update the query state with the mutation data.
    * Be careful! If the mutation is already in a loading state, trigger the mutation again will cancelled the previous mutation loader and will patch with the new value.
    */
-  optimistic?: OptimisticMutationQuery<
-    QueryState,
-    MutationState,
-    MutationParams,
-    MutationArgsParams
-  >;
+  optimistic?: OptimisticMutationQuery<ServerState>;
   /**
    * Will reload the query when the mutation is in a specific state.
    * If not provided, it will reload the query onMutationResolved and onMutationError.
    * If the query is loading, it will not reload.
    */
-  reload?: ReloadQueriesConfig<
-    QueryState,
-    MutationState,
-    MutationParams,
-    MutationArgsParams
-  >;
+  reload?: ReloadQueriesConfig<ServerState>;
   /**
    * Will patch the query specific state with the mutation data.
    * If the query is loading, it will not patch.
    * If the mutation data is not compatible with the query state, it will not patch.
    * Be careful! If the mutation is already in a loading state, trigger the mutation again will cancelled the previous mutation loader and will patch with the new value.
    */
-  optimisticPatch?: OptimisticPathMutationQuery<
-    QueryState,
-    MutationState,
-    MutationParams,
-    MutationArgsParams
-  >;
+  optimisticPatch?: OptimisticPathMutationQuery<ServerState>;
 };
 
 type QueriesMutation<
@@ -99,12 +76,24 @@ type QueriesMutation<
     __query: infer Queries;
   }
     ? {
-        [key in keyof Queries]?: QueryEffect<
-          'state' extends keyof Queries[key] ? Queries[key]['state'] : never,
-          MutationState,
-          MutationParams,
-          MutationArgsParams
-        >;
+        [key in keyof Queries]?: QueryEffect<{
+          query: {
+            state: 'state' extends keyof Queries[key]
+              ? Queries[key]['state']
+              : never;
+            params: 'params' extends keyof Queries[key]
+              ? Queries[key]['params']
+              : never;
+            args: 'args' extends keyof Queries[key]
+              ? Queries[key]['args']
+              : never;
+          };
+          mutation: {
+            state: MutationState;
+            params: MutationParams;
+            args: MutationArgsParams;
+          };
+        }>;
       }
     : never;
 };
@@ -255,10 +244,7 @@ export function withMutation<
 
         const queriesMutation = (queriesEffectsFn?.(
           store as unknown as StoreInput
-        )?.queriesEffects ?? {}) as Record<
-          string,
-          QueryEffect<any, ResourceState, ResourceParams, ResourceArgsParams>
-        >;
+        )?.queriesEffects ?? {}) as Record<string, QueryEffect<any>>;
 
         const queriesWithOptimisticMutation = Object.entries(
           queriesMutation

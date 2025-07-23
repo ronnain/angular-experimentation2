@@ -417,11 +417,11 @@ describe('withQuery typing', () => {
         'user',
         () =>
           query({
-            params: () => '5',
+            params: () => ({ id: '5' }),
             loader: ({ params }) => {
               return lastValueFrom(
                 of({
-                  id: params,
+                  id: params.id,
                   name: 'John Doe',
                   email: '',
                 } satisfies User)

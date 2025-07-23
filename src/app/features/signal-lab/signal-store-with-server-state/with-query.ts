@@ -27,6 +27,7 @@ import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-pa
 import {
   OptimisticPathMutationQuery,
   ReloadQueriesConfig,
+  TypeResourceConstraints,
 } from './types/shared.type';
 
 const __QueryBrandSymbol: unique symbol = Symbol();
@@ -66,6 +67,26 @@ type MapResourceToState<
   queryResource: ResourceRef<NoInfer<ResourceState>>;
   queryParams: NoInfer<ResourceParams>;
 }) => NoInfer<ClientStateTypeByDottedPath>;
+
+type EffectFromMutation<ServerState extends TypeResourceConstraints> = {
+  optimisticUpdate?: ({
+    queryResource,
+    mutationResource,
+    mutationParams,
+  }: {
+    queryResource: ResourceRef<ServerState['query']['state']>;
+    mutationResource: ResourceRef<ServerState['mutation']['state']>;
+    mutationParams: NoInfer<ServerState['mutation']['params']>;
+  }) => NoInfer<ServerState['query']['state']>;
+  reload?: ReloadQueriesConfig<ServerState>;
+  /**
+   * Will patch the query specific state with the mutation data.
+   * If the query is loading, it will not patch.
+   * If the mutation data is not compatible with the query state, it will not patch.
+   * Be careful! If the mutation is already in a loading state, trigger the mutation again will cancelled the previous mutation loader and will patch with the new value.
+   */
+  optimisticPatch?: OptimisticPathMutationQuery<ServerState>;
+};
 
 /**
  *
@@ -160,35 +181,18 @@ export function withQuery<
             infer MutationParams,
             infer MutationArgsParams
           >
-            ? {
-                optimisticUpdate?: ({
-                  queryResource,
-                  mutationResource,
-                  mutationParams,
-                }: {
-                  queryResource: ResourceRef<NoInfer<ResourceState>>;
-                  mutationResource: ResourceRef<MutationState>;
-                  mutationParams: NoInfer<MutationParams>;
-                }) => NoInfer<ResourceState>;
-                reload?: ReloadQueriesConfig<
-                  NoInfer<ResourceState>,
-                  NoInfer<MutationState>,
-                  NoInfer<MutationParams>,
-                  NoInfer<MutationArgsParams>
+            ? EffectFromMutation<{
+                query: InternalType<
+                  ResourceState,
+                  ResourceParams,
+                  ResourceArgsParams
                 >;
-                /**
-                 * Will patch the query specific state with the mutation data.
-                 * If the query is loading, it will not patch.
-                 * If the mutation data is not compatible with the query state, it will not patch.
-                 * Be careful! If the mutation is already in a loading state, trigger the mutation again will cancelled the previous mutation loader and will patch with the new value.
-                 */
-                optimisticPatch?: OptimisticPathMutationQuery<
-                  NoInfer<ResourceState>,
-                  NoInfer<MutationState>,
-                  NoInfer<MutationParams>,
-                  NoInfer<MutationArgsParams>
+                mutation: InternalType<
+                  MutationState,
+                  MutationParams,
+                  MutationArgsParams
                 >;
-              }
+              }>
             : never;
         }
       : never;
