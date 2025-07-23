@@ -24,7 +24,10 @@ import {
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
 import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
-import { ReloadQueriesConfig } from './types/shared.type';
+import {
+  OptimisticPathMutationQuery,
+  ReloadQueriesConfig,
+} from './types/shared.type';
 
 const __QueryBrandSymbol: unique symbol = Symbol();
 type QueryBrand = {
@@ -168,6 +171,18 @@ export function withQuery<
                   mutationParams: NoInfer<MutationParams>;
                 }) => NoInfer<ResourceState>;
                 reload?: ReloadQueriesConfig<
+                  NoInfer<ResourceState>,
+                  NoInfer<MutationState>,
+                  NoInfer<MutationParams>,
+                  NoInfer<MutationArgsParams>
+                >;
+                /**
+                 * Will patch the query specific state with the mutation data.
+                 * If the query is loading, it will not patch.
+                 * If the mutation data is not compatible with the query state, it will not patch.
+                 * Be careful! If the mutation is already in a loading state, trigger the mutation again will cancelled the previous mutation loader and will patch with the new value.
+                 */
+                optimisticPatch?: OptimisticPathMutationQuery<
                   NoInfer<ResourceState>,
                   NoInfer<MutationState>,
                   NoInfer<MutationParams>,

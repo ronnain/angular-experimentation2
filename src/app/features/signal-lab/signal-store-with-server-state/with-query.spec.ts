@@ -467,6 +467,28 @@ describe('withQuery typing', () => {
                   return true;
                 },
               },
+              optimisticPatch: {
+                name: ({
+                  mutationParams,
+                  mutationResource,
+                  queryResource,
+                  targetedState,
+                }) => {
+                  type ExpectQueryResourceToBeTyped = Expect<
+                    Equal<typeof queryResource, ResourceRef<User>>
+                  >;
+                  type ExpectMutationParamsToBeTyped = Expect<
+                    Equal<typeof mutationParams, { id: string }>
+                  >;
+                  type ExpectMutationResourceToBeTyped = Expect<
+                    Equal<typeof mutationResource, ResourceRef<User>>
+                  >;
+                  type ExpectTargetedStateToBeTyped = Expect<
+                    Equal<typeof targetedState, string | undefined>
+                  >;
+                  return targetedState ?? '';
+                },
+              },
             },
           },
         })

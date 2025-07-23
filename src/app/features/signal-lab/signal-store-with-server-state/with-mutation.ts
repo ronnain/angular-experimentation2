@@ -1,6 +1,4 @@
 import {
-  ResourceLoader,
-  ResourceOptions,
   ResourceRef,
   effect,
   resource,
@@ -18,18 +16,18 @@ import {
   WritableStateSource,
 } from '@ngrx/signals';
 import { Merge } from '../../../util/types/merge';
-import { InternalType, MergeObject } from './types/util.type';
+import { InternalType } from './types/util.type';
 
 import {
   createNestedStateUpdate,
   getNestedStateValue,
 } from './update-state.util';
 import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
-import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
 import {
-  AccessTypeObjectPropertyByDottedPath,
-  DottedPathPathToTuple,
-} from './types/access-type-object-property-by-dotted-path.type';
+  OptimisticPatchQueryFn,
+  OptimisticPathMutationQuery,
+  ReloadQueriesConfig,
+} from './types/shared.type';
 
 declare const __MutationBrandSymbol: unique symbol;
 
@@ -43,41 +41,6 @@ type OptimisticMutationQuery<
   mutationResource: ResourceRef<NoInfer<MutationState>>;
   mutationParams: NonNullable<NoInfer<MutationParams>>;
 }) => QueryState;
-
-type OptimisticPatchQueryFn<
-  QueryState,
-  MutationState,
-  MutationParams,
-  MutationArgsParams,
-  TargetedType
-> = (data: {
-  queryResource: NoInfer<ResourceRef<QueryState>>;
-  mutationResource: NoInfer<ResourceRef<MutationState>>;
-  mutationParams: NonNullable<NoInfer<MutationParams>>;
-  targetedState: TargetedType | undefined;
-}) => TargetedType;
-
-type OptimisticPathMutationQuery<
-  QueryState,
-  MutationState,
-  MutationParams,
-  MutationArgsParams
-> = QueryState extends object
-  ? {
-      [queryPatchPath in ObjectDeepPath<QueryState>]?: AccessTypeObjectPropertyByDottedPath<
-        QueryState,
-        DottedPathPathToTuple<queryPatchPath>
-      > extends infer TargetedType
-        ? OptimisticPatchQueryFn<
-            QueryState,
-            MutationState,
-            MutationParams,
-            MutationArgsParams,
-            TargetedType
-          >
-        : never;
-    }
-  : never;
 
 type QueryEffect<
   QueryState,
