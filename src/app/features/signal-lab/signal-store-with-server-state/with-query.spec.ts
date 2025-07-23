@@ -9,6 +9,7 @@ import {
 import { query, withQuery } from './with-query';
 import { ResourceRef, ResourceStreamItem, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 
 type User = {
   id: string;
@@ -17,7 +18,7 @@ type User = {
 };
 
 describe('withQuery', () => {
-  it('Should expose a query resource', () => {
+  it('1- Should expose a query resource', () => {
     const Store = signalStore(
       withQuery('user', () =>
         query({
@@ -43,7 +44,7 @@ describe('withQuery', () => {
     expect(store.userQuery).toBeDefined();
   });
 
-  it('should have idle state when query params are undefined', () => {
+  it('2- should have idle state when query params are undefined', () => {
     const Store = signalStore(
       withQuery('user', () =>
         query({
@@ -69,7 +70,7 @@ describe('withQuery', () => {
     expect(store.userQuery.status()).toBe('idle');
   });
 
-  it('should have loading state when query params are defined', () => {
+  it('3 should have loading state when query params are defined', () => {
     const Store = signalStore(
       withQuery('user', () =>
         query({
@@ -97,7 +98,7 @@ describe('withQuery', () => {
 
   // todo tester avec fakeAsync et withRxQuery
 
-  it('should have resolved status when loader completes successfully', async () => {
+  it('4 should have resolved status when loader completes successfully', async () => {
     const Store = signalStore(
       withQuery('user', () =>
         query({
@@ -134,7 +135,7 @@ describe('withQuery', () => {
     });
   });
 
-  it('should handle query with resource stream', async () => {
+  it('5 should handle query with resource stream', async () => {
     const Store = signalStore(
       withQuery('user', () =>
         query({
@@ -179,8 +180,8 @@ describe('withQuery', () => {
     //@ts-ignore
     expect(store.userQuery.value()).toEqual(undefined);
     expect(store.userQuery.status()).toEqual('loading');
-
     await new Promise((resolve) => setTimeout(resolve, 100));
+
     expect(store.userQuery.status()).toEqual('resolved');
     expect(store.userQuery.value()).toEqual({
       count: 5,
