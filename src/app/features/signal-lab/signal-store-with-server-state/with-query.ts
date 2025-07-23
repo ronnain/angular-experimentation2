@@ -24,6 +24,7 @@ import {
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
 import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
+import { ReloadQueriesConfig } from './types/shared.type';
 
 const __QueryBrandSymbol: unique symbol = Symbol();
 type QueryBrand = {
@@ -166,6 +167,12 @@ export function withQuery<
                   mutationResource: ResourceRef<MutationState>;
                   mutationParams: NoInfer<MutationParams>;
                 }) => NoInfer<ResourceState>;
+                reload?: ReloadQueriesConfig<
+                  NoInfer<ResourceState>,
+                  NoInfer<MutationState>,
+                  NoInfer<MutationParams>,
+                  NoInfer<MutationArgsParams>
+                >;
               }
             : never;
         }

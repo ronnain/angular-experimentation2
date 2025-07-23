@@ -447,6 +447,26 @@ describe('withQuery typing', () => {
                 >;
                 return queryResource.value();
               },
+              reload: {
+                onMutationError: true,
+                onMutationSuccess: true,
+                onMutationLoading: ({
+                  mutationParams,
+                  mutationResource,
+                  queryResource,
+                }) => {
+                  type ExpectQueryResourceToBeTyped = Expect<
+                    Equal<typeof queryResource, ResourceRef<User>>
+                  >;
+                  type ExpectMutationParamsToBeTyped = Expect<
+                    Equal<typeof mutationParams, { id: string }>
+                  >;
+                  type ExpectMutationResourceToBeTyped = Expect<
+                    Equal<typeof mutationResource, ResourceRef<User>>
+                  >;
+                  return true;
+                },
+              },
             },
           },
         })

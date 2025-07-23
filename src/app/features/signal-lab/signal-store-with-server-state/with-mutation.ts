@@ -44,54 +44,6 @@ type OptimisticMutationQuery<
   mutationParams: NonNullable<NoInfer<MutationParams>>;
 }) => QueryState;
 
-type CustomReloadOnSpecificMutationStatus<
-  QueryState,
-  MutationState,
-  MutationParams,
-  MutationArgsParams
-> = (data: {
-  queryResource: ResourceRef<QueryState>;
-  mutationResource: ResourceRef<NoInfer<MutationState>>;
-  mutationParams: NonNullable<NoInfer<MutationParams>>;
-}) => boolean;
-
-// ? OptimisticMutationEnum<QueryState, MutationState>['boolean'] // can not be boolean, because MutationState does not expose a params
-// : ;
-
-type ReloadQueriesConfig<
-  QueryState,
-  MutationState,
-  MutationParams,
-  MutationArgsParams
-> =
-  | false
-  | {
-      onMutationError?:
-        | boolean
-        | CustomReloadOnSpecificMutationStatus<
-            QueryState,
-            MutationState,
-            MutationParams,
-            MutationArgsParams
-          >;
-      onMutationResolved?:
-        | boolean
-        | CustomReloadOnSpecificMutationStatus<
-            QueryState,
-            MutationState,
-            MutationParams,
-            MutationArgsParams
-          >;
-      onMutationLoading?:
-        | boolean
-        | CustomReloadOnSpecificMutationStatus<
-            QueryState,
-            MutationState,
-            MutationParams,
-            MutationArgsParams
-          >;
-    };
-
 type OptimisticPatchQueryFn<
   QueryState,
   MutationState,
