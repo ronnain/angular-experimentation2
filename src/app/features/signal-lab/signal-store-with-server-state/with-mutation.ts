@@ -1,5 +1,6 @@
 import {
   ResourceRef,
+  Signal,
   effect,
   resource,
   signal,
@@ -44,7 +45,7 @@ type OptimisticMutationQuery<
   >;
 }) => QueryAndMutationRecord['query']['state'];
 
-type QueryEffect<
+type QueryImperativeEffect<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 > = {
   /**
@@ -83,7 +84,7 @@ type QueriesMutation<
     __query: infer Queries;
   }
     ? {
-        [key in keyof Queries]?: QueryEffect<{
+        [key in keyof Queries]?: QueryImperativeEffect<{
           query: {
             state: 'state' extends keyof Queries[key]
               ? Queries[key]['state']
@@ -167,14 +168,16 @@ type MutationStoreOutput<
     },
     {
       /**
-       * Does not exist, it is only used by the typing system to infer
+       * Used to help for type inference, and access to the mutation resource params source
        */
       __mutation: {
         [key in MutationName]: InternalType<
           MutationState,
           MutationParams,
           MutationArgsParams
-        >;
+        > & {
+          paramsSource: Signal<MutationParams>;
+        };
       };
     }
   >;
@@ -251,7 +254,7 @@ export function withMutation<
 
         const queriesMutation = (queriesEffectsFn?.(
           store as unknown as StoreInput
-        )?.queriesEffects ?? {}) as Record<string, QueryEffect<any>>;
+        )?.queriesEffects ?? {}) as Record<string, QueryImperativeEffect<any>>;
 
         const queriesWithOptimisticMutation = Object.entries(
           queriesMutation
@@ -403,6 +406,9 @@ export function withMutation<
               });
             }),
           }),
+          __mutation: {
+            paramsSource: resourceParamsSrc,
+          },
         };
       }),
       withMethods((store) => ({

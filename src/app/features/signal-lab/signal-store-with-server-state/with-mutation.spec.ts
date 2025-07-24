@@ -376,7 +376,8 @@ it('Should expose a method', () => {
 
   type ExpectPropsToHaveARecordWithMutationNameWithMutationState = Expect<
     Equal<
-      MutationProps['__mutation']['user'],
+      // paramsSource is tested in another test (I did not find the way to satisfy it here)
+      Omit<MutationProps['__mutation']['user'], 'paramsSource'>,
       {
         state: {
           id: string;
@@ -495,6 +496,32 @@ it('Should expose the mutation resource and mutation method', () => {
       (params: { id: string }) => {
         id: string;
       }
+    >
+  >;
+});
+
+it('it should expose the mutation params source, that will be reused by query', async () => {
+  const mutationParamsSourceInternallyExposed = signalStoreFeature(
+    withMutation('updateUser', () =>
+      mutation({
+        method: (user: User) => user,
+        loader: ({ params: user }) => {
+          return lastValueFrom(
+            of(user satisfies User).pipe(
+              delay(10),
+              tap((data) => console.log('mutation resolved', data))
+            )
+          );
+        },
+      })
+    )
+  );
+
+  const result = mutationParamsSourceInternallyExposed({} as any);
+  type ExpectMutationParamsSourceToBeDefined = Expect<
+    Equal<
+      ReturnType<typeof result.props.__mutation.updateUser.paramsSource>,
+      User
     >
   >;
 });
