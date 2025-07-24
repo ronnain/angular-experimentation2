@@ -27,7 +27,7 @@ import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-pa
 import {
   OptimisticPathMutationQuery,
   ReloadQueriesConfig,
-  TypeResourceConstraints,
+  QueryAndMutationRecordConstraints,
 } from './types/shared.type';
 
 const __QueryBrandSymbol: unique symbol = Symbol();
@@ -68,24 +68,26 @@ type MapResourceToState<
   queryParams: NoInfer<ResourceParams>;
 }) => NoInfer<ClientStateTypeByDottedPath>;
 
-type EffectFromMutation<ServerState extends TypeResourceConstraints> = {
+type EffectFromMutation<
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
+> = {
   optimisticUpdate?: ({
     queryResource,
     mutationResource,
     mutationParams,
   }: {
-    queryResource: ResourceRef<ServerState['query']['state']>;
-    mutationResource: ResourceRef<ServerState['mutation']['state']>;
-    mutationParams: NoInfer<ServerState['mutation']['params']>;
-  }) => NoInfer<ServerState['query']['state']>;
-  reload?: ReloadQueriesConfig<ServerState>;
+    queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
+    mutationResource: ResourceRef<QueryAndMutationRecord['mutation']['state']>;
+    mutationParams: NoInfer<QueryAndMutationRecord['mutation']['params']>;
+  }) => NoInfer<QueryAndMutationRecord['query']['state']>;
+  reload?: ReloadQueriesConfig<QueryAndMutationRecord>;
   /**
    * Will patch the query specific state with the mutation data.
    * If the query is loading, it will not patch.
    * If the mutation data is not compatible with the query state, it will not patch.
    * Be careful! If the mutation is already in a loading state, trigger the mutation again will cancelled the previous mutation loader and will patch with the new value.
    */
-  optimisticPatch?: OptimisticPathMutationQuery<ServerState>;
+  optimisticPatch?: OptimisticPathMutationQuery<QueryAndMutationRecord>;
 };
 
 /**

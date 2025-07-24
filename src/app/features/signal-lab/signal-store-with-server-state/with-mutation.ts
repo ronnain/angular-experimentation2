@@ -27,37 +27,44 @@ import {
   OptimisticPatchQueryFn,
   OptimisticPathMutationQuery,
   ReloadQueriesConfig,
-  TypeResourceConstraints,
+  QueryAndMutationRecordConstraints,
 } from './types/shared.type';
 
 declare const __MutationBrandSymbol: unique symbol;
 
-type OptimisticMutationQuery<ServerState extends TypeResourceConstraints> =
-  (data: {
-    queryResource: ResourceRef<ServerState['query']['state']>;
-    mutationResource: ResourceRef<NoInfer<ServerState['mutation']['state']>>;
-    mutationParams: NonNullable<NoInfer<ServerState['mutation']['params']>>;
-  }) => ServerState['query']['state'];
+type OptimisticMutationQuery<
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
+> = (data: {
+  queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
+  mutationResource: ResourceRef<
+    NoInfer<QueryAndMutationRecord['mutation']['state']>
+  >;
+  mutationParams: NonNullable<
+    NoInfer<QueryAndMutationRecord['mutation']['params']>
+  >;
+}) => QueryAndMutationRecord['query']['state'];
 
-type QueryEffect<ServerState extends TypeResourceConstraints> = {
+type QueryEffect<
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
+> = {
   /**
    * Will update the query state with the mutation data.
    * Be careful! If the mutation is already in a loading state, trigger the mutation again will cancelled the previous mutation loader and will patch with the new value.
    */
-  optimistic?: OptimisticMutationQuery<ServerState>;
+  optimistic?: OptimisticMutationQuery<QueryAndMutationRecord>;
   /**
    * Will reload the query when the mutation is in a specific state.
    * If not provided, it will reload the query onMutationResolved and onMutationError.
    * If the query is loading, it will not reload.
    */
-  reload?: ReloadQueriesConfig<ServerState>;
+  reload?: ReloadQueriesConfig<QueryAndMutationRecord>;
   /**
    * Will patch the query specific state with the mutation data.
    * If the query is loading, it will not patch.
    * If the mutation data is not compatible with the query state, it will not patch.
    * Be careful! If the mutation is already in a loading state, trigger the mutation again will cancelled the previous mutation loader and will patch with the new value.
    */
-  optimisticPatch?: OptimisticPathMutationQuery<ServerState>;
+  optimisticPatch?: OptimisticPathMutationQuery<QueryAndMutationRecord>;
 };
 
 type QueriesMutation<

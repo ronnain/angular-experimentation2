@@ -7,48 +7,50 @@ import {
 import { InternalType } from './util.type';
 
 // todo rename, and rename server state constraints
-export type TypeResourceConstraints = {
+export type QueryAndMutationRecordConstraints = {
   query: InternalType<unknown, unknown, unknown>;
   mutation: InternalType<unknown, unknown, unknown>;
 };
 
 export type CustomReloadOnSpecificMutationStatus<
-  ServerState extends TypeResourceConstraints
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 > = (data: {
-  queryResource: ResourceRef<ServerState['query']['state']>;
-  mutationResource: ResourceRef<ServerState['mutation']['state']>;
-  mutationParams: NonNullable<ServerState['query']['params']>;
+  queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
+  mutationResource: ResourceRef<QueryAndMutationRecord['mutation']['state']>;
+  mutationParams: NonNullable<QueryAndMutationRecord['query']['params']>;
 }) => boolean;
 
-export type ReloadQueriesConfig<ServerState extends TypeResourceConstraints> =
+export type ReloadQueriesConfig<
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
+> =
   | false
   | {
       onMutationError?:
         | boolean
-        | CustomReloadOnSpecificMutationStatus<ServerState>;
+        | CustomReloadOnSpecificMutationStatus<QueryAndMutationRecord>;
       onMutationResolved?:
         | boolean
-        | CustomReloadOnSpecificMutationStatus<ServerState>;
+        | CustomReloadOnSpecificMutationStatus<QueryAndMutationRecord>;
       onMutationLoading?:
         | boolean
-        | CustomReloadOnSpecificMutationStatus<ServerState>;
+        | CustomReloadOnSpecificMutationStatus<QueryAndMutationRecord>;
     };
 
 export type OptimisticPathMutationQuery<
-  ServerState extends TypeResourceConstraints
-> = ServerState['query']['state'] extends object
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
+> = QueryAndMutationRecord['query']['state'] extends object
   ? {
       [queryPatchPath in ObjectDeepPath<
-        ServerState['query']['state']
+        QueryAndMutationRecord['query']['state']
       >]?: AccessTypeObjectPropertyByDottedPath<
-        ServerState['query']['state'],
+        QueryAndMutationRecord['query']['state'],
         DottedPathPathToTuple<queryPatchPath>
       > extends infer TargetedType
         ? OptimisticPatchQueryFn<
-            ServerState['query']['state'],
-            ServerState['mutation']['state'],
-            ServerState['mutation']['params'],
-            ServerState['mutation']['args'],
+            QueryAndMutationRecord['query']['state'],
+            QueryAndMutationRecord['mutation']['state'],
+            QueryAndMutationRecord['mutation']['params'],
+            QueryAndMutationRecord['mutation']['args'],
             TargetedType
           >
         : never;
