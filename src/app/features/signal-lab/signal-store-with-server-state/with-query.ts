@@ -2,6 +2,7 @@ import {
   EffectRef,
   ResourceOptions,
   ResourceRef,
+  Signal,
   effect,
   resource,
   signal,
@@ -31,6 +32,7 @@ import {
   ReloadQueriesConfig,
   QueryAndMutationRecordConstraints,
 } from './types/shared.type';
+import { __InternalSharedMutationConfig } from './with-mutation';
 
 const __QueryBrandSymbol: unique symbol = Symbol();
 type QueryBrand = {
@@ -50,10 +52,8 @@ type WithQueryOutputStoreConfig<
     },
     {
       __query: {
-        [key in ResourceName & string]: InternalType<
-          ResourceState,
-          ResourceParams,
-          ResourceArgsParams
+        [key in ResourceName & string]: Prettify<
+          InternalType<ResourceState, ResourceParams, ResourceArgsParams>
         >;
       };
     }
@@ -179,8 +179,7 @@ export function withQuery<
       __mutation: infer Mutations;
     }
       ? {
-          [key in keyof Mutations as `${key &
-            string}Mutation`]?: Mutations[key] extends InternalType<
+          [key in keyof Mutations]?: Mutations[key] extends InternalType<
             infer MutationState,
             infer MutationParams,
             infer MutationArgsParams
@@ -284,94 +283,72 @@ export function withQuery<
                   [`_on${mutationName}${resourceName}QueryEffect`]: effect(
                     () => {
                       const mutationResource = (store as any)[
-                        `${mutationName}Mutation`
+                        mutationName
                       ] as ResourceRef<any>;
-                      const mutationStatus = queryResource.status();
-                      // todo listen to mutation params change
-                      // todo expose mutation params source
+                      const mutationStatus = mutationResource.status();
+                      const mutationParamsSrc = (store as any)['__mutation'][
+                        mutationName
+                      ].paramsSource as Signal<any>;
 
-                      untracked(() => {
-                        const optimisticValue =
-                          mutationEffectOptions?.optimisticUpdate?.({
-                            mutationResource,
-                            queryResource,
-                            mutationParams: resourceParamsSrc() as NonNullable<
-                              NoInfer<ResourceParams>
-                            >,
+                      if (mutationEffectOptions?.optimisticUpdate) {
+                        if (mutationStatus === 'loading') {
+                          untracked(() => {
+                            const optimisticValue =
+                              mutationEffectOptions?.optimisticUpdate?.({
+                                mutationResource,
+                                queryResource,
+                                mutationParams:
+                                  mutationParamsSrc() as NonNullable<
+                                    NoInfer<any>
+                                  >,
+                              });
+                            queryResource.set(optimisticValue);
                           });
-                        if (!queryResource.isLoading()) {
-                          queryResource.set(optimisticValue);
                         }
-                      });
+                      }
+                      if (mutationEffectOptions.reload) {
+                        const statusMappings = {
+                          onMutationError: 'error',
+                          onMutationResolved: 'resolved',
+                          onMutationLoading: 'loading',
+                        };
 
-                      //     untracked(() => {
-                      //       // Handle optimistic updates on loading
-                      //       if (mutationStatus === 'loading') {
-                      //         queriesWithOptimisticMutation.forEach(
-                      //           ([queryName, queryMutationConfig]) => {
-                      //             const queryResource = (store as any)[
-                      //               `${queryName}Query`
-                      //             ] as ResourceRef<any>;
+                        Object.entries(mutationEffectOptions.reload).forEach(
+                          ([reloadType, reloadConfig]) => {
+                            const expectedStatus =
+                              statusMappings[
+                                reloadType as keyof typeof statusMappings
+                              ];
 
-                      //             const optimisticValue = queryMutationConfig?.optimistic?.(
-                      //               {
-                      //                 mutationResource,
-                      //                 queryResource,
-                      //                 mutationParams: resourceParamsSrc() as NonNullable<
-                      //                   NoInfer<ResourceParams>
-                      //                 >,
-                      //               }
-                      //             );
-
-                      //             if (!queryResource.isLoading()) {
-                      //               queryResource.set(optimisticValue);
-                      //             }
-                      //           }
-                      //         );
-                      //       }
-                      //     });
-
-                      //   }),
+                            if (
+                              expectedStatus &&
+                              mutationStatus === expectedStatus
+                            ) {
+                              if (typeof reloadConfig === 'function') {
+                                if (
+                                  reloadConfig({
+                                    queryResource,
+                                    mutationResource,
+                                    mutationParams: untracked(() =>
+                                      mutationParamsSrc()
+                                    ) as any,
+                                  })
+                                ) {
+                                  queryResource.reload();
+                                }
+                              } else if (reloadConfig) {
+                                queryResource.reload();
+                              }
+                            }
+                          }
+                        );
+                      }
                     }
                   ),
                 };
               },
               {} as Record<`_on${string}${ResourceName}QueryEffect`, EffectRef>
             )),
-          //   { // todo loop on mutation that has effects
-          //   [`_on${}${resourceName}QueryEffect`]: effect(() => {
-          //     const mutationStatus = queryResource.status();
-          //     const mutationParamsChange = resourceParamsSrc();
-
-          //     untracked(() => {
-          //       // Handle optimistic updates on loading
-          //       if (mutationStatus === 'loading') {
-          //         queriesWithOptimisticMutation.forEach(
-          //           ([queryName, queryMutationConfig]) => {
-          //             const queryResource = (store as any)[
-          //               `${queryName}Query`
-          //             ] as ResourceRef<any>;
-
-          //             const optimisticValue = queryMutationConfig?.optimistic?.(
-          //               {
-          //                 mutationResource,
-          //                 queryResource,
-          //                 mutationParams: resourceParamsSrc() as NonNullable<
-          //                   NoInfer<ResourceParams>
-          //                 >,
-          //               }
-          //             );
-
-          //             if (!queryResource.isLoading()) {
-          //               queryResource.set(optimisticValue);
-          //             }
-          //           }
-          //         );
-          //       }
-          //     });
-
-          //   }),
-          // }
         };
       })
       //@ts-ignore

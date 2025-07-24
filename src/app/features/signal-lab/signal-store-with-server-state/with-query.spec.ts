@@ -1,4 +1,4 @@
-import { delay, lastValueFrom, of } from 'rxjs';
+import { delay, lastValueFrom, map, of } from 'rxjs';
 import { Equal, Expect } from '../../../../../test-type';
 import {
   signalStore,
@@ -9,7 +9,6 @@ import {
 import { query, withQuery } from './with-query';
 import { ResourceRef, ResourceStreamItem, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { vi } from 'vitest';
 import { mutation, withMutation } from './with-mutation';
 
 type User = {
@@ -126,7 +125,7 @@ describe('withQuery', () => {
     expect(store.userQuery.value()).toEqual(undefined);
 
     // Wait for the query to resolve
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    await wait(40);
 
     expect(store.userQuery.status()).toBe('resolved');
     expect(store.userQuery.value()).toEqual({
@@ -235,6 +234,8 @@ describe('Declarative server state, withQuery and withMutation', () => {
           on: {
             userEmailMutation: {
               optimisticUpdate: ({ queryResource, mutationParams }) => {
+                console.log('queryResource.value()', queryResource.value());
+                console.log('mutationParams', mutationParams);
                 return {
                   ...queryResource.value(),
                   email: mutationParams.email,
@@ -251,7 +252,7 @@ describe('Declarative server state, withQuery and withMutation', () => {
     });
     const store = TestBed.inject(Store);
 
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    await wait(30);
     expect(store.userQuery.status()).toBe('resolved');
 
     store.mutateUserEmail({
@@ -259,9 +260,164 @@ describe('Declarative server state, withQuery and withMutation', () => {
       email: 'mutated@test.com',
     });
     // not implemented yet todo
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    await wait(30);
     expect(store.userQuery.status()).toBe('local');
     expect(store.userQuery.value().email).toBe('mutated@test.com');
+  });
+
+  it('2- withQuery should reload on mutation error', async () => {
+    const Store = signalStore(
+      withMutation('userEmail', () =>
+        mutation({
+          method: ({ id, email }: { id: string; email: string }) => ({
+            id,
+            email,
+          }),
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params.id,
+                name: 'Updated Name',
+                email: params.email,
+              } satisfies User).pipe(
+                map((data) => {
+                  throw new Error('Error during mutation');
+                  return data;
+                })
+              )
+            );
+          },
+        })
+      ),
+      withQuery(
+        'user',
+        () =>
+          query({
+            params: () => '5',
+            loader: async ({ params }) => {
+              type StreamResponseTypeRetrieved = Expect<
+                Equal<typeof params, string>
+              >;
+              await wait(10);
+              return {
+                id: params,
+                name: 'John Doe',
+                email: 'test@a.com',
+              };
+            },
+          }),
+        () => ({
+          on: {
+            userEmailMutation: {
+              reload: {
+                onMutationError: true,
+              },
+            },
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store],
+    });
+    const store = TestBed.inject(Store);
+
+    await wait(20);
+    expect(store.userQuery.status()).toBe('resolved');
+
+    store.mutateUserEmail({
+      id: '5',
+      email: 'mutated@test.com',
+    });
+    // not implemented yet todo
+    await wait(1);
+    expect(store.userEmailMutation.status()).toBe('error');
+    await wait(1);
+    expect(store.userQuery.status()).toBe('reloading');
+  });
+  it('3- withQuery should reload on mutation error if mutation params id is "error"', async () => {
+    const Store = signalStore(
+      withMutation('userEmail', () =>
+        mutation({
+          method: ({ id, email }: { id: string; email: string }) => ({
+            id,
+            email,
+          }),
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params.id,
+                name: 'Updated Name',
+                email: params.email,
+              } satisfies User).pipe(
+                map((data) => {
+                  throw new Error('Error during mutation');
+                  return data;
+                })
+              )
+            );
+          },
+        })
+      ),
+      withQuery(
+        'user',
+        () =>
+          query({
+            params: () => '5',
+            loader: async ({ params }) => {
+              type StreamResponseTypeRetrieved = Expect<
+                Equal<typeof params, string>
+              >;
+              await wait(10);
+              return {
+                id: params,
+                name: 'John Doe',
+                email: 'test@a.com',
+              };
+            },
+          }),
+        () => ({
+          on: {
+            userEmailMutation: {
+              reload: {
+                onMutationError: ({ mutationParams }) =>
+                  mutationParams.id === 'error',
+              },
+            },
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store],
+    });
+    const store = TestBed.inject(Store);
+
+    await wait(30);
+    expect(store.userQuery.status()).toBe('resolved');
+
+    store.mutateUserEmail({
+      id: '5',
+      email: 'mutated@test.com',
+    });
+    // not implemented yet todo
+    await wait(1);
+    expect(store.userEmailMutation.status()).toBe('error');
+    await wait(1);
+    expect(store.userQuery.status()).toBe('resolved');
+
+    store.mutateUserEmail({
+      id: 'error',
+      email: 'mutated@test.com',
+    });
+    await wait(1);
+    expect(store.userEmailMutation.status()).toBe('error');
+    await wait(1);
+    expect(store.userQuery.status()).toBe('reloading');
+    await wait(100);
+    expect(store.userQuery.status()).toBe('resolved');
   });
 });
 
@@ -303,9 +459,9 @@ describe('withQuery typing', () => {
         ResultType['props']['__query'],
         {
           user: {
-            id: string;
-            name: string;
-            email: string;
+            state: User;
+            params: string;
+            args: unknown;
           };
         }
       >
@@ -544,3 +700,7 @@ describe('withQuery typing', () => {
     );
   });
 });
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

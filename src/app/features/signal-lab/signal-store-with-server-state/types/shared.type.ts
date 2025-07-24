@@ -17,7 +17,7 @@ export type CustomReloadOnSpecificMutationStatus<
 > = (data: {
   queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
   mutationResource: ResourceRef<QueryAndMutationRecord['mutation']['state']>;
-  mutationParams: NonNullable<QueryAndMutationRecord['query']['params']>;
+  mutationParams: NonNullable<QueryAndMutationRecord['mutation']['params']>;
 }) => boolean;
 
 export type ReloadQueriesConfig<

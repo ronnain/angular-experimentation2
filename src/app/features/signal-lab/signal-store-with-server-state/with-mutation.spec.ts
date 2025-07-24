@@ -517,11 +517,12 @@ it('it should expose the mutation params source, that will be reused by query', 
     )
   );
 
-  const result = mutationParamsSourceInternallyExposed({} as any);
+  type ReturnInternalStoreType = ReturnType<
+    ReturnType<
+      typeof mutationParamsSourceInternallyExposed
+    >['props']['__mutation']['updateUserMutation']['paramsSource']
+  >;
   type ExpectMutationParamsSourceToBeDefined = Expect<
-    Equal<
-      ReturnType<typeof result.props.__mutation.updateUser.paramsSource>,
-      User
-    >
+    Equal<ReturnInternalStoreType, User>
   >;
 });

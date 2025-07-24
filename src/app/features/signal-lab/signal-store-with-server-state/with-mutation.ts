@@ -155,6 +155,17 @@ export function mutation<
   });
 }
 
+export type __InternalSharedMutationConfig<MutationName, State, Params, Args> =
+  {
+    [key in `${MutationName & string}Mutation`]: InternalType<
+      State,
+      Params,
+      Args
+    > & {
+      paramsSource: Signal<Params>;
+    };
+  };
+
 type MutationStoreOutput<
   MutationName extends string,
   MutationState,
@@ -170,15 +181,12 @@ type MutationStoreOutput<
       /**
        * Used to help for type inference, and access to the mutation resource params source
        */
-      __mutation: {
-        [key in MutationName]: InternalType<
-          MutationState,
-          MutationParams,
-          MutationArgsParams
-        > & {
-          paramsSource: Signal<MutationParams>;
-        };
-      };
+      __mutation: __InternalSharedMutationConfig<
+        MutationName,
+        MutationState,
+        MutationParams,
+        MutationArgsParams
+      >;
     }
   >;
   // todo add only if there is a mutation  fn and MutationArgsParams
@@ -407,7 +415,9 @@ export function withMutation<
             }),
           }),
           __mutation: {
-            paramsSource: resourceParamsSrc,
+            [`${mutationName}Mutation`]: {
+              paramsSource: resourceParamsSrc,
+            },
           },
         };
       }),
