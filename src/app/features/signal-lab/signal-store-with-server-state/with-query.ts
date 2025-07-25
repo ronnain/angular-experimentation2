@@ -347,54 +347,56 @@ export function withQuery<
                       }
                       if (mutationEffectOptions.optimisticPatch) {
                         if (mutationStatus === 'loading') {
-                          Object.entries(
-                            mutationEffectOptions.optimisticPatch as Record<
-                              string,
-                              OptimisticPatchQueryFn<
-                                any,
-                                ResourceState,
-                                ResourceParams,
-                                ResourceArgsParams,
-                                any
+                          untracked(() => {
+                            Object.entries(
+                              mutationEffectOptions.optimisticPatch as Record<
+                                string,
+                                OptimisticPatchQueryFn<
+                                  any,
+                                  ResourceState,
+                                  ResourceParams,
+                                  ResourceArgsParams,
+                                  any
+                                >
                               >
-                            >
-                          ).forEach(([path, optimisticPatch]) => {
-                            const queryValue = queryResource.hasValue()
-                              ? queryResource.value()
-                              : undefined;
-                            debugger;
-                            console.log('queryValue', queryValue);
-                            console.log(
-                              'nestedValue',
-                              getNestedStateValue({
-                                state: queryValue,
-                                keysPath: path.split('.'),
-                              })
-                            );
-                            console.log(
-                              'mutationParamsSrc()',
-                              mutationParamsSrc()
-                            );
-                            const optimisticValue = optimisticPatch({
-                              mutationResource,
-                              queryResource,
-                              mutationParams:
-                                mutationParamsSrc() as NonNullable<
-                                  NoInfer<ResourceParams>
-                                >,
-                              targetedState: getNestedStateValue({
-                                state: queryValue,
-                                keysPath: path.split('.'),
-                              }),
-                            });
-                            console.log('optimisticValue', optimisticValue);
+                            ).forEach(([path, optimisticPatch]) => {
+                              const queryValue = queryResource.hasValue()
+                                ? queryResource.value()
+                                : undefined;
+                              debugger;
+                              console.log('queryValue', queryValue);
+                              console.log(
+                                'nestedValue',
+                                getNestedStateValue({
+                                  state: queryValue,
+                                  keysPath: path.split('.'),
+                                })
+                              );
+                              console.log(
+                                'mutationParamsSrc()',
+                                mutationParamsSrc()
+                              );
+                              const optimisticValue = optimisticPatch({
+                                mutationResource,
+                                queryResource,
+                                mutationParams:
+                                  mutationParamsSrc() as NonNullable<
+                                    NoInfer<ResourceParams>
+                                  >,
+                                targetedState: getNestedStateValue({
+                                  state: queryValue,
+                                  keysPath: path.split('.'),
+                                }),
+                              });
+                              console.log('optimisticValue', optimisticValue);
 
-                            const updatedValue = createNestedStateUpdate({
-                              state: queryValue,
-                              keysPath: path.split('.'),
-                              value: optimisticValue,
+                              const updatedValue = createNestedStateUpdate({
+                                state: queryValue,
+                                keysPath: path.split('.'),
+                                value: optimisticValue,
+                              });
+                              queryResource.set(updatedValue);
                             });
-                            queryResource.set(updatedValue);
                           });
                         }
                       }
