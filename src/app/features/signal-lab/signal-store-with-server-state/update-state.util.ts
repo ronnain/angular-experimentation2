@@ -21,7 +21,9 @@ export function createNestedStateUpdate({
       remainingKeys.length === 0
         ? Array.isArray(currentState)
           ? value
-          : { ...currentState, ...value }
+          : typeof value === 'object' && value !== null && !Array.isArray(value)
+          ? { ...currentState, ...value }
+          : value
         : createNestedStateUpdate({
             state: currentState,
             keysPath: remainingKeys,

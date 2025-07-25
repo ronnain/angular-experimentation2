@@ -20,7 +20,10 @@ import {
 } from '@ngrx/signals';
 import { InternalType, MergeObject } from './types/util.type';
 import { Merge } from '../../../util/types/merge';
-import { createNestedStateUpdate } from './update-state.util';
+import {
+  createNestedStateUpdate,
+  getNestedStateValue,
+} from './update-state.util';
 import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
 import {
   AccessTypeObjectPropertyByDottedPath,
@@ -31,6 +34,7 @@ import {
   OptimisticPathMutationQuery,
   ReloadQueriesConfig,
   QueryAndMutationRecordConstraints,
+  OptimisticPatchQueryFn,
 } from './types/shared.type';
 import { __InternalSharedMutationConfig } from './with-mutation';
 
@@ -232,8 +236,6 @@ export function withQuery<
 
         const associatedClientState = queryOptions?.associatedClientState;
 
-        ///
-
         const mutationsConfigEffect = Object.entries(
           (queryOptions?.on ?? {}) as Record<
             string,
@@ -342,6 +344,59 @@ export function withQuery<
                             }
                           }
                         );
+                      }
+                      if (mutationEffectOptions.optimisticPatch) {
+                        if (mutationStatus === 'loading') {
+                          Object.entries(
+                            mutationEffectOptions.optimisticPatch as Record<
+                              string,
+                              OptimisticPatchQueryFn<
+                                any,
+                                ResourceState,
+                                ResourceParams,
+                                ResourceArgsParams,
+                                any
+                              >
+                            >
+                          ).forEach(([path, optimisticPatch]) => {
+                            const queryValue = queryResource.hasValue()
+                              ? queryResource.value()
+                              : undefined;
+                            debugger;
+                            console.log('queryValue', queryValue);
+                            console.log(
+                              'nestedValue',
+                              getNestedStateValue({
+                                state: queryValue,
+                                keysPath: path.split('.'),
+                              })
+                            );
+                            console.log(
+                              'mutationParamsSrc()',
+                              mutationParamsSrc()
+                            );
+                            const optimisticValue = optimisticPatch({
+                              mutationResource,
+                              queryResource,
+                              mutationParams:
+                                mutationParamsSrc() as NonNullable<
+                                  NoInfer<ResourceParams>
+                                >,
+                              targetedState: getNestedStateValue({
+                                state: queryValue,
+                                keysPath: path.split('.'),
+                              }),
+                            });
+                            console.log('optimisticValue', optimisticValue);
+
+                            const updatedValue = createNestedStateUpdate({
+                              state: queryValue,
+                              keysPath: path.split('.'),
+                              value: optimisticValue,
+                            });
+                            queryResource.set(updatedValue);
+                          });
+                        }
                       }
                     }
                   ),

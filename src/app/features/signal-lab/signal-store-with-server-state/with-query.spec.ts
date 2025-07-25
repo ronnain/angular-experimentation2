@@ -195,7 +195,7 @@ describe('withQuery', () => {
 });
 
 describe('Declarative server state, withQuery and withMutation', () => {
-  it('1- withQuery should react to all mutation changes', async () => {
+  it('1- withQuery should handle optimistic updates', async () => {
     const Store = signalStore(
       withMutation('userEmail', () =>
         mutation({
@@ -259,7 +259,6 @@ describe('Declarative server state, withQuery and withMutation', () => {
       id: '5',
       email: 'mutated@test.com',
     });
-    // not implemented yet todo
     await wait(30);
     expect(store.userQuery.status()).toBe('local');
     expect(store.userQuery.value().email).toBe('mutated@test.com');
@@ -330,7 +329,6 @@ describe('Declarative server state, withQuery and withMutation', () => {
       id: '5',
       email: 'mutated@test.com',
     });
-    // not implemented yet todo
     await wait(1);
     expect(store.userEmailMutation.status()).toBe('error');
     await wait(1);
@@ -402,7 +400,6 @@ describe('Declarative server state, withQuery and withMutation', () => {
       id: '5',
       email: 'mutated@test.com',
     });
-    // not implemented yet todo
     await wait(1);
     expect(store.userEmailMutation.status()).toBe('error');
     await wait(1);
@@ -418,6 +415,75 @@ describe('Declarative server state, withQuery and withMutation', () => {
     expect(store.userQuery.status()).toBe('reloading');
     await wait(100);
     expect(store.userQuery.status()).toBe('resolved');
+  });
+
+  it('4- withQuery should handle optimisticPatch', async () => {
+    const Store = signalStore(
+      withMutation('userEmail', () =>
+        mutation({
+          method: ({ id, email }: { id: string; email: string }) => ({
+            id,
+            email,
+          }),
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params.id,
+                name: 'Updated Name',
+                email: params.email,
+              } satisfies User)
+            );
+          },
+        })
+      ),
+      withQuery(
+        'user',
+        () =>
+          query({
+            params: () => '5',
+            loader: async ({ params }) => {
+              await wait(10);
+              return {
+                id: params,
+                name: 'John Doe',
+                email: 'test@a.com',
+              };
+            },
+          }),
+        () => ({
+          on: {
+            userEmailMutation: {
+              optimisticPatch: {
+                email: ({ mutationParams }) => {
+                  console.log('mutationParams', mutationParams);
+                  return mutationParams?.email;
+                },
+              },
+            },
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store],
+    });
+    const store = TestBed.inject(Store);
+
+    await wait(30);
+    expect(store.userQuery.status()).toBe('resolved');
+    console.log('will mutate');
+    store.mutateUserEmail({
+      id: '5',
+      email: 'mutated@test.com',
+    });
+    console.log('mutated');
+
+    await wait(3);
+    console.log('store.userQuery.status()', store.userQuery.status());
+    expect(store.userQuery.status()).toBe('local');
+    console.log('store.userQuery.value().email', store.userQuery.value().email);
+    expect(store.userQuery.value().email).toBe('mutated@test.com');
   });
 });
 

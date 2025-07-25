@@ -7,7 +7,7 @@ import {
   Signal,
   signal,
 } from '@angular/core';
-import { TestStore } from './test.store';
+import { DeclarativeStore, TestStore } from './test.store';
 
 @Component({
   selector: 'app-view',
@@ -66,10 +66,27 @@ import { TestStore } from './test.store';
     >
       Update User Src
     </button>
+
+    <hr />
+    <h2>Declarative Store</h2>
+    <button
+      class="btn"
+      (click)="
+        declarativeStore.mutateUserEmail({
+          id: '5',
+          email: 'mutated@emaiL.com'
+        })
+      "
+    >
+      Mutate User Email
+    </button>
+    userQuery({{ declarativeStore.userQuery.status() | json }}) :
+    <pre>{{ declarativeStore.userQuery.value() | json }}</pre>
   `,
 })
 export default class ViewComponent {
   protected readonly store = inject(TestStore);
+  protected readonly declarativeStore = inject(DeclarativeStore);
 
   testCountRef = signal('Test');
 

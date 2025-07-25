@@ -182,48 +182,48 @@ export const TestStore = signalStore(
   )
 );
 
-const Store = signalStore(
-  {
-    providedIn: 'root',
-  },
-  withState({
-    selectedUserId: undefined as string | undefined,
-    user: undefined as User | undefined,
-  }),
-  withQuery(
-    'userDetails',
-    (store) =>
-      query({
-        params: store.selectedUserId,
-        loader: ({ params }) =>
-          lastValueFrom(
-            of({
-              id: params,
-              name: 'John Doe',
-              email: 'a@a.fr',
-            }).pipe(delay(2000))
-          ),
+export const DeclarativeStore = signalStore(
+  { providedIn: 'root' },
+  withMutation('userEmail', () =>
+    mutation({
+      method: ({ id, email }: { id: string; email: string }) => ({
+        id,
+        email,
       }),
-    (store) => ({
-      associatedClientState: {
-        path: 'user',
+      loader: ({ params }) => {
+        return lastValueFrom(
+          of({
+            id: params.id,
+            name: 'Updated Name',
+            email: params.email,
+          } satisfies User).pipe(delay(2000))
+        );
       },
     })
   ),
-  withMutation(
+  withQuery(
     'user',
-    (store) =>
-      mutation({
-        method: (user: User) => user,
-        // Or  params: store.user
-        loader: ({ params }) => lastValueFrom(of(params).pipe(delay(2000))),
+    () =>
+      query({
+        params: () => '5',
+        loader: async ({ params }) => {
+          return lastValueFrom(
+            of({
+              id: params,
+              name: 'John Doe',
+              email: 'test@a.com',
+            }).pipe(delay(2000))
+          );
+        },
       }),
-    (store) => ({
-      queriesEffects: {
-        userDetails: {
-          optimistic: ({ mutationParams }) => mutationParams,
-          reload: {
-            onMutationError: true,
+    () => ({
+      on: {
+        userEmailMutation: {
+          optimisticPatch: {
+            email: ({ mutationParams }) => {
+              console.log('mutationParams', mutationParams);
+              return mutationParams?.email;
+            },
           },
         },
       },
@@ -231,15 +231,64 @@ const Store = signalStore(
   )
 );
 
-const store = inject(Store);
-const queryStatus = store.userDetailsQuery.status(); // "idle" | "error" | "loading" | "reloading" | "resolved" | "local"
-const queryValue = store.userDetailsQuery.value(); // {  id: string;  name: string;  email: string; }
+// const Store = signalStore(
+//   {
+//     providedIn: 'root',
+//   },
+//   withState({
+//     selectedUserId: undefined as string | undefined,
+//     user: undefined as User | undefined,
+//   }),
+//   withQuery(
+//     'userDetails',
+//     (store) =>
+//       query({
+//         params: store.selectedUserId,
+//         loader: ({ params }) =>
+//           lastValueFrom(
+//             of({
+//               id: params,
+//               name: 'John Doe',
+//               email: 'a@a.fr',
+//             }).pipe(delay(2000))
+//           ),
+//       }),
+//     (store) => ({
+//       associatedClientState: {
+//         path: 'user',
+//       },
+//     })
+//   ),
+//   withMutation(
+//     'user',
+//     (store) =>
+//       mutation({
+//         method: (user: User) => user,
+//         // Or  params: store.user
+//         loader: ({ params }) => lastValueFrom(of(params).pipe(delay(2000))),
+//       }),
+//     (store) => ({
+//       queriesEffects: {
+//         userDetails: {
+//           optimistic: ({ mutationParams }) => mutationParams,
+//           reload: {
+//             onMutationError: true,
+//           },
+//         },
+//       },
+//     })
+//   )
+// );
 
-const mutationStatus = store.userMutation.status(); // "idle" | "error" | "loading" | "reloading" | "resolved" | "local"
-const mutationValue = store.userMutation.value(); // {  id: string;  name: string;  email: string; }
+// const store = inject(Store);
+// const queryStatus = store.userDetailsQuery.status(); // "idle" | "error" | "loading" | "reloading" | "resolved" | "local"
+// const queryValue = store.userDetailsQuery.value(); // {  id: string;  name: string;  email: string; }
 
-store.mutateUser({
-  id: '1',
-  name: 'Jane Doe',
-  email: 'jane.doe@example.com',
-});
+// const mutationStatus = store.userMutation.status(); // "idle" | "error" | "loading" | "reloading" | "resolved" | "local"
+// const mutationValue = store.userMutation.value(); // {  id: string;  name: string;  email: string; }
+
+// store.mutateUser({
+//   id: '1',
+//   name: 'Jane Doe',
+//   email: 'jane.doe@example.com',
+// });

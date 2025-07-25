@@ -196,7 +196,7 @@ type MutationStoreOutput<
     ) => MutationParams;
   };
 };
-
+// todo handle uoptimistic as a switchMap update (as withQuery, take the last incoming value)
 export function withMutation<
   Input extends SignalStoreFeatureResult,
   const StoreInput extends Prettify<
