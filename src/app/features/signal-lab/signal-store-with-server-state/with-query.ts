@@ -363,7 +363,6 @@ export function withQuery<
                               const queryValue = queryResource.hasValue()
                                 ? queryResource.value()
                                 : undefined;
-                              debugger;
                               console.log('queryValue', queryValue);
                               console.log(
                                 'nestedValue',
