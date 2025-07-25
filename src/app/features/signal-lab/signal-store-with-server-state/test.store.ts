@@ -220,10 +220,7 @@ export const DeclarativeStore = signalStore(
       on: {
         userEmailMutation: {
           optimisticPatch: {
-            email: ({ mutationParams }) => {
-              console.log('mutationParams', mutationParams);
-              return mutationParams?.email;
-            },
+            email: ({ mutationParams }) => mutationParams?.email,
           },
         },
       },
