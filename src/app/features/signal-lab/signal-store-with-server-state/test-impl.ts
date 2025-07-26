@@ -3,7 +3,7 @@ import { signalStore, withState, withHooks } from '@ngrx/signals';
 import { of, lastValueFrom } from 'rxjs';
 import { resourceById } from '../resource-by-id';
 import { resource } from '@angular/core';
-import { withQueryById } from './with-query-by-id';
+import { withQueryById } from './archive/with-query-by-id';
 import { withQuery } from './with-query';
 
 type UserTest = {

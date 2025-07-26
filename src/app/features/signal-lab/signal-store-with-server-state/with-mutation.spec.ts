@@ -377,7 +377,7 @@ it('Should expose a method', () => {
   type ExpectPropsToHaveARecordWithMutationNameWithMutationState = Expect<
     Equal<
       // paramsSource is tested in another test (I did not find the way to satisfy it here)
-      Omit<MutationProps['__mutation']['user'], 'paramsSource'>,
+      Omit<MutationProps['__mutation']['userMutation'], 'paramsSource'>,
       {
         state: {
           id: string;
@@ -388,6 +388,7 @@ it('Should expose a method', () => {
         args: {
           page: string;
         };
+        isGroupedResource: false;
       }
     >
   >;

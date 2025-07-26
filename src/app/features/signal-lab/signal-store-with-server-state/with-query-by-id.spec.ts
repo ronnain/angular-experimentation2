@@ -1,55 +1,32 @@
+import { TestBed } from '@angular/core/testing';
+import { signalStore } from '@ngrx/signals';
 import { lastValueFrom, of } from 'rxjs';
-import { resourceById } from '../resource-by-id';
-import { ResourceData } from './signal-store-with-server-state';
-import { Equal, Expect } from '../../../../../test-type';
-import { SignalStoreFeature } from '@ngrx/signals';
 import { withQueryById } from './with-query-by-id';
 
-type User = {
-  id: string;
-  name: string;
-  email: string;
-};
+describe('withQueryById', () => {
+  it('1- Should expose a query resource', () => {
+    const Store = signalStore(
+      withQueryById('user', () =>
+        queryById({
+          params: () => '5',
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params,
+                name: 'John Doe',
+                email: 'test@a.com',
+              })
+            );
+          },
+        })
+      )
+    );
 
-type InferSignalStoreFeatureReturnedType<
-  T extends SignalStoreFeature<any, any>
-> = T extends SignalStoreFeature<any, infer R> ? R : never;
+    TestBed.configureTestingModule({
+      providers: [Store],
+    });
+    const store = TestBed.inject(Store);
 
-it('Should request a path for entities query config', () => {
-  const queryByIdTest = withQueryById('usersById', () =>
-    resourceById({
-      params: () => '5',
-      loader: ({ params }) => {
-        return lastValueFrom(
-          of({
-            id: params,
-            name: 'John Doe',
-            email: 'test@a.com',
-          } satisfies User)
-        );
-      },
-      identifier: (params) => params,
-    })
-  );
-  type ResultType = InferSignalStoreFeatureReturnedType<typeof queryByIdTest>;
-  type StateKeys = keyof ResultType['state'];
-
-  type ExpectResourceNameToBeAtTheRootState = Expect<
-    Equal<StateKeys, 'usersById'>
-  >;
-
-  type ExpectTheStateToHaveARecordWithResourceData = Expect<
-    Equal<
-      ResultType['state']['usersById'],
-      Record<string, ResourceData<User> | undefined>
-    >
-  >;
-
-  type PropsPropertyKey = keyof ResultType['props'];
-
-  type PrivatePropsPrefix = `_`;
-
-  type ExpectPropsEffectToBePrivate = Expect<
-    Equal<PropsPropertyKey, `${PrivatePropsPrefix}usersByIdEffect`>
-  >;
+    expect(store.userQueryById).toBeDefined();
+  });
 });

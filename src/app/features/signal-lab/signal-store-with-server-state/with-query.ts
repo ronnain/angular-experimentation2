@@ -47,7 +47,8 @@ type WithQueryOutputStoreConfig<
   ResourceName,
   ResourceState extends object | undefined,
   ResourceParams,
-  ResourceArgsParams
+  ResourceArgsParams,
+  IsGroupedByGroup
 > = {
   state: {};
   props: Merge<
@@ -57,7 +58,12 @@ type WithQueryOutputStoreConfig<
     {
       __query: {
         [key in ResourceName & string]: Prettify<
-          InternalType<ResourceState, ResourceParams, ResourceArgsParams>
+          InternalType<
+            ResourceState,
+            ResourceParams,
+            ResourceArgsParams,
+            IsGroupedByGroup
+          >
         >;
       };
     }
@@ -143,7 +149,12 @@ export function withQuery<
     store: StoreInput,
     context: Input
   ) => { queryConfig: QueryConfig } & {
-    __types: InternalType<ResourceState, ResourceParams, ResourceArgsParams>;
+    __types: InternalType<
+      ResourceState,
+      ResourceParams,
+      ResourceArgsParams,
+      false
+    >;
   } & QueryBrand,
   optionsFactory?: (store: StoreInput) => {
     // Exclude path from the MergeObject, it will enable the const type inference, otherwise it will be inferred as string
@@ -186,18 +197,21 @@ export function withQuery<
           [key in keyof Mutations]?: Mutations[key] extends InternalType<
             infer MutationState,
             infer MutationParams,
-            infer MutationArgsParams
+            infer MutationArgsParams,
+            infer IsMutationGroupedResource
           >
             ? QueryDeclarativeEffect<{
                 query: InternalType<
                   ResourceState,
                   ResourceParams,
-                  ResourceArgsParams
+                  ResourceArgsParams,
+                  false
                 >;
                 mutation: InternalType<
                   MutationState,
                   MutationParams,
-                  MutationArgsParams
+                  MutationArgsParams,
+                  IsMutationGroupedResource
                 >;
               }>
             : never;
@@ -210,7 +224,8 @@ export function withQuery<
     ResourceName,
     ResourceState,
     ResourceParams,
-    ResourceArgsParams
+    ResourceArgsParams,
+    false
   >
 > {
   return ((context: SignalStoreFeatureResult) => {
@@ -415,7 +430,8 @@ export function withQuery<
       ResourceName,
       ResourceState,
       ResourceParams,
-      ResourceArgsParams
+      ResourceArgsParams,
+      false
     >
   >;
 }
@@ -486,7 +502,8 @@ export function query<
   __types: InternalType<
     NoInfer<queryState>,
     NoInfer<queryParams>,
-    NoInfer<QueryArgsParams>
+    NoInfer<QueryArgsParams>,
+    false
   >;
 } & QueryBrand {
   return (store, context) => ({
@@ -496,7 +513,8 @@ export function query<
     __types: {} as InternalType<
       NoInfer<queryState>,
       NoInfer<queryParams>,
-      NoInfer<QueryArgsParams>
+      NoInfer<QueryArgsParams>,
+      false
     >,
     [__QueryBrandSymbol]: undefined,
   });

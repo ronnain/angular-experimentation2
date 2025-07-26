@@ -8,8 +8,9 @@ export type MakeOptionalPropertiesRequired<
 
 export type MergeObject<A, B> = A & B;
 
-export type InternalType<State, Params, Args> = {
+export type InternalType<State, Params, Args, IsGroupedResource> = {
   state: State;
   params: Params;
   args: Args;
+  isGroupedResource: IsGroupedResource;
 };

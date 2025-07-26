@@ -528,6 +528,7 @@ describe('withQuery typing', () => {
             state: User;
             params: string;
             args: unknown;
+            isGroupedResource: false;
           };
         }
       >

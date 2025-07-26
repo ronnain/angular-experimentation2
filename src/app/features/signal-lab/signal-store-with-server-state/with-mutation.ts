@@ -142,7 +142,8 @@ export function mutation<
   __types: InternalType<
     NoInfer<mutationState>,
     NoInfer<mutationParams>,
-    NoInfer<MutationArgsParams>
+    NoInfer<MutationArgsParams>,
+    false
   >;
 } {
   return (store, context) => ({
@@ -150,7 +151,8 @@ export function mutation<
     __types: {} as InternalType<
       NoInfer<mutationState>,
       NoInfer<mutationParams>,
-      NoInfer<MutationArgsParams>
+      NoInfer<MutationArgsParams>,
+      false
     >,
   });
 }
@@ -160,7 +162,8 @@ export type __InternalSharedMutationConfig<MutationName, State, Params, Args> =
     [key in `${MutationName & string}Mutation`]: InternalType<
       State,
       Params,
-      Args
+      Args,
+      false
     > & {
       paramsSource: Signal<Params>;
     };
@@ -216,7 +219,12 @@ export function withMutation<
     store: StoreInput,
     context: Input
   ) => { mutationConfig: MutationConfig } & {
-    __types: InternalType<ResourceState, ResourceParams, ResourceArgsParams>;
+    __types: InternalType<
+      ResourceState,
+      ResourceParams,
+      ResourceArgsParams,
+      false
+    >;
   },
   queriesEffectsFn?: (
     store: StoreInput
