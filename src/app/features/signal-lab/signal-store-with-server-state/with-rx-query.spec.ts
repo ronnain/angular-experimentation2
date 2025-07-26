@@ -64,20 +64,20 @@ describe('Declarative server state, withQuery and withMutation', () => {
           },
         })
       ),
-      withQuery(
+      withRxQuery(
         'user',
         () =>
-          query({
+          rxQuery({
             params: () => '5',
-            loader: async ({ params }) => {
+            stream: ({ params }) => {
               type StreamResponseTypeRetrieved = Expect<
                 Equal<typeof params, string>
               >;
-              return {
+              return of({
                 id: params,
                 name: 'John Doe',
                 email: 'test@a.com',
-              };
+              });
             },
           }),
         () => ({
@@ -138,21 +138,20 @@ describe('Declarative server state, withQuery and withMutation', () => {
           },
         })
       ),
-      withQuery(
+      withRxQuery(
         'user',
         () =>
-          query({
+          rxQuery({
             params: () => '5',
-            loader: async ({ params }) => {
+            stream: ({ params }) => {
               type StreamResponseTypeRetrieved = Expect<
                 Equal<typeof params, string>
               >;
-              await wait(10);
-              return {
+              return of({
                 id: params,
                 name: 'John Doe',
                 email: 'test@a.com',
-              };
+              }).pipe(delay(10));
             },
           }),
         () => ({
@@ -208,21 +207,20 @@ describe('Declarative server state, withQuery and withMutation', () => {
           },
         })
       ),
-      withQuery(
+      withRxQuery(
         'user',
         () =>
-          query({
+          rxQuery({
             params: () => '5',
-            loader: async ({ params }) => {
+            stream: ({ params }) => {
               type StreamResponseTypeRetrieved = Expect<
                 Equal<typeof params, string>
               >;
-              await wait(10);
-              return {
+              return of({
                 id: params,
                 name: 'John Doe',
                 email: 'test@a.com',
-              };
+              }).pipe(delay(10));
             },
           }),
         () => ({
@@ -286,18 +284,17 @@ describe('Declarative server state, withQuery and withMutation', () => {
           },
         })
       ),
-      withQuery(
+      withRxQuery(
         'user',
         () =>
-          query({
+          rxQuery({
             params: () => '5',
-            loader: async ({ params }) => {
-              await wait(10);
-              return {
+            stream: ({ params }) => {
+              return of({
                 id: params,
                 name: 'John Doe',
                 email: 'test@a.com',
-              };
+              }).pipe(delay(10));
             },
           }),
         () => ({
@@ -345,17 +342,15 @@ type InferSignalStoreFeatureReturnedType<
 
 describe('withQuery typing', () => {
   it('Should be well typed', () => {
-    const queryByIdTest = withQuery('user', () =>
-      query({
+    const queryByIdTest = withRxQuery('user', () =>
+      rxQuery({
         params: () => '5',
-        loader: ({ params }) => {
-          return lastValueFrom(
-            of({
-              id: params,
-              name: 'John Doe',
-              email: 'test@a.com',
-            } satisfies User)
-          );
+        stream: ({ params }) => {
+          return of({
+            id: params,
+            name: 'John Doe',
+            email: 'test@a.com',
+          } satisfies User).pipe(delay(10));
         },
       })
     );
@@ -392,12 +387,12 @@ describe('withQuery typing', () => {
         user: undefined as User | undefined,
         test: 3,
       }),
-      withQuery(
+      withRxQuery(
         'userDetails',
         (store) =>
-          query({
+          rxQuery({
             params: store.userSelected,
-            loader: ({ params }) => {
+            stream: ({ params }) => {
               type ExpectParamsToBeTyped = Expect<
                 Equal<
                   typeof params,
@@ -406,13 +401,11 @@ describe('withQuery typing', () => {
                   }
                 >
               >;
-              return lastValueFrom(
-                of<User>({
-                  id: 'params.id',
-                  name: 'John Doe',
-                  email: 'test@a.com',
-                })
-              );
+              return of<User>({
+                id: 'params.id',
+                name: 'John Doe',
+                email: 'test@a.com',
+              });
             },
           }),
         (store) => ({
@@ -421,19 +414,17 @@ describe('withQuery typing', () => {
           },
         })
       ),
-      withQuery('users', (store) =>
-        query({
+      withRxQuery('users', (store) =>
+        rxQuery({
           params: () => '5',
-          loader: ({ params }) => {
-            return lastValueFrom(
-              of([
-                {
-                  id: params,
-                  name: 'John Doe',
-                  email: 'test@a.com',
-                },
-              ] satisfies User[])
-            );
+          stream: ({ params }) => {
+            return of([
+              {
+                id: params,
+                name: 'John Doe',
+                email: 'test@a.com',
+              },
+            ] satisfies User[]);
           },
         })
       )
@@ -466,20 +457,18 @@ describe('withQuery typing', () => {
         selectedUserId: undefined,
         user: undefined as User | undefined,
       }),
-      withQuery(
+      withRxQuery(
         'userQuery',
         () =>
-          query({
+          rxQuery({
             params: () => ({
               id: '5',
             }),
-            loader: ({ params }) => {
-              return lastValueFrom(
-                of<Omit<User, 'id'>>({
-                  name: 'John Doe',
-                  email: 'test@a.com',
-                })
-              );
+            stream: ({ params }) => {
+              return of<Omit<User, 'id'>>({
+                name: 'John Doe',
+                email: 'test@a.com',
+              });
             },
           }),
         () => ({
@@ -533,19 +522,17 @@ describe('withQuery typing', () => {
           },
         })
       ),
-      withQuery(
+      withRxQuery(
         'user',
         () =>
-          query({
+          rxQuery({
             params: () => ({ id: '5' }),
-            loader: ({ params }) => {
-              return lastValueFrom(
-                of({
-                  id: params.id,
-                  name: 'John Doe',
-                  email: '',
-                } satisfies User)
-              );
+            stream: ({ params }) => {
+              return of({
+                id: params.id,
+                name: 'John Doe',
+                email: '',
+              } satisfies User);
             },
           }),
         () => ({
