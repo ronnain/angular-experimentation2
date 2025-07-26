@@ -37,27 +37,41 @@ import {
   OptimisticPatchQueryFn,
 } from './types/shared.type';
 import { __InternalSharedMutationConfig } from './with-mutation';
+import { ResourceByIdConfig } from './types/resource-by-id-config.type';
+import { resourceById, ResourceByIdRef } from '../resource-by-id';
 
 const __QueryBrandSymbol: unique symbol = Symbol();
 type QueryBrand = {
   [__QueryBrandSymbol]: unknown;
 };
 
-type WithQueryOutputStoreConfig<
+// TODO find a way to access to a resourceRef without userQueryById() because it will be updated each time the query is updated
+
+type WithQueryByIdOutputStoreConfig<
   ResourceName,
   ResourceState extends object | undefined,
   ResourceParams,
-  ResourceArgsParams
+  ResourceArgsParams,
+  GroupIdentifier extends string | number
 > = {
   state: {};
   props: Merge<
     {
-      [key in `${ResourceName & string}Query`]: ResourceRef<ResourceState>;
+      [key in `${ResourceName & string}QueryById`]: ResourceByIdRef<
+        GroupIdentifier,
+        ResourceState
+      >;
     },
     {
       __query: {
         [key in ResourceName & string]: Prettify<
-          InternalType<ResourceState, ResourceParams, ResourceArgsParams, false>
+          InternalType<
+            ResourceState,
+            ResourceParams,
+            ResourceArgsParams,
+            true,
+            GroupIdentifier
+          >
         >;
       };
     }
@@ -122,7 +136,8 @@ export function withQueryById<
   ResourceState extends object | undefined,
   ResourceParams,
   ResourceArgsParams,
-  QueryConfig extends ResourceWithParamsOrParamsFn<any, any, any>,
+  GroupIdentifier extends string | number,
+  QueryConfig extends ResourceByIdConfig<any, any, any, any>,
   const StoreInput extends Prettify<
     StateSignals<Input['state']> &
       Input['props'] &
@@ -147,7 +162,8 @@ export function withQueryById<
       ResourceState,
       ResourceParams,
       ResourceArgsParams,
-      false
+      false,
+      GroupIdentifier
     >;
   } & QueryBrand,
   optionsFactory?: (store: StoreInput) => {
@@ -214,11 +230,12 @@ export function withQueryById<
   }
 ): SignalStoreFeature<
   Input,
-  WithQueryOutputStoreConfig<
+  WithQueryByIdOutputStoreConfig<
     ResourceName,
     ResourceState,
     ResourceParams,
-    ResourceArgsParams
+    ResourceArgsParams,
+    GroupIdentifier
   >
 > {
   return ((context: SignalStoreFeatureResult) => {
@@ -235,10 +252,14 @@ export function withQueryById<
         const resourceParamsSrc =
           queryConfigData.queryConfig.params ?? queryResourceParamsFnSignal;
 
-        const queryResource = resource<ResourceState, ResourceParams>({
+        const queryResource = resourceById<
+          ResourceState,
+          ResourceParams,
+          GroupIdentifier
+        >({
           ...queryConfigData.queryConfig,
           params: resourceParamsSrc,
-        } as ResourceOptions<any, any>);
+        });
 
         const queryOptions = optionsFactory?.(store as unknown as StoreInput);
 
@@ -252,178 +273,179 @@ export function withQueryById<
         );
 
         return {
-          [`${resourceName}Query`]: queryResource,
-          ...(associatedClientState &&
-            'path' in associatedClientState && {
-              [`_${resourceName}Effect`]: effect(() => {
-                if (!['resolved', 'local'].includes(queryResource.status())) {
-                  return;
-                }
-                patchState(store, (state) => {
-                  const resourceData = queryResource.hasValue()
-                    ? (queryResource.value() as ResourceState | undefined)
-                    : undefined;
-                  const path = associatedClientState?.path;
-                  const mappedResourceToState =
-                    'mapResourceToState' in associatedClientState
-                      ? associatedClientState.mapResourceToState({
-                          queryResource:
-                            queryResource as ResourceRef<ResourceState>,
-                          queryParams:
-                            queryResourceParamsFnSignal() as NonNullable<
-                              NoInfer<ResourceParams>
-                            >,
-                        })
-                      : resourceData;
-                  const keysPath = (path as string).split('.');
-                  const result = createNestedStateUpdate({
-                    state,
-                    keysPath,
-                    value: mappedResourceToState,
-                  });
-                  return result;
-                });
-              }),
-            }),
-          ...(mutationsConfigEffect.length &&
-            mutationsConfigEffect.reduce(
-              (acc, [mutationName, mutationEffectOptions]) => {
-                return {
-                  ...acc,
-                  [`_on${mutationName}${resourceName}QueryEffect`]: effect(
-                    () => {
-                      const mutationResource = (store as any)[
-                        mutationName
-                      ] as ResourceRef<any>;
-                      const mutationStatus = mutationResource.status();
-                      const mutationParamsSrc = (store as any)['__mutation'][
-                        mutationName
-                      ].paramsSource as Signal<any>;
+          [`${resourceName}QueryById`]: queryResource,
+          // ...(associatedClientState &&
+          //   'path' in associatedClientState && {
+          //     [`_${resourceName}Effect`]: effect(() => {
+          //       if (!['resolved', 'local'].includes(queryResource.status())) {
+          //         return;
+          //       }
+          //       patchState(store, (state) => {
+          //         const resourceData = queryResource.hasValue()
+          //           ? (queryResource.value() as ResourceState | undefined)
+          //           : undefined;
+          //         const path = associatedClientState?.path;
+          //         const mappedResourceToState =
+          //           'mapResourceToState' in associatedClientState
+          //             ? associatedClientState.mapResourceToState({
+          //                 queryResource:
+          //                   queryResource as ResourceRef<ResourceState>,
+          //                 queryParams:
+          //                   queryResourceParamsFnSignal() as NonNullable<
+          //                     NoInfer<ResourceParams>
+          //                   >,
+          //               })
+          //             : resourceData;
+          //         const keysPath = (path as string).split('.');
+          //         const result = createNestedStateUpdate({
+          //           state,
+          //           keysPath,
+          //           value: mappedResourceToState,
+          //         });
+          //         return result;
+          //       });
+          //     }),
+          //   }),
+          // ...(mutationsConfigEffect.length &&
+          //   mutationsConfigEffect.reduce(
+          //     (acc, [mutationName, mutationEffectOptions]) => {
+          //       return {
+          //         ...acc,
+          //         [`_on${mutationName}${resourceName}QueryEffect`]: effect(
+          //           () => {
+          //             const mutationResource = (store as any)[
+          //               mutationName
+          //             ] as ResourceRef<any>;
+          //             const mutationStatus = mutationResource.status();
+          //             const mutationParamsSrc = (store as any)['__mutation'][
+          //               mutationName
+          //             ].paramsSource as Signal<any>;
 
-                      if (mutationEffectOptions?.optimisticUpdate) {
-                        if (mutationStatus === 'loading') {
-                          untracked(() => {
-                            const optimisticValue =
-                              mutationEffectOptions?.optimisticUpdate?.({
-                                mutationResource,
-                                queryResource,
-                                mutationParams:
-                                  mutationParamsSrc() as NonNullable<
-                                    NoInfer<any>
-                                  >,
-                              });
-                            queryResource.set(optimisticValue);
-                          });
-                        }
-                      }
-                      if (mutationEffectOptions.reload) {
-                        const statusMappings = {
-                          onMutationError: 'error',
-                          onMutationResolved: 'resolved',
-                          onMutationLoading: 'loading',
-                        };
+          //             if (mutationEffectOptions?.optimisticUpdate) {
+          //               if (mutationStatus === 'loading') {
+          //                 untracked(() => {
+          //                   const optimisticValue =
+          //                     mutationEffectOptions?.optimisticUpdate?.({
+          //                       mutationResource,
+          //                       queryResource,
+          //                       mutationParams:
+          //                         mutationParamsSrc() as NonNullable<
+          //                           NoInfer<any>
+          //                         >,
+          //                     });
+          //                   queryResource.set(optimisticValue);
+          //                 });
+          //               }
+          //             }
+          //             if (mutationEffectOptions.reload) {
+          //               const statusMappings = {
+          //                 onMutationError: 'error',
+          //                 onMutationResolved: 'resolved',
+          //                 onMutationLoading: 'loading',
+          //               };
 
-                        Object.entries(mutationEffectOptions.reload).forEach(
-                          ([reloadType, reloadConfig]) => {
-                            const expectedStatus =
-                              statusMappings[
-                                reloadType as keyof typeof statusMappings
-                              ];
+          //               Object.entries(mutationEffectOptions.reload).forEach(
+          //                 ([reloadType, reloadConfig]) => {
+          //                   const expectedStatus =
+          //                     statusMappings[
+          //                       reloadType as keyof typeof statusMappings
+          //                     ];
 
-                            if (
-                              expectedStatus &&
-                              mutationStatus === expectedStatus
-                            ) {
-                              if (typeof reloadConfig === 'function') {
-                                if (
-                                  reloadConfig({
-                                    queryResource,
-                                    mutationResource,
-                                    mutationParams: untracked(() =>
-                                      mutationParamsSrc()
-                                    ) as any,
-                                  })
-                                ) {
-                                  queryResource.reload();
-                                }
-                              } else if (reloadConfig) {
-                                queryResource.reload();
-                              }
-                            }
-                          }
-                        );
-                      }
-                      if (mutationEffectOptions.optimisticPatch) {
-                        if (mutationStatus === 'loading') {
-                          untracked(() => {
-                            Object.entries(
-                              mutationEffectOptions.optimisticPatch as Record<
-                                string,
-                                OptimisticPatchQueryFn<
-                                  any,
-                                  ResourceState,
-                                  ResourceParams,
-                                  ResourceArgsParams,
-                                  any
-                                >
-                              >
-                            ).forEach(([path, optimisticPatch]) => {
-                              const queryValue = queryResource.hasValue()
-                                ? queryResource.value()
-                                : undefined;
-                              console.log('queryValue', queryValue);
-                              console.log(
-                                'nestedValue',
-                                getNestedStateValue({
-                                  state: queryValue,
-                                  keysPath: path.split('.'),
-                                })
-                              );
-                              console.log(
-                                'mutationParamsSrc()',
-                                mutationParamsSrc()
-                              );
-                              const optimisticValue = optimisticPatch({
-                                mutationResource,
-                                queryResource,
-                                mutationParams:
-                                  mutationParamsSrc() as NonNullable<
-                                    NoInfer<ResourceParams>
-                                  >,
-                                targetedState: getNestedStateValue({
-                                  state: queryValue,
-                                  keysPath: path.split('.'),
-                                }),
-                              });
-                              console.log('optimisticValue', optimisticValue);
+          //                   if (
+          //                     expectedStatus &&
+          //                     mutationStatus === expectedStatus
+          //                   ) {
+          //                     if (typeof reloadConfig === 'function') {
+          //                       if (
+          //                         reloadConfig({
+          //                           queryResource,
+          //                           mutationResource,
+          //                           mutationParams: untracked(() =>
+          //                             mutationParamsSrc()
+          //                           ) as any,
+          //                         })
+          //                       ) {
+          //                         queryResource.reload();
+          //                       }
+          //                     } else if (reloadConfig) {
+          //                       queryResource.reload();
+          //                     }
+          //                   }
+          //                 }
+          //               );
+          //             }
+          //             if (mutationEffectOptions.optimisticPatch) {
+          //               if (mutationStatus === 'loading') {
+          //                 untracked(() => {
+          //                   Object.entries(
+          //                     mutationEffectOptions.optimisticPatch as Record<
+          //                       string,
+          //                       OptimisticPatchQueryFn<
+          //                         any,
+          //                         ResourceState,
+          //                         ResourceParams,
+          //                         ResourceArgsParams,
+          //                         any
+          //                       >
+          //                     >
+          //                   ).forEach(([path, optimisticPatch]) => {
+          //                     const queryValue = queryResource.hasValue()
+          //                       ? queryResource.value()
+          //                       : undefined;
+          //                     console.log('queryValue', queryValue);
+          //                     console.log(
+          //                       'nestedValue',
+          //                       getNestedStateValue({
+          //                         state: queryValue,
+          //                         keysPath: path.split('.'),
+          //                       })
+          //                     );
+          //                     console.log(
+          //                       'mutationParamsSrc()',
+          //                       mutationParamsSrc()
+          //                     );
+          //                     const optimisticValue = optimisticPatch({
+          //                       mutationResource,
+          //                       queryResource,
+          //                       mutationParams:
+          //                         mutationParamsSrc() as NonNullable<
+          //                           NoInfer<ResourceParams>
+          //                         >,
+          //                       targetedState: getNestedStateValue({
+          //                         state: queryValue,
+          //                         keysPath: path.split('.'),
+          //                       }),
+          //                     });
+          //                     console.log('optimisticValue', optimisticValue);
 
-                              const updatedValue = createNestedStateUpdate({
-                                state: queryValue,
-                                keysPath: path.split('.'),
-                                value: optimisticValue,
-                              });
-                              queryResource.set(updatedValue);
-                            });
-                          });
-                        }
-                      }
-                    }
-                  ),
-                };
-              },
-              {} as Record<`_on${string}${ResourceName}QueryEffect`, EffectRef>
-            )),
+          //                     const updatedValue = createNestedStateUpdate({
+          //                       state: queryValue,
+          //                       keysPath: path.split('.'),
+          //                       value: optimisticValue,
+          //                     });
+          //                     queryResource.set(updatedValue);
+          //                   });
+          //                 });
+          //               }
+          //             }
+          //           }
+          //         ),
+          //       };
+          //     },
+          //     {} as Record<`_on${string}${ResourceName}QueryEffect`, EffectRef>
+          //   )),
         };
       })
       //@ts-ignore
     )(context);
   }) as unknown as SignalStoreFeature<
     Input,
-    WithQueryOutputStoreConfig<
+    WithQueryByIdOutputStoreConfig<
       ResourceName,
       ResourceState,
       ResourceParams,
-      ResourceArgsParams
+      ResourceArgsParams,
+      GroupIdentifier
     >
   >;
 }
@@ -432,10 +454,11 @@ export function withQueryById<
  * Configures a query.
  * And optionally associates the query result to a client state.
  */
-export function query<
+export function queryById<
   queryState extends object | undefined,
   queryParams,
   QueryArgsParams,
+  QueryGroupIdentifier extends string | number,
   Input extends SignalStoreFeatureResult,
   const StoreInput extends Prettify<
     StateSignals<Input['state']> &
@@ -444,50 +467,22 @@ export function query<
       WritableStateSource<Prettify<Input['state']>>
   >
 >(
-  queryConfig: ResourceWithParamsOrParamsFn<
+  queryConfig: ResourceByIdConfig<
     queryState,
     queryParams,
-    QueryArgsParams
-  >,
-  clientState?: (
-    /**
-     * Only used to help type inference, not used in the actual implementation.
-     */
-    config: {
-      state: NoInfer<queryState>;
-      params: NoInfer<queryParams>;
-    },
-    /**
-     * Only used to help type inference, not used in the actual implementation.
-     */
-    context: Input
-  ) => {
-    clientState?: {
-      path?: string;
-      mapResourceToState?: MapResourceToState<
-        NoInfer<queryState>,
-        NoInfer<queryParams>,
-        any
-      >;
-    };
-  }
+    QueryArgsParams,
+    QueryGroupIdentifier
+  >
 ): (
   store: StoreInput,
   context: Input
 ) => {
-  queryConfig: ResourceWithParamsOrParamsFn<
+  queryConfig: ResourceByIdConfig<
     NoInfer<queryState>,
     NoInfer<queryParams>,
-    NoInfer<QueryArgsParams>
+    NoInfer<QueryArgsParams>,
+    NoInfer<QueryGroupIdentifier>
   >;
-  clientState?: {
-    path: string;
-    mapResourceToState?: MapResourceToState<
-      NoInfer<queryState>,
-      NoInfer<queryParams>,
-      any
-    >;
-  };
   /**
    * Only used to help type inference, not used in the actual implementation.
    */
@@ -495,18 +490,18 @@ export function query<
     NoInfer<queryState>,
     NoInfer<queryParams>,
     NoInfer<QueryArgsParams>,
-    false
+    false,
+    NoInfer<QueryGroupIdentifier>
   >;
 } & QueryBrand {
   return (store, context) => ({
     queryConfig,
-    // clientState params are only used to help type inference
-    clientState: clientState?.({} as any, {} as any).clientState as any,
     __types: {} as InternalType<
       NoInfer<queryState>,
       NoInfer<queryParams>,
       NoInfer<QueryArgsParams>,
-      false
+      false,
+      NoInfer<QueryGroupIdentifier>
     >,
     [__QueryBrandSymbol]: undefined,
   });

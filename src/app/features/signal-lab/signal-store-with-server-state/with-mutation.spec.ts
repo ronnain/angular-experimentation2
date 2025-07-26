@@ -389,6 +389,7 @@ it('Should expose a method', () => {
           page: string;
         };
         isGroupedResource: false;
+        groupIdentifier: unknown;
       }
     >
   >;

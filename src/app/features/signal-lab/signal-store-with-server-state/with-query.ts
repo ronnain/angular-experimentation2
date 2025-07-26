@@ -456,29 +456,7 @@ export function query<
     queryState,
     queryParams,
     QueryArgsParams
-  >,
-  clientState?: (
-    /**
-     * Only used to help type inference, not used in the actual implementation.
-     */
-    config: {
-      state: NoInfer<queryState>;
-      params: NoInfer<queryParams>;
-    },
-    /**
-     * Only used to help type inference, not used in the actual implementation.
-     */
-    context: Input
-  ) => {
-    clientState?: {
-      path?: string;
-      mapResourceToState?: MapResourceToState<
-        NoInfer<queryState>,
-        NoInfer<queryParams>,
-        any
-      >;
-    };
-  }
+  >
 ): (
   store: StoreInput,
   context: Input
@@ -508,8 +486,6 @@ export function query<
 } & QueryBrand {
   return (store, context) => ({
     queryConfig,
-    // clientState params are only used to help type inference
-    clientState: clientState?.({} as any, {} as any).clientState as any,
     __types: {} as InternalType<
       NoInfer<queryState>,
       NoInfer<queryParams>,

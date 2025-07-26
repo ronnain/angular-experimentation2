@@ -529,6 +529,7 @@ describe('withQuery typing', () => {
             params: string;
             args: unknown;
             isGroupedResource: false;
+            groupIdentifier: unknown;
           };
         }
       >
