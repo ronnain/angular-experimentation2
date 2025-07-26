@@ -22,7 +22,7 @@ import { InternalType } from './types/util.type';
 import {
   createNestedStateUpdate,
   getNestedStateValue,
-} from './update-state.util';
+} from './core/update-state.util';
 import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
 import {
   OptimisticPatchQueryFn,

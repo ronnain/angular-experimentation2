@@ -23,7 +23,7 @@ import { Merge } from '../../../util/types/merge';
 import {
   createNestedStateUpdate,
   getNestedStateValue,
-} from './update-state.util';
+} from './core/update-state.util';
 import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
 import {
   AccessTypeObjectPropertyByDottedPath,
