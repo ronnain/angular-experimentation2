@@ -1,4 +1,4 @@
-import { createNestedStateUpdate } from '../update-state.util';
+import { createNestedStateUpdate } from './update-state.util';
 
 describe('createNestedStateUpdate', () => {
   it('1 - should update the nested primitive string', () => {
