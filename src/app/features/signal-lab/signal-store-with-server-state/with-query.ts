@@ -198,7 +198,8 @@ export function withQuery<
             infer MutationState,
             infer MutationParams,
             infer MutationArgsParams,
-            infer IsMutationGroupedResource
+            infer IsMutationGroupedResource,
+            infer MutationGroupIdentifier
           >
             ? QueryDeclarativeEffect<{
                 query: InternalType<
@@ -211,7 +212,8 @@ export function withQuery<
                   MutationState,
                   MutationParams,
                   MutationArgsParams,
-                  IsMutationGroupedResource
+                  IsMutationGroupedResource,
+                  MutationGroupIdentifier
                 >;
               }>
             : never;
