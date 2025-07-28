@@ -37,7 +37,7 @@ import {
   OptimisticPatchQueryFn,
 } from './types/shared.type';
 import { __InternalSharedMutationConfig } from './with-mutation';
-import { RecordObjectDeepPathWithType } from './types/record-object-deep-path-with-type-mapper.type';
+import { FlattenedStateDeepPathMappedToBooleanOrMapperFn } from './types/flattened-state-deep-path-mapped-to-boolean-or-mapper-fn.type';
 
 const __QueryBrandSymbol: unique symbol = Symbol();
 type QueryBrand = {
@@ -136,7 +136,7 @@ export function withQuery<
       Input['methods'] &
       WritableStateSource<Prettify<Input['state']>>
   >,
-  const MapperStateType extends object = RecordObjectDeepPathWithType<
+  const MapperStateType extends object = FlattenedStateDeepPathMappedToBooleanOrMapperFn<
     NoInfer<Input>['state']
   >
 >(
@@ -160,7 +160,7 @@ export function withQuery<
      * a function is required.
      * - If the function is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
      */
-    associatedClientState?: RecordObjectDeepPathWithType<
+    associatedClientState?: FlattenedStateDeepPathMappedToBooleanOrMapperFn<
       NoInfer<Input>['state'],
       NoInfer<ResourceState>
     > extends infer StateMapper
