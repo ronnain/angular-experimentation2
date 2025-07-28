@@ -567,9 +567,11 @@ describe('withQuery typing', () => {
               );
             },
           }),
-        (store) => ({
+        () => ({
           associatedClientState: {
-            path: 'user',
+            // user: (queryResource) => ({} as User),
+            // user: true,
+            'userSelected.id': (queryResource) => '5',
           },
         })
       ),
@@ -633,24 +635,24 @@ describe('withQuery typing', () => {
                 })
               );
             },
-          }),
-        () => ({
-          associatedClientState: {
-            path: 'user',
-            mapResourceToState: ({ queryParams, queryResource }) => {
-              type ExpectQueryParamsToBeTyped = Expect<
-                Equal<typeof queryParams, { id: string }>
-              >;
-              type ExpectQueryResourceToBeTyped = Expect<
-                Equal<typeof queryResource, ResourceRef<Omit<User, 'id'>>>
-              >;
-              return {
-                id: queryParams.id,
-                ...queryResource.value(),
-              };
-            },
-          },
-        })
+          })
+        // () => ({
+        //   associatedClientState: {
+        //     path: 'user',
+        //     mapResourceToState: ({ queryParams, queryResource }) => {
+        //       type ExpectQueryParamsToBeTyped = Expect<
+        //         Equal<typeof queryParams, { id: string }>
+        //       >;
+        //       type ExpectQueryResourceToBeTyped = Expect<
+        //         Equal<typeof queryResource, ResourceRef<Omit<User, 'id'>>>
+        //       >;
+        //       return {
+        //         id: queryParams.id,
+        //         ...queryResource.value(),
+        //       };
+        //     },
+        //   },
+        // })
       )
     );
   });

@@ -37,6 +37,7 @@ import {
   OptimisticPatchQueryFn,
 } from './types/shared.type';
 import { __InternalSharedMutationConfig } from './with-mutation';
+import { RecordObjectDeepPathWithType } from './types/record-object-deep-path-with-type-mapper.type';
 
 const __QueryBrandSymbol: unique symbol = Symbol();
 type QueryBrand = {
@@ -135,18 +136,13 @@ export function withQuery<
       Input['methods'] &
       WritableStateSource<Prettify<Input['state']>>
   >,
-  const ClientStateDottedPath extends ObjectDeepPath<Input['state']>,
-  const ClientStateTypeByDottedPath extends AccessTypeObjectPropertyByDottedPath<
-    Input['state'],
-    ClientStateDottedPathTuple
-  >,
-  const ClientStateDottedPathTuple extends DottedPathPathToTuple<
-    ClientStateDottedPath & string
-  > = DottedPathPathToTuple<NoInfer<ClientStateDottedPath> & string>
+  const MapperStateType extends object = RecordObjectDeepPathWithType<
+    NoInfer<Input>['state']
+  >
 >(
   resourceName: ResourceName,
-  queryFactory: (store: StoreInput) => (
-    store: StoreInput,
+  queryFactory: (store: NoInfer<StoreInput>) => (
+    store: NoInfer<StoreInput>,
     context: Input
   ) => { queryConfig: QueryConfig } & {
     __types: InternalType<
@@ -156,7 +152,23 @@ export function withQuery<
       false
     >;
   } & QueryBrand,
-  optionsFactory?: (store: StoreInput) => {
+
+  optionsFactory?: (store: NoInfer<StoreInput>) => {
+    /**
+     * Will update the state at the given path with the resource data.
+     * If the type of targeted state does not match the type of the resource,
+     * a function is required.
+     * - If the function is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
+     */
+    associatedClientState?: RecordObjectDeepPathWithType<
+      NoInfer<Input>['state'],
+      NoInfer<ResourceState>
+    > extends infer StateMapper
+      ? {
+          [Path in keyof StateMapper]?: StateMapper[Path];
+        }
+      : never;
+
     // Exclude path from the MergeObject, it will enable the const type inference, otherwise it will be inferred as string
     /**
      * Will update the state at the given path with the resource data.
@@ -164,61 +176,61 @@ export function withQuery<
      * the mapResourceToState function is required.
      * - If the mapResourceToState is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
      */
-    associatedClientState?: { path: NoInfer<ClientStateDottedPath> } & Prettify<
-      MergeObject<
-        {
-          mapResourceToState?: MapResourceToState<
-            NoInfer<ResourceState>,
-            NoInfer<ResourceParams>,
-            ClientStateTypeByDottedPath
-          >;
-        },
-        NoInfer<ResourceState> extends ClientStateTypeByDottedPath
-          ? {
-              mapResourceToState?: MapResourceToState<
-                NoInfer<ResourceState>,
-                NoInfer<ResourceParams>,
-                ClientStateTypeByDottedPath
-              >;
-            }
-          : {
-              mapResourceToState: MapResourceToState<
-                NoInfer<ResourceState>,
-                NoInfer<ResourceParams>,
-                ClientStateTypeByDottedPath
-              >;
-            }
-      >
-    >;
-    on?: Input['props'] extends {
-      __mutation: infer Mutations;
-    }
-      ? {
-          [key in keyof Mutations]?: Mutations[key] extends InternalType<
-            infer MutationState,
-            infer MutationParams,
-            infer MutationArgsParams,
-            infer IsMutationGroupedResource,
-            infer MutationGroupIdentifier
-          >
-            ? QueryDeclarativeEffect<{
-                query: InternalType<
-                  ResourceState,
-                  ResourceParams,
-                  ResourceArgsParams,
-                  false
-                >;
-                mutation: InternalType<
-                  MutationState,
-                  MutationParams,
-                  MutationArgsParams,
-                  IsMutationGroupedResource,
-                  MutationGroupIdentifier
-                >;
-              }>
-            : never;
-        }
-      : never;
+    // associatedClientState?: { path: NoInfer<ClientStateDottedPath> } & Prettify<
+    //   MergeObject<
+    //     {
+    //       mapResourceToState?: MapResourceToState<
+    //         NoInfer<ResourceState>,
+    //         NoInfer<ResourceParams>,
+    //         ClientStateTypeByDottedPath
+    //       >;
+    //     },
+    //     NoInfer<ResourceState> extends ClientStateTypeByDottedPath
+    //       ? {
+    //           mapResourceToState?: MapResourceToState<
+    //             NoInfer<ResourceState>,
+    //             NoInfer<ResourceParams>,
+    //             ClientStateTypeByDottedPath
+    //           >;
+    //         }
+    //       : {
+    //           mapResourceToState: MapResourceToState<
+    //             NoInfer<ResourceState>,
+    //             NoInfer<ResourceParams>,
+    //             ClientStateTypeByDottedPath
+    //           >;
+    //         }
+    //   >
+    // >;
+    //   on?: Input['props'] extends {
+    //     __mutation: infer Mutations;
+    //   }
+    //     ? {
+    //         [key in keyof Mutations]?: Mutations[key] extends InternalType<
+    //           infer MutationState,
+    //           infer MutationParams,
+    //           infer MutationArgsParams,
+    //           infer IsMutationGroupedResource,
+    //           infer MutationGroupIdentifier
+    //         >
+    //           ? QueryDeclarativeEffect<{
+    //               query: InternalType<
+    //                 ResourceState,
+    //                 ResourceParams,
+    //                 ResourceArgsParams,
+    //                 false
+    //               >;
+    //               mutation: InternalType<
+    //                 MutationState,
+    //                 MutationParams,
+    //                 MutationArgsParams,
+    //                 IsMutationGroupedResource,
+    //                 MutationGroupIdentifier
+    //               >;
+    //             }>
+    //           : never;
+    //       }
+    //     : never;
   }
 ): SignalStoreFeature<
   Input,
@@ -273,6 +285,7 @@ export function withQuery<
                     ? (queryResource.value() as ResourceState | undefined)
                     : undefined;
                   const path = associatedClientState?.path;
+                  // todo handle update of array of objects
                   const mappedResourceToState =
                     'mapResourceToState' in associatedClientState
                       ? associatedClientState.mapResourceToState({
@@ -468,14 +481,6 @@ export function query<
     NoInfer<queryParams>,
     NoInfer<QueryArgsParams>
   >;
-  clientState?: {
-    path: string;
-    mapResourceToState?: MapResourceToState<
-      NoInfer<queryState>,
-      NoInfer<queryParams>,
-      any
-    >;
-  };
   /**
    * Only used to help type inference, not used in the actual implementation.
    */

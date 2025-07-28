@@ -95,11 +95,19 @@ type QueriesMutation<
             args: 'args' extends keyof Queries[key]
               ? Queries[key]['args']
               : never;
+            isGroupedResource: 'isGroupedResource' extends keyof Queries[key]
+              ? Queries[key]['isGroupedResource']
+              : never;
+            groupIdentifier: 'groupIdentifier' extends keyof Queries[key]
+              ? Queries[key]['groupIdentifier']
+              : never;
           };
           mutation: {
             state: MutationState;
             params: MutationParams;
             args: MutationArgsParams;
+            isGroupedResource: false;
+            groupIdentifier: unknown;
           };
         }>;
       }

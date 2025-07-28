@@ -8,8 +8,8 @@ import { InternalType } from './util.type';
 
 // todo rename, and rename server state constraints
 export type QueryAndMutationRecordConstraints = {
-  query: InternalType<unknown, unknown, unknown>;
-  mutation: InternalType<unknown, unknown, unknown>;
+  query: InternalType<unknown, unknown, unknown, unknown>;
+  mutation: InternalType<unknown, unknown, unknown, unknown>;
 };
 
 export type CustomReloadOnSpecificMutationStatus<
