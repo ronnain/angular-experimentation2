@@ -135,9 +135,6 @@ export function withQuery<
       Input['props'] &
       Input['methods'] &
       WritableStateSource<Prettify<Input['state']>>
-  >,
-  const MapperStateType extends object = FlattenedStateDeepPathMappedToBooleanOrMapperFn<
-    NoInfer<Input>['state']
   >
 >(
   resourceName: ResourceName,
@@ -162,75 +159,42 @@ export function withQuery<
      */
     associatedClientState?: FlattenedStateDeepPathMappedToBooleanOrMapperFn<
       NoInfer<Input>['state'],
-      NoInfer<ResourceState>
+      NoInfer<ResourceState>,
+      NoInfer<ResourceParams>
     > extends infer StateMapper
       ? {
           [Path in keyof StateMapper]?: StateMapper[Path];
         }
       : never;
-
-    // Exclude path from the MergeObject, it will enable the const type inference, otherwise it will be inferred as string
-    /**
-     * Will update the state at the given path with the resource data.
-     * If the type of targeted state does not match the type of the resource,
-     * the mapResourceToState function is required.
-     * - If the mapResourceToState is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
-     */
-    // associatedClientState?: { path: NoInfer<ClientStateDottedPath> } & Prettify<
-    //   MergeObject<
-    //     {
-    //       mapResourceToState?: MapResourceToState<
-    //         NoInfer<ResourceState>,
-    //         NoInfer<ResourceParams>,
-    //         ClientStateTypeByDottedPath
-    //       >;
-    //     },
-    //     NoInfer<ResourceState> extends ClientStateTypeByDottedPath
-    //       ? {
-    //           mapResourceToState?: MapResourceToState<
-    //             NoInfer<ResourceState>,
-    //             NoInfer<ResourceParams>,
-    //             ClientStateTypeByDottedPath
-    //           >;
-    //         }
-    //       : {
-    //           mapResourceToState: MapResourceToState<
-    //             NoInfer<ResourceState>,
-    //             NoInfer<ResourceParams>,
-    //             ClientStateTypeByDottedPath
-    //           >;
-    //         }
-    //   >
-    // >;
-    //   on?: Input['props'] extends {
-    //     __mutation: infer Mutations;
-    //   }
-    //     ? {
-    //         [key in keyof Mutations]?: Mutations[key] extends InternalType<
-    //           infer MutationState,
-    //           infer MutationParams,
-    //           infer MutationArgsParams,
-    //           infer IsMutationGroupedResource,
-    //           infer MutationGroupIdentifier
-    //         >
-    //           ? QueryDeclarativeEffect<{
-    //               query: InternalType<
-    //                 ResourceState,
-    //                 ResourceParams,
-    //                 ResourceArgsParams,
-    //                 false
-    //               >;
-    //               mutation: InternalType<
-    //                 MutationState,
-    //                 MutationParams,
-    //                 MutationArgsParams,
-    //                 IsMutationGroupedResource,
-    //                 MutationGroupIdentifier
-    //               >;
-    //             }>
-    //           : never;
-    //       }
-    //     : never;
+    on?: Input['props'] extends {
+      __mutation: infer Mutations;
+    }
+      ? {
+          [key in keyof Mutations]?: Mutations[key] extends InternalType<
+            infer MutationState,
+            infer MutationParams,
+            infer MutationArgsParams,
+            infer IsMutationGroupedResource,
+            infer MutationGroupIdentifier
+          >
+            ? QueryDeclarativeEffect<{
+                query: InternalType<
+                  ResourceState,
+                  ResourceParams,
+                  ResourceArgsParams,
+                  false
+                >;
+                mutation: InternalType<
+                  MutationState,
+                  MutationParams,
+                  MutationArgsParams,
+                  IsMutationGroupedResource,
+                  MutationGroupIdentifier
+                >;
+              }>
+            : never;
+        }
+      : never;
   }
 ): SignalStoreFeature<
   Input,
@@ -285,7 +249,7 @@ export function withQuery<
                     ? (queryResource.value() as ResourceState | undefined)
                     : undefined;
                   const path = associatedClientState?.path;
-                  // todo handle update of array of objects
+                  // todo handle update like Object.entries...
                   const mappedResourceToState =
                     'mapResourceToState' in associatedClientState
                       ? associatedClientState.mapResourceToState({

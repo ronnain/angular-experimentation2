@@ -1,3 +1,4 @@
+import { ResourceRef } from '@angular/core';
 import { Equal, Expect } from '../../../../../../test-type';
 import { FlattenedStateDeepPathMappedToBooleanOrMapperFn } from './flattened-state-deep-path-mapped-to-boolean-or-mapper-fn.type';
 
@@ -31,7 +32,10 @@ it('Should map all deep object paths except arrays', () => {
   >;
 
   type Target = {
-    pagination: (data: ResourceState) => {
+    pagination: (data: {
+      queryResource: ResourceRef<ResourceState>;
+      queryParams: Params;
+    }) => {
       page: number;
       pageSize: number;
       filters?: {
@@ -40,18 +44,36 @@ it('Should map all deep object paths except arrays', () => {
         order: 'asc' | 'desc';
       };
     };
-    'pagination.page': (data: ResourceState) => number;
-    'pagination.pageSize': (data: ResourceState) => number;
+    'pagination.page': (data: {
+      queryResource: ResourceRef<ResourceState>;
+      queryParams: Params;
+    }) => number;
+    'pagination.pageSize': (data: {
+      queryResource: ResourceRef<ResourceState>;
+      queryParams: Params;
+    }) => number;
     'pagination.filters':
       | boolean
-      | ((data: ResourceState) => {
+      | ((data: {
+          queryResource: ResourceRef<ResourceState>;
+          queryParams: Params;
+        }) => {
           search?: string;
           sort: string;
           order: 'asc' | 'desc';
         });
-    'pagination.filters.search': (data: ResourceState) => string;
-    'pagination.filters.sort': (data: ResourceState) => string;
-    'pagination.filters.order': (data: ResourceState) => 'asc' | 'desc';
+    'pagination.filters.search': (data: {
+      queryResource: ResourceRef<ResourceState>;
+      queryParams: Params;
+    }) => string;
+    'pagination.filters.sort': (data: {
+      queryResource: ResourceRef<ResourceState>;
+      queryParams: Params;
+    }) => string;
+    'pagination.filters.order': (data: {
+      queryResource: ResourceRef<ResourceState>;
+      queryParams: Params;
+    }) => 'asc' | 'desc';
   };
   type ExpectARecordOfPathWithAssociatedType = Expect<
     Equal<Target, AllStatePathResult>

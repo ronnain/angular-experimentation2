@@ -1,3 +1,4 @@
+import { ResourceRef } from '@angular/core';
 import { Prettify } from '../../../../util/types/prettify';
 import {
   HasChild,
@@ -63,8 +64,16 @@ type __ObjectDeep<
                       [key in `${RootPath}${Head & string}`]: NonNullable<
                         State[Head]
                       > extends NonNullable<QueryState>
-                        ? boolean | ((data: QueryState) => State[Head])
-                        : (data: QueryState) => State[Head];
+                        ?
+                            | boolean
+                            | ((data: {
+                                queryResource: ResourceRef<QueryState>;
+                                queryParams: QueryParams;
+                              }) => State[Head])
+                        : (data: {
+                            queryResource: ResourceRef<QueryState>;
+                            queryParams: QueryParams;
+                          }) => State[Head];
                     }
                   >,
                   `${RootPath}${Head & string}.`
@@ -82,8 +91,16 @@ type __ObjectDeep<
                     [key in `${RootPath}${Head & string}`]: NonNullable<
                       State[Head]
                     > extends NonNullable<QueryState>
-                      ? boolean | ((data: QueryState) => State[Head])
-                      : (data: QueryState) => State[Head];
+                      ?
+                          | boolean
+                          | ((data: {
+                              queryResource: ResourceRef<QueryState>;
+                              queryParams: QueryParams;
+                            }) => State[Head])
+                      : (data: {
+                          queryResource: ResourceRef<QueryState>;
+                          queryParams: QueryParams;
+                        }) => State[Head];
                   }
                 >,
                 `${RootPath}${Head & string}.`
@@ -102,8 +119,16 @@ type __ObjectDeep<
               [key in `${RootPath}${Head & string}`]: NonNullable<
                 State[Head]
               > extends NonNullable<QueryState>
-                ? boolean | ((data: QueryState) => State[Head])
-                : (data: QueryState) => State[Head];
+                ?
+                    | boolean
+                    | ((data: {
+                        queryResource: ResourceRef<QueryState>;
+                        queryParams: QueryParams;
+                      }) => State[Head])
+                : (data: {
+                    queryResource: ResourceRef<QueryState>;
+                    queryParams: QueryParams;
+                  }) => State[Head];
             }
           >,
           RootPath
