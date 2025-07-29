@@ -37,7 +37,10 @@ import {
   OptimisticPatchQueryFn,
 } from './types/shared.type';
 import { __InternalSharedMutationConfig } from './with-mutation';
-import { BooleanOrMapperFnByPath } from './types/boolean-or-mapper-fn-by-path.type';
+import {
+  AssociatedStateMapperFn,
+  BooleanOrMapperFnByPath,
+} from './types/boolean-or-mapper-fn-by-path.type';
 
 const __QueryBrandSymbol: unique symbol = Symbol();
 type QueryBrand = {
@@ -229,6 +232,14 @@ export function withQuery<
 
         const associatedClientState = queryOptions?.associatedClientState;
 
+        const associatedClientStates = Object.entries(
+          (queryOptions?.associatedClientState ?? {}) as Record<
+            string,
+            | boolean
+            | AssociatedStateMapperFn<ResourceState, ResourceParams, unknown>
+          >
+        ).filter(([, value]) => !value);
+
         const mutationsConfigEffect = Object.entries(
           (queryOptions?.on ?? {}) as Record<
             string,
@@ -238,39 +249,43 @@ export function withQuery<
 
         return {
           [`${resourceName}Query`]: queryResource,
-          ...(associatedClientState &&
-            'path' in associatedClientState && {
-              [`_${resourceName}Effect`]: effect(() => {
-                if (!['resolved', 'local'].includes(queryResource.status())) {
-                  return;
-                }
-                patchState(store, (state) => {
-                  const resourceData = queryResource.hasValue()
-                    ? (queryResource.value() as ResourceState | undefined)
-                    : undefined;
-                  const path = associatedClientState?.path;
-                  // todo handle update like Object.entries...
-                  const mappedResourceToState =
-                    'mapResourceToState' in associatedClientState
-                      ? associatedClientState.mapResourceToState({
-                          queryResource:
-                            queryResource as ResourceRef<ResourceState>,
-                          queryParams:
-                            queryResourceParamsFnSignal() as NonNullable<
-                              NoInfer<ResourceParams>
-                            >,
-                        })
-                      : resourceData;
-                  const keysPath = (path as string).split('.');
-                  const result = createNestedStateUpdate({
-                    state,
-                    keysPath,
-                    value: mappedResourceToState,
+
+          ...(associatedClientStates.length && {
+            [`_${resourceName}Effect`]: effect(() => {
+              if (!['resolved', 'local'].includes(queryResource.status())) {
+                return;
+              }
+              associatedClientStates.forEach(
+                ([path, associatedClientState]) => {
+                  patchState(store, (state) => {
+                    const resourceData = queryResource.hasValue()
+                      ? (queryResource.value() as ResourceState | undefined)
+                      : undefined;
+
+                    const value =
+                      typeof associatedClientState === 'boolean'
+                        ? resourceData
+                        : associatedClientState({
+                            queryResource:
+                              queryResource as ResourceRef<ResourceState>,
+                            queryParams:
+                              queryResourceParamsFnSignal() as NonNullable<
+                                NoInfer<ResourceParams>
+                              >,
+                          });
+
+                    const keysPath = (path as string).split('.');
+                    const result = createNestedStateUpdate({
+                      state,
+                      keysPath,
+                      value,
+                    });
+                    return result;
                   });
-                  return result;
-                });
-              }),
+                }
+              );
             }),
+          }),
           ...(mutationsConfigEffect.length &&
             mutationsConfigEffect.reduce(
               (acc, [mutationName, mutationEffectOptions]) => {

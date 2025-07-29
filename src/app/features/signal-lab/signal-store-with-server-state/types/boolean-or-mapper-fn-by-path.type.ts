@@ -66,14 +66,16 @@ type __ObjectDeep<
                       > extends NonNullable<QueryState>
                         ?
                             | boolean
-                            | ((data: {
-                                queryResource: ResourceRef<QueryState>;
-                                queryParams: QueryParams;
-                              }) => State[Head])
-                        : (data: {
-                            queryResource: ResourceRef<QueryState>;
-                            queryParams: QueryParams;
-                          }) => State[Head];
+                            | AssociatedStateMapperFn<
+                                QueryState,
+                                QueryParams,
+                                State[Head]
+                              >
+                        : AssociatedStateMapperFn<
+                            QueryState,
+                            QueryParams,
+                            State[Head]
+                          >;
                     }
                   >,
                   `${RootPath}${Head & string}.`
@@ -93,14 +95,16 @@ type __ObjectDeep<
                     > extends NonNullable<QueryState>
                       ?
                           | boolean
-                          | ((data: {
-                              queryResource: ResourceRef<QueryState>;
-                              queryParams: QueryParams;
-                            }) => State[Head])
-                      : (data: {
-                          queryResource: ResourceRef<QueryState>;
-                          queryParams: QueryParams;
-                        }) => State[Head];
+                          | AssociatedStateMapperFn<
+                              QueryState,
+                              QueryParams,
+                              State[Head]
+                            >
+                      : AssociatedStateMapperFn<
+                          QueryState,
+                          QueryParams,
+                          State[Head]
+                        >;
                   }
                 >,
                 `${RootPath}${Head & string}.`
@@ -121,14 +125,12 @@ type __ObjectDeep<
               > extends NonNullable<QueryState>
                 ?
                     | boolean
-                    | ((data: {
-                        queryResource: ResourceRef<QueryState>;
-                        queryParams: QueryParams;
-                      }) => State[Head])
-                : (data: {
-                    queryResource: ResourceRef<QueryState>;
-                    queryParams: QueryParams;
-                  }) => State[Head];
+                    | AssociatedStateMapperFn<
+                        QueryState,
+                        QueryParams,
+                        State[Head]
+                      >
+                : AssociatedStateMapperFn<QueryState, QueryParams, State[Head]>;
             }
           >,
           RootPath
@@ -136,3 +138,9 @@ type __ObjectDeep<
       : Acc
     : Acc
   : Acc;
+
+export type AssociatedStateMapperFn<QueryState, QueryParams, ResultState> =
+  (data: {
+    queryResource: ResourceRef<QueryState>;
+    queryParams: QueryParams;
+  }) => ResultState;
