@@ -146,3 +146,18 @@ function featureFactory<
   //@ts-ignore
   return (context) => customFeatureBooks(featureFactory(context))(context);
 }
+
+// todo slide sur Params:
+
+type Params<Feature extends (...data: any) => SignalStoreFeature> =
+  Feature extends (...data: infer Params) => SignalStoreFeature
+    ? Params
+    : never;
+
+type TestParams = Params<typeof customFeatureBooks>;
+
+function makeParams<Store, Params extends any[]>(...data: Params) {
+  return (store: Store) => data;
+}
+
+function test2(...data: TestParams) {}
