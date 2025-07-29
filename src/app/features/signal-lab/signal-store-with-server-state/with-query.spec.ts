@@ -4,6 +4,7 @@ import {
   signalStore,
   signalStoreFeature,
   SignalStoreFeature,
+  StateSource,
   withState,
 } from '@ngrx/signals';
 import { query, withQuery } from './with-query';
