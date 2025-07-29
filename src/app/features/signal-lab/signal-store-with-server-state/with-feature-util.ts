@@ -91,11 +91,6 @@ export function withBooksFilterInfer<
 
 export const BooksStore = signalStore(
   withEntities<Book>(),
-  // 👇 Using `withFeature` to pass input to the `withBooksFilter` feature.
-  // withFeature(({ entities }) => withBooksFilter(entities)),
-  // test((store) => ({
-  //   test: 'test',
-  // }))
   withBooksFilterInferWorks((store) => store.entities)
 );
 
@@ -123,20 +118,22 @@ type StoreInput<Input extends SignalStoreFeatureResult> = Prettify<
     WritableStateSource<Prettify<Input['state']>>
 >;
 
-type FeatureOutput<Feature extends (data: any) => SignalStoreFeature> =
-  ReturnType<Feature> extends SignalStoreFeature<
-    infer ResultInput,
-    infer ResultOutput
-  >
-    ? ResultOutput
-    : never;
+type FeatureOutput<
+  Input extends SignalStoreFeatureResult,
+  Feature extends (data: any) => SignalStoreFeature
+> = ReturnType<Feature> extends SignalStoreFeature<
+  infer ResultInput,
+  infer ResultOutput
+>
+  ? SignalStoreFeature<Input, ResultOutput>
+  : never;
 
 export function withBooksFilterInferWorks<
   Input extends SignalStoreFeatureResult,
   Store extends StoreInput<Input>
 >(
   booksFactory: (store: Store) => Signal<Book[]>
-): SignalStoreFeature<Input, FeatureOutput<typeof customFeatureBooks>> {
+): FeatureOutput<Input, typeof customFeatureBooks> {
   return featureFactory(booksFactory);
 }
 
