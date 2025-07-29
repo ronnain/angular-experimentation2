@@ -123,22 +123,29 @@ type StoreInput<Input extends SignalStoreFeatureResult> = Prettify<
     WritableStateSource<Prettify<Input['state']>>
 >;
 
+type FeatureOutput<Feature extends (data: any) => SignalStoreFeature> =
+  ReturnType<Feature> extends SignalStoreFeature<
+    infer ResultInput,
+    infer ResultOutput
+  >
+    ? ResultOutput
+    : never;
+
 export function withBooksFilterInferWorks<
   Input extends SignalStoreFeatureResult,
-  const Store extends StoreInput<Input>,
-  Output extends ReturnType<
-    typeof customFeatureBooks
-  > extends SignalStoreFeature<infer ResultInput, infer ResultOutput>
-    ? ResultOutput
-    : never
+  Store extends StoreInput<Input>
 >(
   booksFactory: (store: Store) => Signal<Book[]>
-): SignalStoreFeature<Input, Output> {
-  //@ts-ignore
-  return (context) => customFeatureBooks(booksFactory(context))(context);
+): SignalStoreFeature<Input, FeatureOutput<typeof customFeatureBooks>> {
+  return featureFactory(booksFactory);
 }
 
-const test2 = withBooksFilterInferWorks(() => signal<Book[]>([]));
-//    ^?
+// const test2 = withBooksFilterInferWorks(() => signal<Book[]>([]));
 
-function _with();
+function featureFactory<
+  Input extends SignalStoreFeatureResult,
+  Store extends StoreInput<Input>
+>(featureFactory: (store: Store) => any): SignalStoreFeature<Input, any> {
+  //@ts-ignore
+  return (context) => customFeatureBooks(featureFactory(context))(context);
+}
