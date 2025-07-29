@@ -1,6 +1,6 @@
 import { ResourceRef } from '@angular/core';
 import { Equal, Expect } from '../../../../../../test-type';
-import { FlattenedStateDeepPathMappedToBooleanOrMapperFn } from './flattened-state-deep-path-mapped-to-boolean-or-mapper-fn.type';
+import { BooleanOrMapperFnByPath } from './boolean-or-mapper-fn-by-path.type';
 
 it('Should map all deep object paths except arrays', () => {
   type State = {
@@ -25,7 +25,7 @@ it('Should map all deep object paths except arrays', () => {
     search?: string;
   };
 
-  type AllStatePathResult = FlattenedStateDeepPathMappedToBooleanOrMapperFn<
+  type AllStatePathResult = BooleanOrMapperFnByPath<
     State,
     ResourceState,
     Params

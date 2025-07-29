@@ -37,7 +37,7 @@ import {
   OptimisticPatchQueryFn,
 } from './types/shared.type';
 import { __InternalSharedMutationConfig } from './with-mutation';
-import { FlattenedStateDeepPathMappedToBooleanOrMapperFn } from './types/flattened-state-deep-path-mapped-to-boolean-or-mapper-fn.type';
+import { BooleanOrMapperFnByPath } from './types/boolean-or-mapper-fn-by-path.type';
 
 const __QueryBrandSymbol: unique symbol = Symbol();
 type QueryBrand = {
@@ -157,13 +157,13 @@ export function withQuery<
      * a function is required.
      * - If the function is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
      */
-    associatedClientState?: FlattenedStateDeepPathMappedToBooleanOrMapperFn<
+    associatedClientState?: BooleanOrMapperFnByPath<
       NoInfer<Input>['state'],
       NoInfer<ResourceState>,
       NoInfer<ResourceParams>
-    > extends infer StateMapper
+    > extends infer BooleanOrMapperFnByPath
       ? {
-          [Path in keyof StateMapper]?: StateMapper[Path];
+          [Path in keyof BooleanOrMapperFnByPath]?: BooleanOrMapperFnByPath[Path];
         }
       : never;
     on?: Input['props'] extends {

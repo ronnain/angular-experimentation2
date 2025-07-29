@@ -12,7 +12,7 @@ import {
  * Does not go into arrays
  * Does not handle optional path
  */
-export type FlattenedStateDeepPathMappedToBooleanOrMapperFn<
+export type BooleanOrMapperFnByPath<
   State extends object,
   QueryState,
   QueryParams
