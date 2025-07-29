@@ -192,6 +192,56 @@ describe('withQuery', () => {
       count: 6,
     });
   });
+
+  it('6 should update associated query states', async () => {
+    const newUser = {
+      id: '5',
+      name: 'John Doe',
+      email: 'test@a.com',
+    };
+    const Store = signalStore(
+      withState({
+        user: undefined as User | undefined,
+        userSelected: undefined as { id: string } | undefined,
+      }),
+      withQuery(
+        'user',
+        () =>
+          query({
+            params: () => '5',
+            loader: async ({ params }) => {
+              await new Promise((resolve) => setTimeout(resolve, 10));
+              console.log('newUser', newUser);
+              return newUser;
+            },
+          }),
+        () => ({
+          associatedClientState: {
+            user: true,
+            userSelected: ({ queryResource }) => {
+              type ExpectQueryResourceToBeTyped = Expect<
+                Equal<typeof queryResource, ResourceRef<User>>
+              >;
+              return {
+                id: queryResource.value().id,
+              };
+            },
+          },
+        })
+      )
+    );
+    TestBed.configureTestingModule({
+      providers: [Store],
+    });
+    const store = TestBed.inject(Store);
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(store.userQuery.status()).toEqual('resolved');
+    expect(store.user()).toEqual(newUser);
+    expect(store.userSelected()).toEqual({
+      id: newUser.id,
+    });
+  });
 });
 
 describe('Declarative server state, withQuery and withMutation', () => {
@@ -569,8 +619,7 @@ describe('withQuery typing', () => {
           }),
         () => ({
           associatedClientState: {
-            // user: (queryResource) => ({} as User),
-            // user: true,
+            user: true,
             'userSelected.id': (queryResource) => '5',
           },
         })
@@ -635,24 +684,23 @@ describe('withQuery typing', () => {
                 })
               );
             },
-          })
-        // () => ({
-        //   associatedClientState: {
-        //     path: 'user',
-        //     mapResourceToState: ({ queryParams, queryResource }) => {
-        //       type ExpectQueryParamsToBeTyped = Expect<
-        //         Equal<typeof queryParams, { id: string }>
-        //       >;
-        //       type ExpectQueryResourceToBeTyped = Expect<
-        //         Equal<typeof queryResource, ResourceRef<Omit<User, 'id'>>>
-        //       >;
-        //       return {
-        //         id: queryParams.id,
-        //         ...queryResource.value(),
-        //       };
-        //     },
-        //   },
-        // })
+          }),
+        () => ({
+          associatedClientState: {
+            user: ({ queryParams, queryResource }) => {
+              type ExpectQueryParamsToBeTyped = Expect<
+                Equal<typeof queryParams, { id: string }>
+              >;
+              type ExpectQueryResourceToBeTyped = Expect<
+                Equal<typeof queryResource, ResourceRef<Omit<User, 'id'>>>
+              >;
+              return {
+                id: queryParams.id,
+                ...queryResource.value(),
+              };
+            },
+          },
+        })
       )
     );
   });

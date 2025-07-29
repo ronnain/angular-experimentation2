@@ -1,4 +1,11 @@
-import { signalStore, withProps, withState } from '@ngrx/signals';
+import {
+  patchState,
+  signalStore,
+  withLinkedState,
+  withMethods,
+  withProps,
+  withState,
+} from '@ngrx/signals';
 import { query, withQuery } from './with-query';
 import { BehaviorSubject, delay, lastValueFrom, of } from 'rxjs';
 import { inject, resource, signal } from '@angular/core';
@@ -225,7 +232,21 @@ export const DeclarativeStore = signalStore(
         },
       },
     })
-  )
+  ),
+  withLinkedState(({ userQuery }) => ({
+    draftUser: () => (userQuery.hasValue() ? userQuery.value() : undefined),
+  })),
+  withMethods((store) => ({
+    updateUserEmail: (email: string) => {
+      const draftUser = store.draftUser();
+      if (!draftUser) {
+        throw new Error('Draft user is not available');
+      }
+      patchState(store, {
+        draftUser: { ...draftUser, email },
+      });
+    },
+  }))
 );
 
 // const Store = signalStore(

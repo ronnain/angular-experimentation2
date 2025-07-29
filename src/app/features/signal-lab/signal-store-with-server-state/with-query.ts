@@ -230,15 +230,13 @@ export function withQuery<
 
         const queryOptions = optionsFactory?.(store as unknown as StoreInput);
 
-        const associatedClientState = queryOptions?.associatedClientState;
-
         const associatedClientStates = Object.entries(
           (queryOptions?.associatedClientState ?? {}) as Record<
             string,
             | boolean
             | AssociatedStateMapperFn<ResourceState, ResourceParams, unknown>
           >
-        ).filter(([, value]) => !value);
+        ).filter(([, value]) => !!value);
 
         const mutationsConfigEffect = Object.entries(
           (queryOptions?.on ?? {}) as Record<
