@@ -385,3 +385,5 @@ const BooksStoreAdvanced3bis = signalStore(
     booksPath: 'entities',
   }))
 );
+
+// todo tester avec un style de pipe pattern ?
