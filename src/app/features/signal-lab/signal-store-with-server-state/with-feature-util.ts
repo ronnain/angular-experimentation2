@@ -292,10 +292,64 @@ type GetMatchedPaths<State extends object, TargetedType> = {
     : never;
 }[keyof State];
 
-// type MergeStatePaths<A, B> = A | B;
+///////////// 3
 
+function withFeatureFactory3<
+  Feature extends (data: any) => SignalStoreFeature,
+  I,
+  S
+>(feature: Feature, customOutput: (input: I, store: S) => OneParams<Feature>) {
+  return <
+    Input extends SignalStoreFeatureResult,
+    Store extends StoreInput<Input>
+  >(
+    entries: (
+      store: Store
+    ) => (input: NoInfer<Input>, store: Store) => OneParams<Feature>
+  ) => ({} as FeatureOutput<Input, Feature>);
+}
+
+function withFeatureFactory3bis<
+  Feature extends (data: any) => SignalStoreFeature,
+  Config
+>(feature: Feature, config: Config) {
+  return <
+    Input extends SignalStoreFeatureResult,
+    Store extends StoreInput<Input>
+  >(
+    entries: (store: Store) => Config
+  ) => ({} as FeatureOutput<Input, Feature>);
+}
+
+// const testHelper =  <
+//   Input extends SignalStoreFeatureResult,
+//   Store extends StoreInput<Input>,
+//   BooksOutput extends {
+//     books: Signal<Book[]>;
+//   }
+// >(config: {
+//   booksPath: GetMatchedPaths<Store, Signal<Book[]>>;
+// }): (input: Input, store: Store) => BooksOutput {
+//   return (input, store) => {
+//     return {
+//       books: store[config.booksPath as string],
+//     } as unknown as BooksOutput;
+//   };
+// }
+
+// type TypeOptions<Input extends SignalStoreFeatureResult,
+//   Store extends StoreInput<Input>>
+// const TypeOptions = <
+//   Input extends SignalStoreFeatureResult,
+//   Store extends StoreInput<Input> = StoreInput<Input>,
+//   Config = object
+// >(
+//   config: Config
+// ) => {
+//   return config;
+// };
 // todo tester un truc comme ça :
-const withBooksFilterAdvanced = withFeatureFactory3(
+const withBooksFilterAdvanced3bis = withFeatureFactory3bis(
   ({ books }: { books: Signal<Book[]> }) =>
     signalStoreFeature(
       withState({ query: '' }),
@@ -310,5 +364,24 @@ const withBooksFilterAdvanced = withFeatureFactory3(
         },
       }))
     ),
-  <Input, Store>(options: any) => ({} as { books: Signal<Book[]> })
+  <Store extends unknown>(store: Store) => ({
+    // todo voir si on peut générer des types à partir du store
+    books: signal<Book[]>([]).asReadonly(),
+    booksPath: '' as Store extends object
+      ? GetMatchedPaths<Store, Signal<Book[]>>
+      : string,
+  })
+);
+
+const BooksStoreAdvanced3bis = signalStore(
+  withEntities<Book>(),
+  withComputed(({ entities }) => ({
+    topBooks: computed(() => entities().slice(0, 3)),
+    total: computed(() => entities().length),
+  })),
+  //                           👇 access to the store for advanced case
+  withBooksFilterAdvanced3bis((store) => (storeInner) => ({
+    books: store.entities,
+    booksPath: 'entities',
+  }))
 );
