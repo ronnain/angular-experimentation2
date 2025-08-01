@@ -17,11 +17,11 @@ type FeatureOutputFromConfig<
   ? SignalStoreFeature<Input, ResultOutput>
   : never;
 
-export function withBooksFilter4<
+export function withBooksFilter4bis<
   Context extends SignalStoreFeatureResult,
   Store extends StoreInput<Context>,
   // 👇 Create a highly customized based on Context/Store typing data
-  Config extends {
+  Config extends (store: Store) => {
     booksPath: AllBooksPaths;
   },
   const AllBooksPaths = GetMatchedPaths<Store, Signal<Book[]>>
@@ -32,7 +32,7 @@ export function withBooksFilter4<
       filteredBooks: computed(() =>
         (
           (store as Record<string, unknown>)[
-            config.booksPath as string
+            config(store as Store).booksPath as string
           ] as Signal<Book[]>
         )().filter((b) => b.name.includes(store.query()))
       ),
