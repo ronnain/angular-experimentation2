@@ -27,6 +27,81 @@ type Category = {
   name: string;
 };
 
+const api = {
+  bffProductsAndCategories: of({
+    products: [
+      {
+        id: '1',
+        name: 'Product 1',
+        price: 100,
+      },
+      {
+        id: '2',
+        name: 'Product 2',
+        price: 200,
+      },
+    ] satisfies Product[],
+    categories: [
+      {
+        id: '1',
+        name: 'Category 1',
+      },
+    ] satisfies Category[],
+  }).pipe(delay(2000)),
+  updateCategory: (categoryName: string) =>
+    of({
+      categoryName,
+    }).pipe(delay(2000)),
+};
+
+export const StoreWithBFF = signalStore(
+  {
+    providedIn: 'root',
+  },
+  withState({
+    selectedUserId: '5' as string | undefined,
+  }),
+  //...
+  withQuery('bffProductsAndCategories', (store) =>
+    query({
+      params: store.selectedUserId,
+      loader: ({ params }) => {
+        console.log('params', params);
+        return lastValueFrom(api.bffProductsAndCategories);
+      },
+    })
+  ),
+  withMutation(
+    'addCategory',
+    () =>
+      mutation({
+        method: (categoryName: string) => {
+          return categoryName;
+        },
+        loader: ({ params: categoryName }) => {
+          return lastValueFrom(api.updateCategory(categoryName));
+        },
+      }),
+    () => ({
+      queriesEffects: {
+        bffProductsAndCategories: {
+          optimisticPatch: {
+            categories: ({ mutationParams, targetedState }) => {
+              return [
+                ...(targetedState ?? []),
+                { id: `new${mutationParams}`, name: mutationParams },
+              ];
+            },
+          },
+          reload: {
+            onMutationError: true,
+          },
+        },
+      },
+    })
+  )
+);
+
 export const TestStore = signalStore(
   {
     providedIn: 'root',
@@ -50,64 +125,29 @@ export const TestStore = signalStore(
   }),
   //! Ce qui n'est pas ouf, c'est que ça propose les méthodes de `resource` et pas de `rxResource`
   withQuery('userQueryWithAssociatedClientState', (store) =>
-    query(
-      {
-        params: store.selectedUserId,
-        loader: ({ params }) => {
-          console.log('params', params);
-          return lastValueFrom(
-            of({
-              id: '1',
-              name: 'John Doe',
-              email: 'a@a.fr',
-            }).pipe(delay(2000))
-          );
-        },
-      }
-      // clientState({
-      //   path: 'userDetails.user',
-      // })
-    )
+    query({
+      params: store.selectedUserId,
+      loader: ({ params }) => {
+        console.log('params', params);
+        return lastValueFrom(
+          of({
+            id: '1',
+            name: 'John Doe',
+            email: 'a@a.fr',
+          }).pipe(delay(2000))
+        );
+      },
+    })
   ),
   withQuery('bffQueryProductsAndCategories', (store) =>
-    query(
-      {
-        params: store.selectedUserId,
-        loader: ({ params }) => {
-          console.log('params', params);
-          const result = new BehaviorSubject<User | undefined>(undefined);
-          return lastValueFrom(
-            of({
-              products: [
-                {
-                  id: '1',
-                  name: 'Product 1',
-                  price: 100,
-                },
-                {
-                  id: '2',
-                  name: 'Product 2',
-                  price: 200,
-                },
-              ] satisfies Product[],
-              categories: [
-                {
-                  id: '1',
-                  name: 'Category 1',
-                },
-              ] satisfies Category[],
-            }).pipe(delay(2000))
-          );
-        },
-      }
-      // clientState({
-      //   path: 'userDetails.bff',
-      //   mapResourceToState: ({ queryResource }) => ({
-      //     products: queryResource.value()?.products,
-      //     categories: queryResource.value()?.categories,
-      //   }),
-      // })
-    )
+    query({
+      params: store.selectedUserId,
+      loader: ({ params }) => {
+        console.log('params', params);
+        const result = new BehaviorSubject<User | undefined>(undefined);
+        return lastValueFrom(api.bffProductsAndCategories.pipe(delay(2000)));
+      },
+    })
   ),
   withProps(() => {
     const updateUserSrc = signal<User | undefined>(undefined);
@@ -162,26 +202,19 @@ export const TestStore = signalStore(
     () =>
       mutation({
         method: (category: Category) => category,
-        loader: ({ params }) => {
-          console.log('params', params);
-          return lastValueFrom(of(params).pipe(delay(2000)));
+        loader: ({ params: { name } }) => {
+          console.log('params', name);
+          return lastValueFrom(api.updateCategory(name).pipe(delay(2000)));
         },
       }),
     () => ({
       queriesEffects: {
         bffQueryProductsAndCategories: {
           optimisticPatch: {
-            categories: ({ mutationParams, queryResource }) => {
-              const queryValue = queryResource.value();
-              if (!queryValue) {
-                throw new Error('Query resource is not available');
-              }
-              const newCategories = [...queryValue.categories, mutationParams];
-              return newCategories;
-            },
-          },
-          reload: {
-            onMutationResolved: true,
+            categories: ({ mutationParams, targetedState }) => [
+              ...(targetedState ?? []),
+              mutationParams,
+            ],
           },
         },
       },

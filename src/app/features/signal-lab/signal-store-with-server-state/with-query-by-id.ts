@@ -1,10 +1,9 @@
 import {
-  EffectRef,
-  ResourceOptions,
-  ResourceRef,
-  Signal,
   effect,
-  resource,
+  inject,
+  Injector,
+  linkedSignal,
+  ResourceRef,
   signal,
   untracked,
 } from '@angular/core';
@@ -18,27 +17,27 @@ import {
   withProps,
   WritableStateSource,
 } from '@ngrx/signals';
-import { InternalType, MergeObject } from './types/util.type';
+import { InternalType } from './types/util.type';
 import { Merge } from '../../../util/types/merge';
-import {
-  createNestedStateUpdate,
-  getNestedStateValue,
-} from './core/update-state.util';
 import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
 import {
   AccessTypeObjectPropertyByDottedPath,
   DottedPathPathToTuple,
 } from './types/access-type-object-property-by-dotted-path.type';
-import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
 import {
   OptimisticPathMutationQuery,
   ReloadQueriesConfig,
   QueryAndMutationRecordConstraints,
-  OptimisticPatchQueryFn,
 } from './types/shared.type';
 import { __InternalSharedMutationConfig } from './with-mutation';
 import { ResourceByIdConfig } from './types/resource-by-id-config.type';
 import { resourceById, ResourceByIdRef } from '../resource-by-id';
+import {
+  AssociatedStateMapperFnById,
+  BooleanOrMapperFnByPathById,
+} from './types/boolean-or-mapper-fn-by-path-by-id.type';
+import { nestedEffect } from './types/util';
+import { createNestedStateUpdate } from './core/update-state.util';
 
 const __QueryBrandSymbol: unique symbol = Symbol();
 type QueryBrand = {
@@ -78,15 +77,6 @@ type WithQueryByIdOutputStoreConfig<
   >;
   methods: {};
 };
-
-type MapResourceToState<
-  ResourceState,
-  ResourceParams,
-  ClientStateTypeByDottedPath
-> = (queryData: {
-  queryResource: ResourceRef<NoInfer<ResourceState>>;
-  queryParams: NoInfer<ResourceParams>;
-}) => NoInfer<ClientStateTypeByDottedPath>;
 
 type QueryDeclarativeEffect<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
@@ -171,35 +161,20 @@ export function withQueryById<
     /**
      * Will update the state at the given path with the resource data.
      * If the type of targeted state does not match the type of the resource,
-     * the mapResourceToState function is required.
-     * - If the mapResourceToState is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
+     * a function is required.
+     * - If the function is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
      */
-    associatedClientState?: { path: NoInfer<ClientStateDottedPath> } & Prettify<
-      MergeObject<
-        {
-          mapResourceToState?: MapResourceToState<
-            NoInfer<ResourceState>,
-            NoInfer<ResourceParams>,
-            ClientStateTypeByDottedPath
-          >;
-        },
-        NoInfer<ResourceState> extends ClientStateTypeByDottedPath
-          ? {
-              mapResourceToState?: MapResourceToState<
-                NoInfer<ResourceState>,
-                NoInfer<ResourceParams>,
-                ClientStateTypeByDottedPath
-              >;
-            }
-          : {
-              mapResourceToState: MapResourceToState<
-                NoInfer<ResourceState>,
-                NoInfer<ResourceParams>,
-                ClientStateTypeByDottedPath
-              >;
-            }
-      >
-    >;
+    state?: BooleanOrMapperFnByPathById<
+      //todo continue
+      NoInfer<Input>['state'],
+      NoInfer<ResourceState>,
+      NoInfer<ResourceParams>,
+      NoInfer<GroupIdentifier>
+    > extends infer BooleanOrMapperFnByPath
+      ? {
+          [Path in keyof BooleanOrMapperFnByPath]?: BooleanOrMapperFnByPath[Path];
+        }
+      : never;
     on?: Input['props'] extends {
       __mutation: infer Mutations;
     }
@@ -241,6 +216,8 @@ export function withQueryById<
   return ((context: SignalStoreFeatureResult) => {
     return signalStoreFeature(
       withProps((store) => {
+        const _injector = inject(Injector);
+
         const queryConfigData = queryFactory(store as unknown as StoreInput)(
           store as unknown as StoreInput,
           context as unknown as Input
@@ -252,7 +229,7 @@ export function withQueryById<
         const resourceParamsSrc =
           queryConfigData.queryConfig.params ?? queryResourceParamsFnSignal;
 
-        const queryResource = resourceById<
+        const queryResourcesById = resourceById<
           ResourceState,
           ResourceParams,
           GroupIdentifier
@@ -261,179 +238,114 @@ export function withQueryById<
           params: resourceParamsSrc,
         });
 
+        const identifierFn = queryConfigData.queryConfig.identifier;
+
         const queryOptions = optionsFactory?.(store as unknown as StoreInput);
 
-        const associatedClientState = queryOptions?.associatedClientState;
-
-        const mutationsConfigEffect = Object.entries(
-          (queryOptions?.on ?? {}) as Record<
+        const associatedClientStates = Object.entries(
+          (queryOptions?.state ?? {}) as Record<
             string,
-            QueryDeclarativeEffect<any>
+            | boolean
+            | AssociatedStateMapperFnById<
+                ResourceState,
+                ResourceParams,
+                unknown,
+                GroupIdentifier
+              >
           >
-        );
+        ).filter(([, value]) => !!value);
+
+        const newResourceRefForNestedEffect = linkedSignal<
+          ResourceByIdRef<GroupIdentifier, ResourceState>,
+          { newKeys: GroupIdentifier[] } | undefined
+        >({
+          source: queryResourcesById as any,
+          computation: (currentSource, previous) => {
+            if (!currentSource || !Object.keys(currentSource).length) {
+              return undefined;
+            }
+
+            const currentKeys = Object.keys(currentSource) as GroupIdentifier[];
+            const previousKeys = Object.keys(
+              previous?.source || {}
+            ) as GroupIdentifier[];
+
+            // Find keys that exist in current but not in previous
+            const newKeys = currentKeys.filter(
+              (key) => !previousKeys.includes(key)
+            );
+
+            return newKeys.length > 0 ? { newKeys } : previous?.value;
+          },
+        });
 
         return {
-          [`${resourceName}QueryById`]: queryResource,
-          // ...(associatedClientState &&
-          //   'path' in associatedClientState && {
-          //     [`_${resourceName}Effect`]: effect(() => {
-          //       if (!['resolved', 'local'].includes(queryResource.status())) {
-          //         return;
-          //       }
-          //       patchState(store, (state) => {
-          //         const resourceData = queryResource.hasValue()
-          //           ? (queryResource.value() as ResourceState | undefined)
-          //           : undefined;
-          //         const path = associatedClientState?.path;
-          //         const mappedResourceToState =
-          //           'mapResourceToState' in associatedClientState
-          //             ? associatedClientState.mapResourceToState({
-          //                 queryResource:
-          //                   queryResource as ResourceRef<ResourceState>,
-          //                 queryParams:
-          //                   queryResourceParamsFnSignal() as NonNullable<
-          //                     NoInfer<ResourceParams>
-          //                   >,
-          //               })
-          //             : resourceData;
-          //         const keysPath = (path as string).split('.');
-          //         const result = createNestedStateUpdate({
-          //           state,
-          //           keysPath,
-          //           value: mappedResourceToState,
-          //         });
-          //         return result;
-          //       });
-          //     }),
-          //   }),
-          // ...(mutationsConfigEffect.length &&
-          //   mutationsConfigEffect.reduce(
-          //     (acc, [mutationName, mutationEffectOptions]) => {
-          //       return {
-          //         ...acc,
-          //         [`_on${mutationName}${resourceName}QueryEffect`]: effect(
-          //           () => {
-          //             const mutationResource = (store as any)[
-          //               mutationName
-          //             ] as ResourceRef<any>;
-          //             const mutationStatus = mutationResource.status();
-          //             const mutationParamsSrc = (store as any)['__mutation'][
-          //               mutationName
-          //             ].paramsSource as Signal<any>;
+          [`${resourceName}QueryById`]: queryResourcesById,
+          ...(associatedClientStates.length && {
+            [`_${resourceName}EffectById`]: effect(() => {
+              console.log('EffectById');
+              if (!newResourceRefForNestedEffect()?.newKeys) {
+                return;
+              }
+              newResourceRefForNestedEffect()?.newKeys.forEach(
+                (incomingIdentifier) => {
+                  nestedEffect(_injector, () => {
+                    console.log('NestedEffectById');
+                    const incomingParams = resourceParamsSrc(); //! peut-être plus bon ! récupérer l'identifier avec les params associé
 
-          //             if (mutationEffectOptions?.optimisticUpdate) {
-          //               if (mutationStatus === 'loading') {
-          //                 untracked(() => {
-          //                   const optimisticValue =
-          //                     mutationEffectOptions?.optimisticUpdate?.({
-          //                       mutationResource,
-          //                       queryResource,
-          //                       mutationParams:
-          //                         mutationParamsSrc() as NonNullable<
-          //                           NoInfer<any>
-          //                         >,
-          //                     });
-          //                   queryResource.set(optimisticValue);
-          //                 });
-          //               }
-          //             }
-          //             if (mutationEffectOptions.reload) {
-          //               const statusMappings = {
-          //                 onMutationError: 'error',
-          //                 onMutationResolved: 'resolved',
-          //                 onMutationLoading: 'loading',
-          //               };
+                    if (incomingParams === undefined) {
+                      return;
+                    }
 
-          //               Object.entries(mutationEffectOptions.reload).forEach(
-          //                 ([reloadType, reloadConfig]) => {
-          //                   const expectedStatus =
-          //                     statusMappings[
-          //                       reloadType as keyof typeof statusMappings
-          //                     ];
+                    const queryResource =
+                      queryResourcesById()[incomingIdentifier];
 
-          //                   if (
-          //                     expectedStatus &&
-          //                     mutationStatus === expectedStatus
-          //                   ) {
-          //                     if (typeof reloadConfig === 'function') {
-          //                       if (
-          //                         reloadConfig({
-          //                           queryResource,
-          //                           mutationResource,
-          //                           mutationParams: untracked(() =>
-          //                             mutationParamsSrc()
-          //                           ) as any,
-          //                         })
-          //                       ) {
-          //                         queryResource.reload();
-          //                       }
-          //                     } else if (reloadConfig) {
-          //                       queryResource.reload();
-          //                     }
-          //                   }
-          //                 }
-          //               );
-          //             }
-          //             if (mutationEffectOptions.optimisticPatch) {
-          //               if (mutationStatus === 'loading') {
-          //                 untracked(() => {
-          //                   Object.entries(
-          //                     mutationEffectOptions.optimisticPatch as Record<
-          //                       string,
-          //                       OptimisticPatchQueryFn<
-          //                         any,
-          //                         ResourceState,
-          //                         ResourceParams,
-          //                         ResourceArgsParams,
-          //                         any
-          //                       >
-          //                     >
-          //                   ).forEach(([path, optimisticPatch]) => {
-          //                     const queryValue = queryResource.hasValue()
-          //                       ? queryResource.value()
-          //                       : undefined;
-          //                     console.log('queryValue', queryValue);
-          //                     console.log(
-          //                       'nestedValue',
-          //                       getNestedStateValue({
-          //                         state: queryValue,
-          //                         keysPath: path.split('.'),
-          //                       })
-          //                     );
-          //                     console.log(
-          //                       'mutationParamsSrc()',
-          //                       mutationParamsSrc()
-          //                     );
-          //                     const optimisticValue = optimisticPatch({
-          //                       mutationResource,
-          //                       queryResource,
-          //                       mutationParams:
-          //                         mutationParamsSrc() as NonNullable<
-          //                           NoInfer<ResourceParams>
-          //                         >,
-          //                       targetedState: getNestedStateValue({
-          //                         state: queryValue,
-          //                         keysPath: path.split('.'),
-          //                       }),
-          //                     });
-          //                     console.log('optimisticValue', optimisticValue);
+                    if (!queryResource) {
+                      return;
+                    }
 
-          //                     const updatedValue = createNestedStateUpdate({
-          //                       state: queryValue,
-          //                       keysPath: path.split('.'),
-          //                       value: optimisticValue,
-          //                     });
-          //                     queryResource.set(updatedValue);
-          //                   });
-          //                 });
-          //               }
-          //             }
-          //           }
-          //         ),
-          //       };
-          //     },
-          //     {} as Record<`_on${string}${ResourceName}QueryEffect`, EffectRef>
-          //   )),
+                    const queryStatus = queryResource.status();
+                    if (!['resolved', 'local'].includes(queryStatus)) {
+                      return;
+                    }
+                    untracked(() => {
+                      associatedClientStates.forEach(
+                        ([path, associatedClientState]) => {
+                          patchState(store, (state) => {
+                            const resourceData = queryResource.hasValue()
+                              ? (queryResource.value() as
+                                  | ResourceState
+                                  | undefined)
+                              : undefined;
+                            const value =
+                              typeof associatedClientState === 'boolean'
+                                ? resourceData
+                                : associatedClientState({
+                                    queryResource:
+                                      queryResource as ResourceRef<ResourceState>,
+                                    queryParams:
+                                      queryResourceParamsFnSignal() as NonNullable<
+                                        NoInfer<ResourceParams>
+                                      >,
+                                    queryIdentifier: incomingIdentifier,
+                                    queryResources: queryResourcesById,
+                                  });
+                            const keysPath = (path as string).split('.');
+                            const result = createNestedStateUpdate({
+                              state,
+                              keysPath,
+                              value,
+                            });
+                            return result;
+                          });
+                        }
+                      );
+                    });
+                  });
+                }
+              );
+            }),
+          }),
         };
       })
       //@ts-ignore

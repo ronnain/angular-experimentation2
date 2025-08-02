@@ -1,10 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { signalStore, withState } from '@ngrx/signals';
-import { lastValueFrom, of } from 'rxjs';
+import { delay, lastValueFrom, of } from 'rxjs';
 import { queryById, withQueryById } from './with-query-by-id';
 import { Equal, Expect } from '../../../../../test-type';
 import { ApplicationRef, inject, ResourceRef } from '@angular/core';
 import { SIGNAL } from '@angular/core/primitives/signals';
+import { ResourceByIdRef } from '../resource-by-id';
 
 type User = {
   id: string;
@@ -99,7 +100,7 @@ describe('withQueryById', () => {
     };
     const Store = signalStore(
       withState({
-        users: [] as User[],
+        usersFetched: [] as User[],
         lastUserFetched: undefined as User | undefined,
       }),
       withQueryById(
@@ -108,32 +109,45 @@ describe('withQueryById', () => {
           queryById({
             params: () => '5',
             loader: ({ params }) => {
-              return lastValueFrom(of<User>(returnedUser));
+              return lastValueFrom(of<User>(returnedUser).pipe(delay(10)));
             },
             identifier: (params) => params,
           }),
         (store) => ({
-          associatedClientState: {
-            path: 'users',
-            mapResourceToState: ({
+          // todo improve associatedClientState to accapt multiples
+          state: {
+            usersFetched: ({
               queryParams,
               queryResource,
-              lastResolvedResourceIdentifier,
-              lastResolvedResource,
+              queryIdentifier,
+              queryResources,
             }) => {
               type ExpectQueryParamsToBeTyped = Expect<
                 Equal<typeof queryParams, string>
               >;
+              expect(queryParams).toBe('5');
+
               type ExpectQueryResourceToBeTyped = Expect<
                 Equal<typeof queryResource, ResourceRef<User>>
               >;
+              expect(queryResource.value()).toBe(returnedUser);
+
               type ExpectLastResolvedResourceIdentifierToBeTyped = Expect<
-                Equal<typeof lastResolvedResourceIdentifier, string>
+                Equal<typeof queryIdentifier, string>
               >;
+              expect(queryIdentifier).toBe('5');
+
               type ExpectLastResolvedResourceToBeTyped = Expect<
-                Equal<typeof lastResolvedResource, ResourceRef<User>>
+                Equal<
+                  typeof queryResources,
+                  ResourceByIdRef<string, NoInfer<User>>
+                >
               >;
-              return [...store.users(), lastResolvedResource.value()];
+              expect(Object.entries(queryResources()).length).toEqual(1);
+              expect(queryResources()['5']?.value()).toEqual(returnedUser);
+
+              expect(store.usersFetched().length).toEqual(1);
+              return [...store.usersFetched(), queryResource.value()];
             },
           },
         })
@@ -145,21 +159,17 @@ describe('withQueryById', () => {
     });
     const store = TestBed.inject(Store);
     console.log('store.userQueryById', store.userQueryById);
-    expect(store.userQueryById).toBeDefined();
+    expect(store.usersFetched().length).toBe(0);
 
     await TestBed.inject(ApplicationRef).whenStable();
     expect(store.userQueryById()['5']?.value()).toBe(returnedUser);
 
     type ExpectUserQueryToBeAnObjectWithResourceByIdentifier = Expect<
-      Equal<
-        typeof store.userQueryById,
-        (() => {
-          [x: string]: ResourceRef<User> | undefined;
-        }) & {
-          [SIGNAL]: unknown;
-        }
-      >
+      Equal<typeof store.userQueryById, ResourceByIdRef<string, NoInfer<User>>>
     >;
+
+    expect(store.usersFetched().length).toBe(1);
+    expect(store.usersFetched()[0]).toBe(returnedUser);
   });
 });
 

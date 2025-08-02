@@ -113,6 +113,7 @@ function createDynamicResource<T, R, GroupIdentifier extends string | number>(
       {
         provide: RESOURCE_INSTANCE_TOKEN,
         useFactory: () => resource(resourceConfig.resourceOptions),
+        multi: true,
       },
     ],
     parent: parentInjector,
