@@ -7,7 +7,13 @@ import {
   withMethods,
   withState,
 } from '@ngrx/signals';
-import { Book, featureFactory, FeatureOutput, StoreInput } from './shared';
+import {
+  Book,
+  featureFactory,
+  FeatureOutput,
+  OneParams,
+  StoreInput,
+} from './shared';
 
 // ! Only accept one parameter
 const filterBooksFeature = (books: Signal<Book[]>) =>
@@ -29,7 +35,7 @@ export function withBooksFilter2<
   Input extends SignalStoreFeatureResult,
   Store extends StoreInput<Input>
 >(
-  featureConfigFactory: (store: Store) => Signal<Book[]>
+  featureConfigFactory: (store: Store) => OneParams<typeof filterBooksFeature>
 ): FeatureOutput<Input, typeof filterBooksFeature> {
   return featureFactory(featureConfigFactory, filterBooksFeature);
 }

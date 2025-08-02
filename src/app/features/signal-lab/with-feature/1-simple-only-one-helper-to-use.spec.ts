@@ -10,7 +10,7 @@ describe('withBooksFilter1', () => {
   it('should filter books by query', () => {
     const BooksStore = signalStore(
       withEntities<Book>(),
-      withBooksFilter1((store) => store.entities),
+      withBooksFilter1(({ entities }) => entities),
       withHooks((store) => ({
         onInit: () => {
           patchState(

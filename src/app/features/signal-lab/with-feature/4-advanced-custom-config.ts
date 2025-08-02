@@ -43,6 +43,5 @@ export function withBooksFilter4<
       },
     }))
   );
-
   return feature;
 }
