@@ -159,7 +159,7 @@ export function withQueryById<
   optionsFactory?: (store: StoreInput) => {
     // Exclude path from the MergeObject, it will enable the const type inference, otherwise it will be inferred as string
     /**
-     * Will update the state at the given path with the resource data.
+     * Will update the state at the given path with the resource data (if the data id resolved or set 'local').
      * If the type of targeted state does not match the type of the resource,
      * a function is required.
      * - If the function is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
@@ -290,21 +290,16 @@ export function withQueryById<
               newResourceRefForNestedEffect()?.newKeys.forEach(
                 (incomingIdentifier) => {
                   nestedEffect(_injector, () => {
-                    console.log('NestedEffectById');
-                    const incomingParams = resourceParamsSrc(); //! peut-être plus bon ! récupérer l'identifier avec les params associé
-
-                    if (incomingParams === undefined) {
-                      return;
-                    }
-
-                    const queryResource =
-                      queryResourcesById()[incomingIdentifier];
+                    const queryResource = untracked(
+                      () => queryResourcesById()[incomingIdentifier]
+                    );
 
                     if (!queryResource) {
                       return;
                     }
 
                     const queryStatus = queryResource.status();
+                    const queryValue = queryResource.value(); // track also the value
                     if (!['resolved', 'local'].includes(queryStatus)) {
                       return;
                     }
@@ -323,8 +318,9 @@ export function withQueryById<
                                 : associatedClientState({
                                     queryResource:
                                       queryResource as ResourceRef<ResourceState>,
+                                    //todo improve warn: it have a desynchronisation resourceParamsSrc() may change to fast and params will be for another queryById resource
                                     queryParams:
-                                      queryResourceParamsFnSignal() as NonNullable<
+                                      resourceParamsSrc() as NonNullable<
                                         NoInfer<ResourceParams>
                                       >,
                                     queryIdentifier: incomingIdentifier,

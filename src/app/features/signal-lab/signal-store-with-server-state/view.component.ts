@@ -1,12 +1,14 @@
 import { CommonModule } from '@angular/common';
 import {
   Component,
+  computed,
   effect,
   EffectRef,
   inject,
   Injector,
   linkedSignal,
   resource,
+  ResourceRef,
   Signal,
   signal,
   untracked,
@@ -51,8 +53,12 @@ const testQueryById = signalStore(
         }) => {
           console.log('store.users()', store.users());
           console.log('queryResource.value()', queryResource.value());
-          debugger;
-          return [...store.users(), queryResource.value()];
+          return [
+            ...store
+              .users()
+              .filter((user) => user.id !== queryResource.value()?.id),
+            queryResource.value(),
+          ];
         },
       },
     })
@@ -64,7 +70,7 @@ const testQueryById = signalStore(
   standalone: true,
   imports: [CommonModule],
   template: `
-    <button
+    <!-- <button
       class="btn"
       (click)="addCategory()"
       [disabled]="store.addCategoryMutation.status() === 'loading'"
@@ -132,6 +138,7 @@ const testQueryById = signalStore(
     </button>
     userQuery({{ declarativeStore.userQuery.status() | json }}) :
     <pre>{{ declarativeStore.userQuery.value() | json }}</pre>
+     -->
     <button
       (click)="$any(testNestedEffect())['0'].set(testNestedEffect()['0']() + 1)"
     >
@@ -142,11 +149,27 @@ const testQueryById = signalStore(
     >
       Trigger 1
     </button>
-
-    <div>testQueryById:users: {{ testQueryById.users() | json }}</div>
+    <button (click)="add4()">Add 4</button>
+    <button
+      (click)="$any(testNestedEffect())['4'].set(testNestedEffect()['4']() + 1)"
+    >
+      Trigger 4
+    </button>
     <button (click)="testUsersParam.set(testUsersParam() + 1)">
       Load User
     </button>
+    @for(resourceData of testQueryByIdResources(); track $index; let idx =
+    $index) {
+    <div>
+      {{ resourceData[1]?.value() | json }}
+      <button (click)="updateUser(resourceData[1])">Update</button>
+    </div>
+
+    }
+
+    <div>testQueryById:users: {{ testQueryById.users() | json }}</div>
+    <hr />
+    <h2>testQueryById:userQuery: {{ testQueryById.loadUserQueryById() }}</h2>
   `,
 })
 export default class ViewComponent {
@@ -155,7 +178,26 @@ export default class ViewComponent {
   private readonly injector = inject(Injector);
   testUsersParam = testUsersParam;
 
+  add4() {
+    this.testNestedEffect.update((data) => ({
+      ...data,
+      '4': signal(0),
+    }));
+  }
+
   protected readonly testQueryById = inject(testQueryById);
+  testQueryByIdResources = computed(() =>
+    Object.entries(this.testQueryById.loadUserQueryById())
+  );
+  updateUser(resource: ResourceRef<NoInfer<User>> | undefined) {
+    if (!resource) {
+      return;
+    }
+    resource.update((data) => ({
+      ...data,
+      name: `Updated ${data.name}`,
+    }));
+  }
 
   testCountRef = signal('Test');
 

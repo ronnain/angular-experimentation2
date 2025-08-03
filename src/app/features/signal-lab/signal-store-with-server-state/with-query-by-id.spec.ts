@@ -114,7 +114,6 @@ describe('withQueryById', () => {
             identifier: (params) => params,
           }),
         (store) => ({
-          // todo improve associatedClientState to accapt multiples
           state: {
             usersFetched: ({
               queryParams,
@@ -125,6 +124,7 @@ describe('withQueryById', () => {
               type ExpectQueryParamsToBeTyped = Expect<
                 Equal<typeof queryParams, string>
               >;
+              console.log('queryParams', queryParams);
               expect(queryParams).toBe('5');
 
               type ExpectQueryResourceToBeTyped = Expect<
@@ -135,6 +135,7 @@ describe('withQueryById', () => {
               type ExpectLastResolvedResourceIdentifierToBeTyped = Expect<
                 Equal<typeof queryIdentifier, string>
               >;
+              console.log('queryIdentifier', queryIdentifier);
               expect(queryIdentifier).toBe('5');
 
               type ExpectLastResolvedResourceToBeTyped = Expect<
@@ -146,8 +147,13 @@ describe('withQueryById', () => {
               expect(Object.entries(queryResources()).length).toEqual(1);
               expect(queryResources()['5']?.value()).toEqual(returnedUser);
 
-              expect(store.usersFetched().length).toEqual(1);
-              return [...store.usersFetched(), queryResource.value()];
+              expect(store.usersFetched().length).toEqual(0);
+              return [
+                ...store
+                  .usersFetched()
+                  .filter((user) => user.id !== queryResource.value()?.id),
+                queryResource.value(),
+              ];
             },
           },
         })
@@ -167,7 +173,7 @@ describe('withQueryById', () => {
     type ExpectUserQueryToBeAnObjectWithResourceByIdentifier = Expect<
       Equal<typeof store.userQueryById, ResourceByIdRef<string, NoInfer<User>>>
     >;
-
+    console.log('store.usersFetched()', store.usersFetched());
     expect(store.usersFetched().length).toBe(1);
     expect(store.usersFetched()[0]).toBe(returnedUser);
   });
