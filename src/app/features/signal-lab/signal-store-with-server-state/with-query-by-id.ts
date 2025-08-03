@@ -283,7 +283,8 @@ export function withQueryById<
           [`${resourceName}QueryById`]: queryResourcesById,
           ...(associatedClientStates.length && {
             [`_${resourceName}EffectById`]: effect(() => {
-              console.log('EffectById');
+              // todo improve lisibility and simplify !
+              // todo add test for nestedEffect !
               if (!newResourceRefForNestedEffect()?.newKeys) {
                 return;
               }
