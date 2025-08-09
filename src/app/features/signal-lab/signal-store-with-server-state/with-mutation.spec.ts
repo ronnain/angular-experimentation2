@@ -492,14 +492,12 @@ describe('withMutation', () => {
     const user8Query = store.userQueryById()['8'];
     expect(user8Query?.status()).toBe('resolved');
 
-    // todo add a spy on .reload
-
     const user1QueryReloadSpy = vi.spyOn(user1Query!, 'reload');
     const user2QueryReloadSpy = vi.spyOn(user2Query!, 'reload');
     const user6QueryReloadSpy = vi.spyOn(user6Query!, 'reload');
     const user7QueryReloadSpy = vi.spyOn(user7Query!, 'reload');
     const user8QueryReloadSpy = vi.spyOn(user8Query!, 'reload');
-    console.log('mutateUser');
+
     store.mutateUser({
       id: '6',
       name: 'Updated User',
@@ -510,10 +508,120 @@ describe('withMutation', () => {
     expect(user1QueryReloadSpy.mock.calls.length).toBe(0);
     expect(user2QueryReloadSpy.mock.calls.length).toBe(0);
 
-    // reloadinf
+    // reloading
     expect(user6QueryReloadSpy.mock.calls.length).toBe(1);
     expect(user7QueryReloadSpy.mock.calls.length).toBe(1);
     expect(user8QueryReloadSpy.mock.calls.length).toBe(1);
+  });
+
+  it('#7 Should optimistic patch multiples targeted queryById with id > 5', async () => {
+    const MutationStore = signalStore(
+      withState({
+        userSelected: undefined as { id: string } | undefined,
+      }),
+      withMethods((store) => ({
+        selectUser: (id: string) => {
+          patchState(store, {
+            userSelected: { id },
+          });
+        },
+      })),
+      withQueryById('user', (store) =>
+        queryById({
+          params: store.userSelected,
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params?.id,
+                name: 'John Doe',
+                email: 'john.doe@example.com',
+              } satisfies User).pipe(delay(2000))
+            );
+          },
+          identifier: (params) => params.id,
+        })
+      ),
+      withMutation(
+        'user',
+        (store) =>
+          mutation({
+            method: (user: User) => user,
+            loader: ({ params: user }) => {
+              return lastValueFrom(of(user satisfies User));
+            },
+          }),
+        () => ({
+          queriesEffects: {
+            userQueryById: {
+              optimisticPatch: {
+                email: ({ mutationParams }) => mutationParams.email,
+              },
+              filter: ({ queryIdentifier }) => {
+                // should invalidate all queries with id > 5
+                return parseInt(queryIdentifier, 10) > 5;
+              },
+            },
+          },
+        })
+      )
+    );
+    TestBed.configureTestingModule({
+      providers: [MutationStore, ApplicationRef],
+    });
+    const store = TestBed.inject(MutationStore);
+    store.selectUser('1');
+    await wait();
+    store.selectUser('2');
+    await wait();
+    store.selectUser('6');
+    await wait();
+    store.selectUser('7');
+    await wait();
+    store.selectUser('8');
+    await TestBed.inject(ApplicationRef).whenStable();
+
+    const user1Query = store.userQueryById()['1'];
+    expect(user1Query?.status()).toBe('resolved');
+    const user2Query = store.userQueryById()['2'];
+    expect(user2Query?.status()).toBe('resolved');
+    const user6Query = store.userQueryById()['6'];
+    expect(user6Query?.status()).toBe('resolved');
+    const user7Query = store.userQueryById()['7'];
+    expect(user7Query?.status()).toBe('resolved');
+    const user8Query = store.userQueryById()['8'];
+    expect(user8Query?.status()).toBe('resolved');
+
+    store.mutateUser({
+      id: '6',
+      name: 'Updated User',
+      email: 'updated.user@example.com',
+    });
+    await TestBed.inject(ApplicationRef).whenStable();
+    // not changed
+    expect(user1Query?.status()).toBe('resolved');
+    expect(user2Query?.status()).toBe('resolved');
+
+    // updated
+    expect(user6Query?.status()).toBe('local');
+    console.log('user6Query?.value()', user6Query?.value());
+    expect(user6Query?.value()).toEqual({
+      id: '6',
+      name: 'John Doe',
+      email: 'updated.user@example.com',
+    });
+    expect(user7Query?.status()).toBe('local');
+    expect(user7Query?.value()).toEqual({
+      id: '7',
+      name: 'John Doe',
+      email: 'updated.user@example.com',
+    });
+
+    expect(user8Query?.status()).toBe('local');
+    expect(user8Query?.value()).toEqual({
+      id: '8',
+      name: 'John Doe',
+      email: 'updated.user@example.com',
+    });
   });
 });
 
