@@ -43,7 +43,6 @@ export function resourceById<T, R, GroupIdentifier extends string | number>({
       return;
     }
     const group = identifier(requestValue);
-
     // The effect should only trigger when the request change
     const resourceByGroupValue = untracked(() => resourceByGroup());
     const groupResourceRefExist = resourceByGroupValue[group];
@@ -113,7 +112,6 @@ function createDynamicResource<T, R, GroupIdentifier extends string | number>(
       {
         provide: RESOURCE_INSTANCE_TOKEN,
         useFactory: () => resource(resourceConfig.resourceOptions),
-        multi: true,
       },
     ],
     parent: parentInjector,

@@ -16,9 +16,10 @@ import {
 import { DeclarativeStore, TestStore } from './test.store';
 import { nestedEffect } from './types/util';
 import { signalStore, withState } from '@ngrx/signals';
-import { queryById, withQueryById } from './with-query-by-id';
+import { withQueryById } from './with-query-by-id';
 import { User } from '../resource-by-group/api.service';
 import { delay, lastValueFrom, of } from 'rxjs';
+import { queryById } from './query-by-id';
 
 const testUsersParam = signal<number>(5);
 

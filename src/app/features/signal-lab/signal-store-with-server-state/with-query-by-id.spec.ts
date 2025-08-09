@@ -1,11 +1,18 @@
 import { TestBed } from '@angular/core/testing';
 import { signalStore, signalStoreFeature, withState } from '@ngrx/signals';
 import { delay, lastValueFrom, of } from 'rxjs';
-import { queryById, withQueryById } from './with-query-by-id';
+import { withQueryById } from './with-query-by-id';
 import { Equal, Expect } from '../../../../../test-type';
-import { ApplicationRef, inject, ResourceRef } from '@angular/core';
+import {
+  ApplicationRef,
+  inject,
+  Injector,
+  ResourceRef,
+  runInInjectionContext,
+} from '@angular/core';
 import { SIGNAL } from '@angular/core/primitives/signals';
 import { ResourceByIdRef } from '../resource-by-id';
+import { queryById } from './query-by-id';
 
 type User = {
   id: string;
@@ -18,37 +25,44 @@ type User = {
 
 describe('queryById', () => {
   it('Retrieve returned types of queryByIdFn', () => {
-    const queryByIdFn = queryById({
-      params: () => '5',
-      loader: ({ params }) => {
-        return lastValueFrom(
-          of({
-            id: params,
-            name: 'John Doe',
-            email: 'test@a.com',
-          })
-        );
-      },
-      identifier: (params) => params,
+    TestBed.configureTestingModule({
+      providers: [Injector],
     });
-    type queryByIdFn__types = ReturnType<typeof queryByIdFn>['__types'];
+    const injector = TestBed.inject(Injector);
 
-    type ExpectQueryByFnTypesToBeRetrieved = Expect<
-      Equal<
-        queryByIdFn__types,
-        {
-          state: NoInfer<{
-            id: string;
-            name: string;
-            email: string;
-          }>;
-          params: string;
-          args: unknown;
-          isGroupedResource: false;
-          groupIdentifier: string;
-        }
-      >
-    >;
+    runInInjectionContext(injector, () => {
+      const queryByIdFn = queryById({
+        params: () => '5',
+        loader: ({ params }) => {
+          return lastValueFrom(
+            of({
+              id: params,
+              name: 'John Doe',
+              email: 'test@a.com',
+            })
+          );
+        },
+        identifier: (params) => params,
+      });
+      type queryByIdFn__types = ReturnType<typeof queryByIdFn>['__types'];
+
+      type ExpectQueryByFnTypesToBeRetrieved = Expect<
+        Equal<
+          queryByIdFn__types,
+          {
+            state: NoInfer<{
+              id: string;
+              name: string;
+              email: string;
+            }>;
+            params: string;
+            args: unknown;
+            isGroupedResource: false;
+            groupIdentifier: string;
+          }
+        >
+      >;
+    });
   });
 });
 describe('withQueryById', () => {

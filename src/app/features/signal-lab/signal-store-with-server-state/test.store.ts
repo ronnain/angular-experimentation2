@@ -6,10 +6,11 @@ import {
   withProps,
   withState,
 } from '@ngrx/signals';
-import { query, withQuery } from './with-query';
+import { withQuery } from './with-query';
 import { BehaviorSubject, delay, lastValueFrom, of } from 'rxjs';
 import { inject, resource, signal } from '@angular/core';
 import { mutation, withMutation } from './with-mutation';
+import { query } from './query';
 
 type User = {
   id: string;
@@ -84,7 +85,7 @@ export const StoreWithBFF = signalStore(
       }),
     () => ({
       queriesEffects: {
-        bffProductsAndCategories: {
+        bffProductsAndCategoriesQuery: {
           optimisticPatch: {
             categories: ({ mutationParams, targetedState }) => {
               return [
@@ -182,7 +183,7 @@ export const TestStore = signalStore(
       }),
     (store) => ({
       queriesEffects: {
-        userQueryWithAssociatedClientState: {
+        userQueryWithAssociatedClientStateQuery: {
           optimistic: ({ mutationParams, queryResource }) => {
             const queryValue = queryResource.value();
             if (!queryValue) {
@@ -209,7 +210,7 @@ export const TestStore = signalStore(
       }),
     () => ({
       queriesEffects: {
-        bffQueryProductsAndCategories: {
+        bffQueryProductsAndCategoriesQuery: {
           optimisticPatch: {
             categories: ({ mutationParams, targetedState }) => [
               ...(targetedState ?? []),

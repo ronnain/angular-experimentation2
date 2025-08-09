@@ -4,7 +4,7 @@ import {
   Injector,
   linkedSignal,
   ResourceRef,
-  signal,
+  Signal,
   untracked,
 } from '@angular/core';
 import {
@@ -25,8 +25,7 @@ import {
   QueryAndMutationRecordConstraints,
 } from './types/shared.type';
 import { __InternalSharedMutationConfig } from './with-mutation';
-import { ResourceByIdConfig } from './types/resource-by-id-config.type';
-import { resourceById, ResourceByIdRef } from '../resource-by-id';
+import { ResourceByIdRef } from '../resource-by-id';
 import {
   AssociatedStateMapperFnById,
   BooleanOrMapperFnByPathById,
@@ -34,9 +33,13 @@ import {
 import { nestedEffect } from './types/util';
 import { createNestedStateUpdate } from './core/update-state.util';
 
-const __QueryBrandSymbol: unique symbol = Symbol();
-type QueryBrand = {
-  [__QueryBrandSymbol]: unknown;
+export type QueryByIdRef<
+  GroupIdentifier extends string | number,
+  ResourceState,
+  ResourceParams
+> = {
+  resourceById: ResourceByIdRef<GroupIdentifier, ResourceState>;
+  resourceParamsSrc: Signal<ResourceParams | undefined>;
 };
 
 // TODO find a way to access to a resourceRef without userQueryById() because it will be updated each time the query is updated
@@ -122,7 +125,6 @@ export function withQueryById<
   ResourceParams,
   ResourceArgsParams,
   GroupIdentifier extends string | number,
-  QueryConfig extends ResourceByIdConfig<any, any, any, any>,
   const StoreInput extends Prettify<
     StateSignals<Input['state']> &
       Input['props'] &
@@ -134,7 +136,13 @@ export function withQueryById<
   queryFactory: (store: StoreInput) => (
     store: StoreInput,
     context: Input
-  ) => { queryConfig: QueryConfig } & {
+  ) => {
+    queryByIdRef: QueryByIdRef<
+      NoInfer<GroupIdentifier>,
+      NoInfer<ResourceState>,
+      NoInfer<ResourceParams>
+    >;
+  } & {
     __types: InternalType<
       ResourceState,
       ResourceParams,
@@ -142,7 +150,7 @@ export function withQueryById<
       false,
       GroupIdentifier
     >;
-  } & QueryBrand,
+  },
   optionsFactory?: (store: StoreInput) => {
     // Exclude path from the MergeObject, it will enable the const type inference, otherwise it will be inferred as string
     /**
@@ -208,24 +216,10 @@ export function withQueryById<
           store as unknown as StoreInput,
           context as unknown as Input
         );
-        const queryResourceParamsFnSignal = signal<ResourceParams | undefined>(
-          undefined
-        );
 
         const resourceParamsSrc =
-          queryConfigData.queryConfig.params ?? queryResourceParamsFnSignal;
-
-        const queryResourcesById = resourceById<
-          ResourceState,
-          ResourceParams,
-          GroupIdentifier
-        >({
-          ...queryConfigData.queryConfig,
-          params: resourceParamsSrc,
-        });
-
-        const identifierFn = queryConfigData.queryConfig.identifier;
-
+          queryConfigData.queryByIdRef.resourceParamsSrc;
+        const queryResourcesById = queryConfigData.queryByIdRef.resourceById;
         const queryOptions = optionsFactory?.(store as unknown as StoreInput);
 
         const associatedClientStates = Object.entries(
@@ -276,14 +270,13 @@ export function withQueryById<
               newResourceRefForNestedEffect()?.newKeys.forEach(
                 (incomingIdentifier) => {
                   nestedEffect(_injector, () => {
-                    const queryResource = untracked(
-                      () => queryResourcesById()[incomingIdentifier]
-                    );
+                    const queryResource =
+                      queryResourcesById()[incomingIdentifier];
 
                     if (!queryResource) {
                       return;
                     }
-
+                    // TODO FACTORISE CE CODE & Ajouter rw query by id
                     const queryStatus = queryResource.status();
                     const queryValue = queryResource.value(); // track also the value
                     if (!['resolved', 'local'].includes(queryStatus)) {
@@ -342,61 +335,4 @@ export function withQueryById<
       GroupIdentifier
     >
   >;
-}
-
-/**
- * Configures a query.
- * And optionally associates the query result to a client state.
- */
-export function queryById<
-  queryState extends object | undefined,
-  queryParams,
-  QueryArgsParams,
-  QueryGroupIdentifier extends string | number,
-  Input extends SignalStoreFeatureResult,
-  const StoreInput extends Prettify<
-    StateSignals<Input['state']> &
-      Input['props'] &
-      Input['methods'] &
-      WritableStateSource<Prettify<Input['state']>>
-  >
->(
-  queryConfig: ResourceByIdConfig<
-    queryState,
-    queryParams,
-    QueryArgsParams,
-    QueryGroupIdentifier
-  >
-): (
-  store: StoreInput,
-  context: Input
-) => {
-  queryConfig: ResourceByIdConfig<
-    NoInfer<queryState>,
-    NoInfer<queryParams>,
-    NoInfer<QueryArgsParams>,
-    NoInfer<QueryGroupIdentifier>
-  >;
-  /**
-   * Only used to help type inference, not used in the actual implementation.
-   */
-  __types: InternalType<
-    NoInfer<queryState>,
-    NoInfer<queryParams>,
-    NoInfer<QueryArgsParams>,
-    false,
-    NoInfer<QueryGroupIdentifier>
-  >;
-} & QueryBrand {
-  return (store, context) => ({
-    queryConfig,
-    __types: {} as InternalType<
-      NoInfer<queryState>,
-      NoInfer<queryParams>,
-      NoInfer<QueryArgsParams>,
-      false,
-      NoInfer<QueryGroupIdentifier>
-    >,
-    [__QueryBrandSymbol]: undefined,
-  });
 }

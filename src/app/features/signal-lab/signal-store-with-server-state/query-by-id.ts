@@ -1,18 +1,20 @@
 import {
-  SignalStoreFeatureResult,
   Prettify,
+  SignalStoreFeatureResult,
   StateSignals,
   WritableStateSource,
 } from '@ngrx/signals';
-import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
+import { ResourceByIdConfig } from './types/resource-by-id-config.type';
 import { InternalType } from './types/util.type';
-import { QueryRef } from './with-query';
-import { resource, ResourceOptions, Signal, signal } from '@angular/core';
+import { QueryByIdRef } from './with-query-by-id';
+import { Signal, signal } from '@angular/core';
+import { resourceById } from './resource-by-id-signal-store';
 
-export function query<
+export function queryById<
   QueryState extends object | undefined,
   QueryParams,
   QueryArgsParams,
+  QueryGroupIdentifier extends string | number,
   Input extends SignalStoreFeatureResult,
   const StoreInput extends Prettify<
     StateSignals<Input['state']> &
@@ -21,16 +23,21 @@ export function query<
       WritableStateSource<Prettify<Input['state']>>
   >
 >(
-  queryConfig: ResourceWithParamsOrParamsFn<
+  queryConfig: ResourceByIdConfig<
     QueryState,
     QueryParams,
-    QueryArgsParams
+    QueryArgsParams,
+    QueryGroupIdentifier
   >
 ): (
   store: StoreInput,
   context: Input
 ) => {
-  queryRef: QueryRef<NoInfer<QueryState>, NoInfer<QueryParams>>;
+  queryByIdRef: QueryByIdRef<
+    NoInfer<QueryGroupIdentifier>,
+    NoInfer<QueryState>,
+    NoInfer<QueryParams>
+  >;
   /**
    * Only used to help type inference, not used in the actual implementation.
    */
@@ -38,7 +45,8 @@ export function query<
     NoInfer<QueryState>,
     NoInfer<QueryParams>,
     NoInfer<QueryArgsParams>,
-    false
+    false,
+    NoInfer<QueryGroupIdentifier>
   >;
 } {
   const queryResourceParamsFnSignal = signal<QueryParams | undefined>(
@@ -47,21 +55,25 @@ export function query<
 
   const resourceParamsSrc = queryConfig.params ?? queryResourceParamsFnSignal;
 
-  const queryResource = resource<QueryState, QueryParams>({
+  const queryResourcesById = resourceById<
+    QueryState,
+    QueryParams,
+    QueryGroupIdentifier
+  >({
     ...queryConfig,
     params: resourceParamsSrc,
-  } as ResourceOptions<any, any>);
-
+  } as any);
   return (store, context) => ({
-    queryRef: {
-      resource: queryResource,
+    queryByIdRef: {
+      resourceById: queryResourcesById,
       resourceParamsSrc: resourceParamsSrc as Signal<QueryParams | undefined>,
     },
     __types: {} as InternalType<
       NoInfer<QueryState>,
       NoInfer<QueryParams>,
       NoInfer<QueryArgsParams>,
-      false
+      false,
+      NoInfer<QueryGroupIdentifier>
     >,
   });
 }
