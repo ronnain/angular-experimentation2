@@ -8,13 +8,14 @@ import {
   withState,
 } from '@ngrx/signals';
 import { Equal, Expect } from '../../../../../test-type';
-import { query, withQuery } from './with-query';
+import { withQuery } from './with-query';
 import { delay, lastValueFrom, of, tap } from 'rxjs';
 import { ApplicationRef, ResourceRef, signal } from '@angular/core';
 import { mutation, withMutation } from './with-mutation';
 import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { queryById, withQueryById } from './with-query-by-id';
 import { vi } from 'vitest';
+import { query } from './query';
 
 type User = {
   id: string;

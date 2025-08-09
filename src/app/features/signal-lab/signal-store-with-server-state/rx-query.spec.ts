@@ -6,11 +6,11 @@ import {
   SignalStoreFeature,
   withState,
 } from '@ngrx/signals';
-import { query, withQuery } from './with-query';
-import { ResourceRef, ResourceStreamItem, signal } from '@angular/core';
+import { ResourceRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { mutation, withMutation } from './with-mutation';
-import { rxQuery, withRxQuery } from './with-rx-query';
+import { rxQuery } from './rx-query';
+import { withQuery } from './with-query';
 
 type User = {
   id: string;
@@ -18,10 +18,10 @@ type User = {
   email: string;
 };
 
-describe('withQuery', () => {
+describe('withQuery using rxQuery', () => {
   it('1- Should expose a query resource', () => {
     const Store = signalStore(
-      withRxQuery('user', () =>
+      withQuery('user', () =>
         rxQuery({
           params: () => '5',
           stream: ({ params }) => {
@@ -44,7 +44,7 @@ describe('withQuery', () => {
   });
 });
 
-describe('Declarative server state, withQuery and withMutation', () => {
+describe('Declarative server state, withQuery using rxQuery and withMutation', () => {
   it('1- withQuery should handle optimistic updates', async () => {
     const Store = signalStore(
       withMutation('userEmail', () =>
@@ -64,7 +64,7 @@ describe('Declarative server state, withQuery and withMutation', () => {
           },
         })
       ),
-      withRxQuery(
+      withQuery(
         'user',
         () =>
           rxQuery({
@@ -103,6 +103,7 @@ describe('Declarative server state, withQuery and withMutation', () => {
     const store = TestBed.inject(Store);
 
     await wait(30);
+    console.log('store.userQuery.status()', store.userQuery.status());
     expect(store.userQuery.status()).toBe('resolved');
 
     store.mutateUserEmail({
@@ -138,7 +139,7 @@ describe('Declarative server state, withQuery and withMutation', () => {
           },
         })
       ),
-      withRxQuery(
+      withQuery(
         'user',
         () =>
           rxQuery({
@@ -207,7 +208,7 @@ describe('Declarative server state, withQuery and withMutation', () => {
           },
         })
       ),
-      withRxQuery(
+      withQuery(
         'user',
         () =>
           rxQuery({
@@ -284,7 +285,7 @@ describe('Declarative server state, withQuery and withMutation', () => {
           },
         })
       ),
-      withRxQuery(
+      withQuery(
         'user',
         () =>
           rxQuery({
@@ -342,7 +343,7 @@ type InferSignalStoreFeatureReturnedType<
 
 describe('withQuery typing', () => {
   it('Should be well typed', () => {
-    const queryByIdTest = withRxQuery('user', () =>
+    const queryByIdTest = withQuery('user', () =>
       rxQuery({
         params: () => '5',
         stream: ({ params }) => {
@@ -389,7 +390,7 @@ describe('withQuery typing', () => {
         user: undefined as User | undefined,
         test: 3,
       }),
-      withRxQuery(
+      withQuery(
         'userDetails',
         (store) =>
           rxQuery({
@@ -412,11 +413,11 @@ describe('withQuery typing', () => {
           }),
         (store) => ({
           associatedClientState: {
-            path: 'user',
+            user: true,
           },
         })
       ),
-      withRxQuery('users', (store) =>
+      withQuery('users', (store) =>
         rxQuery({
           params: () => '5',
           stream: ({ params }) => {
@@ -459,7 +460,7 @@ describe('withQuery typing', () => {
         selectedUserId: undefined,
         user: undefined as User | undefined,
       }),
-      withRxQuery(
+      withQuery(
         'userQuery',
         () =>
           rxQuery({
@@ -475,8 +476,7 @@ describe('withQuery typing', () => {
           }),
         () => ({
           associatedClientState: {
-            path: 'user',
-            mapResourceToState: ({ queryParams, queryResource }) => {
+            user: ({ queryParams, queryResource }) => {
               type ExpectQueryParamsToBeTyped = Expect<
                 Equal<typeof queryParams, { id: string }>
               >;
@@ -524,7 +524,7 @@ describe('withQuery typing', () => {
           },
         })
       ),
-      withRxQuery(
+      withQuery(
         'user',
         () =>
           rxQuery({

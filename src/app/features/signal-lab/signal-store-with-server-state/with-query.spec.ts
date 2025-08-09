@@ -4,13 +4,13 @@ import {
   signalStore,
   signalStoreFeature,
   SignalStoreFeature,
-  StateSource,
   withState,
 } from '@ngrx/signals';
-import { query, withQuery } from './with-query';
+import { withQuery } from './with-query';
 import { ResourceRef, ResourceStreamItem, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { mutation, withMutation } from './with-mutation';
+import { query } from './query';
 
 type User = {
   id: string;

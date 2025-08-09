@@ -25,7 +25,6 @@ import {
   createNestedStateUpdate,
   getNestedStateValue,
 } from './core/update-state.util';
-import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
 import {
   OptimisticPathMutationQuery,
   ReloadQueriesConfig,
@@ -38,9 +37,9 @@ import {
   BooleanOrMapperFnByPath,
 } from './types/boolean-or-mapper-fn-by-path.type';
 
-const __QueryBrandSymbol: unique symbol = Symbol();
-type QueryBrand = {
-  [__QueryBrandSymbol]: unknown;
+export type QueryRef<ResourceState, ResourceParams> = {
+  resource: ResourceRef<ResourceState | undefined>;
+  resourceParamsSrc: Signal<ResourceParams | undefined>;
 };
 
 type WithQueryOutputStoreConfig<
@@ -105,7 +104,6 @@ export function withQuery<
   ResourceState extends object | undefined,
   ResourceParams,
   ResourceArgsParams,
-  QueryConfig extends ResourceWithParamsOrParamsFn<any, any, any>,
   const StoreInput extends Prettify<
     StateSignals<Input['state']> &
       Input['props'] &
@@ -117,14 +115,16 @@ export function withQuery<
   queryFactory: (store: NoInfer<StoreInput>) => (
     store: NoInfer<StoreInput>,
     context: Input
-  ) => { queryConfig: QueryConfig } & {
+  ) => {
+    queryRef: QueryRef<NoInfer<ResourceState>, NoInfer<ResourceParams>>;
+  } & {
     __types: InternalType<
       ResourceState,
       ResourceParams,
       ResourceArgsParams,
       false
     >;
-  } & QueryBrand,
+  },
 
   optionsFactory?: (store: NoInfer<StoreInput>) => {
     /**
@@ -189,17 +189,11 @@ export function withQuery<
           store as unknown as StoreInput,
           context as unknown as Input
         );
-        const queryResourceParamsFnSignal = signal<ResourceParams | undefined>(
-          undefined
-        );
 
-        const resourceParamsSrc =
-          queryConfigData.queryConfig.params ?? queryResourceParamsFnSignal;
+        const queryResourceParamsSrc =
+          queryConfigData.queryRef.resourceParamsSrc;
 
-        const queryResource = resource<ResourceState, ResourceParams>({
-          ...queryConfigData.queryConfig,
-          params: resourceParamsSrc,
-        } as ResourceOptions<any, any>);
+        const queryResource = queryConfigData.queryRef.resource;
 
         const queryOptions = optionsFactory?.(store as unknown as StoreInput);
 
@@ -231,7 +225,7 @@ export function withQuery<
                   associatedClientStates,
                   store,
                   queryResource,
-                  queryResourceParamsFnSignal,
+                  queryResourceParamsSrc,
                 })
               );
             }),
@@ -407,7 +401,7 @@ function updateAssociatedClientStates<
   associatedClientStates,
   store,
   queryResource,
-  queryResourceParamsFnSignal,
+  queryResourceParamsSrc,
 }: {
   associatedClientStates: [
     string,
@@ -415,7 +409,7 @@ function updateAssociatedClientStates<
   ][];
   store: WritableStateSource<any>;
   queryResource: ResourceRef<ResourceState | undefined>;
-  queryResourceParamsFnSignal: WritableSignal<ResourceParams | undefined>;
+  queryResourceParamsSrc: Signal<ResourceParams | undefined>;
 }) {
   associatedClientStates.forEach(([path, associatedClientState]) => {
     patchState(store, (state) => {
@@ -428,7 +422,7 @@ function updateAssociatedClientStates<
           ? resourceData
           : associatedClientState({
               queryResource: queryResource as ResourceRef<ResourceState>,
-              queryParams: queryResourceParamsFnSignal() as NonNullable<
+              queryParams: queryResourceParamsSrc() as NonNullable<
                 NoInfer<ResourceParams>
               >,
             });
@@ -441,57 +435,5 @@ function updateAssociatedClientStates<
       });
       return result;
     });
-  });
-}
-
-/**
- * Configures a query.
- * And optionally associates the query result to a client state.
- */
-export function query<
-  queryState extends object | undefined,
-  queryParams,
-  QueryArgsParams,
-  Input extends SignalStoreFeatureResult,
-  const StoreInput extends Prettify<
-    StateSignals<Input['state']> &
-      Input['props'] &
-      Input['methods'] &
-      WritableStateSource<Prettify<Input['state']>>
-  >
->(
-  queryConfig: ResourceWithParamsOrParamsFn<
-    queryState,
-    queryParams,
-    QueryArgsParams
-  >
-): (
-  store: StoreInput,
-  context: Input
-) => {
-  queryConfig: ResourceWithParamsOrParamsFn<
-    NoInfer<queryState>,
-    NoInfer<queryParams>,
-    NoInfer<QueryArgsParams>
-  >;
-  /**
-   * Only used to help type inference, not used in the actual implementation.
-   */
-  __types: InternalType<
-    NoInfer<queryState>,
-    NoInfer<queryParams>,
-    NoInfer<QueryArgsParams>,
-    false
-  >;
-} & QueryBrand {
-  return (store, context) => ({
-    queryConfig,
-    __types: {} as InternalType<
-      NoInfer<queryState>,
-      NoInfer<queryParams>,
-      NoInfer<QueryArgsParams>,
-      false
-    >,
-    [__QueryBrandSymbol]: undefined,
   });
 }
