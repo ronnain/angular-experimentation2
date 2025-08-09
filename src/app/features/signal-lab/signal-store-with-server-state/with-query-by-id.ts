@@ -19,11 +19,6 @@ import {
 } from '@ngrx/signals';
 import { InternalType } from './types/util.type';
 import { Merge } from '../../../util/types/merge';
-import { ObjectDeepPath } from './types/object-deep-path-mapper.type';
-import {
-  AccessTypeObjectPropertyByDottedPath,
-  DottedPathPathToTuple,
-} from './types/access-type-object-property-by-dotted-path.type';
 import {
   OptimisticPathMutationQuery,
   ReloadQueriesConfig,
@@ -133,15 +128,7 @@ export function withQueryById<
       Input['props'] &
       Input['methods'] &
       WritableStateSource<Prettify<Input['state']>>
-  >,
-  const ClientStateDottedPath extends ObjectDeepPath<Input['state']>,
-  const ClientStateTypeByDottedPath extends AccessTypeObjectPropertyByDottedPath<
-    Input['state'],
-    ClientStateDottedPathTuple
-  >,
-  const ClientStateDottedPathTuple extends DottedPathPathToTuple<
-    ClientStateDottedPath & string
-  > = DottedPathPathToTuple<NoInfer<ClientStateDottedPath> & string>
+  >
 >(
   resourceName: ResourceName,
   queryFactory: (store: StoreInput) => (
@@ -282,7 +269,6 @@ export function withQueryById<
           [`${resourceName}QueryById`]: queryResourcesById,
           ...(associatedClientStates.length && {
             [`_${resourceName}EffectById`]: effect(() => {
-              // todo improve lisibility and simplify !
               // todo add test for nestedEffect !
               if (!newResourceRefForNestedEffect()?.newKeys) {
                 return;
