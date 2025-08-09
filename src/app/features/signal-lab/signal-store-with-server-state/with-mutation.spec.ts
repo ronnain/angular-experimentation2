@@ -51,10 +51,6 @@ describe('withMutation', () => {
     });
     const store = TestBed.inject(MutationStore);
     expect(store.updateUserMutation).toBeDefined();
-    console.log(
-      'store.updateUser.hasValue()',
-      store.updateUserMutation.hasValue()
-    );
     expect(store.updateUserMutation.hasValue()).toBe(false);
     expect(store.mutateUpdateUser).toBeDefined();
   });
@@ -111,7 +107,6 @@ describe('withMutation', () => {
     });
     tick();
     expect(store.userQuery.hasValue()).toBe(true);
-    console.log('store.user.value()', store.userQuery.value());
     expect(store.userQuery.value()).toEqual({
       id: '1',
       name: 'Updated User',
@@ -167,7 +162,6 @@ describe('withMutation', () => {
     });
     const store = TestBed.inject(MutationStore);
     await new Promise((resolve) => setTimeout(resolve, 1020));
-    console.log('resolve: store.user.status()', store.userQuery.status());
 
     expect(store.userQuery.status()).toEqual('resolved');
 
@@ -192,7 +186,7 @@ describe('withMutation', () => {
     expect(store.userQuery.status()).toEqual('resolved');
   });
 
-  it('#4 Should invalidate queryById', async () => {
+  it('#4 Should optimistic update the targeted queryById', async () => {
     const MutationStore = signalStore(
       withState({
         userSelected: undefined as { id: string } | undefined,
@@ -240,7 +234,6 @@ describe('withMutation', () => {
                 type ExpectIdentifierToBeString = Expect<
                   Equal<typeof queryIdentifier, string>
                 >;
-                console.log('queryResource optimistic', queryResource);
                 return {
                   ...(queryResource.hasValue() ? queryResource.value() : {}),
                   ...mutationParams,
@@ -304,6 +297,119 @@ describe('withMutation', () => {
     expect(user1Query?.status()).toBe('local');
     expect(user1Query?.value()).toEqual({
       id: '1',
+      name: 'Updated User',
+      email: 'updated.user@example.com',
+    });
+  });
+  it('#5 Should optimistic update multiples targeted queryById with id > 5', async () => {
+    const MutationStore = signalStore(
+      withState({
+        userSelected: undefined as { id: string } | undefined,
+      }),
+      withMethods((store) => ({
+        selectUser: (id: string) => {
+          patchState(store, {
+            userSelected: { id },
+          });
+        },
+      })),
+      withQueryById('user', (store) =>
+        queryById({
+          params: store.userSelected,
+          loader: ({ params }) => {
+            return lastValueFrom(
+              of({
+                id: params?.id,
+                name: 'John Doe',
+                email: 'john.doe@example.com',
+              } satisfies User).pipe(delay(2000))
+            );
+          },
+          identifier: (params) => params.id,
+        })
+      ),
+      withMutation(
+        'user',
+        (store) =>
+          mutation({
+            method: (user: User) => user,
+            loader: ({ params: user }) => {
+              return lastValueFrom(of(user satisfies User));
+            },
+          }),
+        () => ({
+          queriesEffects: {
+            userQueryById: {
+              optimistic: ({ mutationParams, queryResource }) => {
+                return {
+                  ...(queryResource.hasValue() ? queryResource.value() : {}),
+                  ...mutationParams,
+                  id: queryResource.value().id ?? 'unknown',
+                };
+              },
+              filter: ({ queryIdentifier }) => {
+                // should invalidate all queries with id > 5
+                return parseInt(queryIdentifier, 10) > 5;
+              },
+            },
+          },
+        })
+      )
+    );
+    TestBed.configureTestingModule({
+      providers: [MutationStore, ApplicationRef],
+    });
+    const store = TestBed.inject(MutationStore);
+    store.selectUser('1');
+    await wait();
+    store.selectUser('2');
+    await wait();
+    store.selectUser('6');
+    await wait();
+    store.selectUser('7');
+    await wait();
+    store.selectUser('8');
+    await TestBed.inject(ApplicationRef).whenStable();
+
+    const user1Query = store.userQueryById()['1'];
+    expect(user1Query?.status()).toBe('resolved');
+    const user2Query = store.userQueryById()['2'];
+    expect(user2Query?.status()).toBe('resolved');
+    const user6Query = store.userQueryById()['6'];
+    expect(user6Query?.status()).toBe('resolved');
+    const user7Query = store.userQueryById()['7'];
+    expect(user7Query?.status()).toBe('resolved');
+    const user8Query = store.userQueryById()['8'];
+    expect(user8Query?.status()).toBe('resolved');
+
+    store.mutateUser({
+      id: '6',
+      name: 'Updated User',
+      email: 'updated.user@example.com',
+    });
+    await TestBed.inject(ApplicationRef).whenStable();
+    // not changed
+    expect(user1Query?.status()).toBe('resolved');
+    expect(user2Query?.status()).toBe('resolved');
+
+    // updated
+    expect(user6Query?.status()).toBe('local');
+    console.log('user6Query?.value()', user6Query?.value());
+    expect(user6Query?.value()).toEqual({
+      id: '6',
+      name: 'Updated User',
+      email: 'updated.user@example.com',
+    });
+    expect(user7Query?.status()).toBe('local');
+    expect(user7Query?.value()).toEqual({
+      id: '7',
+      name: 'Updated User',
+      email: 'updated.user@example.com',
+    });
+
+    expect(user8Query?.status()).toBe('local');
+    expect(user8Query?.value()).toEqual({
+      id: '8',
       name: 'Updated User',
       email: 'updated.user@example.com',
     });
@@ -648,3 +754,7 @@ it('it should expose the mutation params source, that will be reused by query', 
     Equal<ReturnInternalStoreType, User>
   >;
 });
+
+function wait(ms: number = 0): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

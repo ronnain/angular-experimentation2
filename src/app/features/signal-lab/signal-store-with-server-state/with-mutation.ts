@@ -344,7 +344,6 @@ export function withMutation<
                 if (mutationStatus === 'loading') {
                   queriesWithOptimisticMutation.forEach(
                     ([queryName, queryMutationConfig]) => {
-                      console.log('queryName', queryName);
                       const queryTargeted = (store as any)[queryName] as
                         | ResourceRef<any>
                         | ResourceByIdRef<string | number, any>;
