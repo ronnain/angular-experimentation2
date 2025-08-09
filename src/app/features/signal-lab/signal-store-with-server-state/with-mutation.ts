@@ -32,6 +32,7 @@ import {
 } from './types/shared.type';
 import { extend } from 'fp-ts';
 import { ResourceByIdRef } from './resource-by-id-signal-store';
+import { identifierName } from '@angular/compiler';
 
 declare const __MutationBrandSymbol: unique symbol;
 
@@ -446,47 +447,125 @@ export function withMutation<
               untracked(() => {
                 queriesWithReload.forEach(
                   ([queryName, queryMutationConfig]) => {
-                    const queryResource = (store as any)[
-                      queryName
-                    ] as ResourceRef<any>;
+                    const queryTargeted = (store as any)[queryName] as
+                      | ResourceRef<any>
+                      | ResourceByIdRef<string | number, any>;
 
-                    if (queryMutationConfig.reload) {
-                      const statusMappings = {
-                        onMutationError: 'error',
-                        onMutationResolved: 'resolved',
-                        onMutationLoading: 'loading',
-                      };
+                    if ('hasValue' in queryTargeted) {
+                      const queryResource = queryTargeted;
+                      if (queryMutationConfig.reload) {
+                        const statusMappings = {
+                          onMutationError: 'error',
+                          onMutationResolved: 'resolved',
+                          onMutationLoading: 'loading',
+                        };
 
-                      Object.entries(queryMutationConfig.reload).forEach(
-                        ([reloadType, reloadConfig]) => {
-                          const expectedStatus =
-                            statusMappings[
-                              reloadType as keyof typeof statusMappings
-                            ];
+                        Object.entries(queryMutationConfig.reload).forEach(
+                          ([reloadType, reloadConfig]) => {
+                            const expectedStatus =
+                              statusMappings[
+                                reloadType as keyof typeof statusMappings
+                              ];
 
-                          if (
-                            expectedStatus &&
-                            mutationStatus === expectedStatus
-                          ) {
-                            if (typeof reloadConfig === 'function') {
-                              if (
-                                reloadConfig({
-                                  queryResource,
-                                  mutationResource,
-                                  mutationParams: untracked(() =>
-                                    mutationResourceParamsFnSignal()
-                                  ) as NonNullable<NoInfer<ResourceParams>>,
-                                })
-                              ) {
+                            if (
+                              expectedStatus &&
+                              mutationStatus === expectedStatus
+                            ) {
+                              if (typeof reloadConfig === 'function') {
+                                if (
+                                  reloadConfig({
+                                    queryResource,
+                                    mutationResource,
+                                    mutationParams: untracked(() =>
+                                      mutationResourceParamsFnSignal()
+                                    ) as NonNullable<NoInfer<ResourceParams>>,
+                                  })
+                                ) {
+                                  queryResource.reload();
+                                }
+                              } else if (reloadConfig) {
                                 queryResource.reload();
                               }
-                            } else if (reloadConfig) {
-                              queryResource.reload();
                             }
                           }
-                        }
-                      );
+                        );
+                      }
                     }
+                    console.log(
+                      'queryTargeted()',
+                      //@ts-ignore
+                      Object.keys(queryTargeted())
+                    );
+                    Object.entries(
+                      (queryTargeted as ResourceByIdRef<string | number, any>)()
+                    )
+                      .filter(([queryIdentifier, queryResource]) => {
+                        if (!('filter' in queryMutationConfig)) {
+                          return true;
+                        }
+                        return queryMutationConfig.filter({
+                          queryIdentifier: queryIdentifier as string | number,
+                          queryResource: queryResource as ResourceRef<any>,
+                          mutationResource,
+                          mutationParams: untracked(() =>
+                            mutationResourceParamsFnSignal()
+                          ) as NonNullable<NoInfer<ResourceParams>>,
+                        });
+                      })
+                      .forEach(([queryIdentifier, queryResource]) => {
+                        console.log('queryIdentifier', queryIdentifier);
+                        if (queryMutationConfig.reload) {
+                          const statusMappings = {
+                            onMutationError: 'error',
+                            onMutationResolved: 'resolved',
+                            onMutationLoading: 'loading',
+                          };
+
+                          Object.entries(queryMutationConfig.reload).forEach(
+                            ([reloadType, reloadConfig]) => {
+                              console.log(
+                                'reloadType',
+                                queryIdentifier,
+                                reloadType,
+                                reloadConfig
+                              );
+                              const expectedStatus =
+                                statusMappings[
+                                  reloadType as keyof typeof statusMappings
+                                ];
+                              if (
+                                expectedStatus &&
+                                mutationStatus === expectedStatus
+                              ) {
+                                if (typeof reloadConfig === 'function') {
+                                  if (
+                                    reloadConfig({
+                                      queryResource:
+                                        queryResource as ResourceRef<any>,
+                                      mutationResource,
+                                      mutationParams: untracked(() =>
+                                        mutationResourceParamsFnSignal()
+                                      ) as NonNullable<NoInfer<ResourceParams>>,
+                                    })
+                                  ) {
+                                    console.log(
+                                      'reload queryResource',
+                                      queryIdentifier
+                                    );
+                                    queryResource?.reload();
+                                  }
+                                } else if (reloadConfig) {
+                                  console.log(
+                                    'reload queryResource',
+                                    queryIdentifier
+                                  );
+                                  queryResource?.reload();
+                                }
+                              }
+                            }
+                          );
+                        }
+                      });
                   }
                 );
               });
