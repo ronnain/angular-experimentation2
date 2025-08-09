@@ -6,5 +6,5 @@ export type ResourceByIdConfig<
   ParamsArgs,
   GroupIdentifier extends string | number
 > = ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> & {
-  identifier: (params: NoInfer<Params>) => GroupIdentifier;
+  identifier: (params: NoInfer<NonNullable<Params>>) => GroupIdentifier;
 };

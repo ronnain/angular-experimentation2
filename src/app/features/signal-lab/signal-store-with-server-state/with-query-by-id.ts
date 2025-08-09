@@ -165,7 +165,6 @@ export function withQueryById<
      * - If the function is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
      */
     state?: BooleanOrMapperFnByPathById<
-      //todo continue
       NoInfer<Input>['state'],
       NoInfer<ResourceState>,
       NoInfer<ResourceParams>,

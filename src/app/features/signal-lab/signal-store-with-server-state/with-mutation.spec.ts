@@ -1,16 +1,19 @@
 import {
+  patchState,
   signalStore,
   signalStoreFeature,
   SignalStoreFeature,
+  withMethods,
   withProps,
   withState,
 } from '@ngrx/signals';
 import { Equal, Expect } from '../../../../../test-type';
 import { query, withQuery } from './with-query';
 import { delay, lastValueFrom, of, tap } from 'rxjs';
-import { ResourceRef, signal } from '@angular/core';
+import { ApplicationRef, ResourceRef, signal } from '@angular/core';
 import { mutation, withMutation } from './with-mutation';
 import { fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { queryById, withQueryById } from './with-query-by-id';
 
 type User = {
   id: string;
@@ -86,7 +89,7 @@ describe('withMutation', () => {
           }),
         () => ({
           queriesEffects: {
-            user: {
+            userQuery: {
               optimistic: ({ mutationParams, queryResource }) => ({
                 ...(queryResource.hasValue() ? queryResource.value() : {}),
                 ...mutationParams,
@@ -150,7 +153,7 @@ describe('withMutation', () => {
           }),
         () => ({
           queriesEffects: {
-            user: {
+            userQuery: {
               reload: {
                 onMutationResolved: true,
               },
@@ -187,6 +190,123 @@ describe('withMutation', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 1050));
     expect(store.userQuery.status()).toEqual('resolved');
+  });
+
+  it('#4 Should invalidate queryById', async () => {
+    const MutationStore = signalStore(
+      withState({
+        userSelected: undefined as { id: string } | undefined,
+      }),
+      withMethods((store) => ({
+        selectUser: (id: string) => {
+          patchState(store, {
+            userSelected: { id },
+          });
+        },
+      })),
+      withQueryById('user', (store) =>
+        queryById({
+          params: store.userSelected,
+          loader: ({ params }) => {
+            // todo wait with promise
+            return lastValueFrom(
+              of({
+                id: params?.id,
+                name: 'John Doe',
+                email: 'john.doe@example.com',
+              } satisfies User).pipe(delay(2000))
+            );
+          },
+          identifier: (params) => params.id,
+        })
+      ),
+      withMutation(
+        'user',
+        (store) =>
+          mutation({
+            method: (user: User) => user,
+            loader: ({ params: user }) => {
+              return lastValueFrom(of(user satisfies User));
+            },
+          }),
+        () => ({
+          queriesEffects: {
+            userQueryById: {
+              optimistic: ({
+                mutationParams,
+                queryResource,
+                queryIdentifier,
+              }) => {
+                type ExpectIdentifierToBeString = Expect<
+                  Equal<typeof queryIdentifier, string>
+                >;
+                console.log('queryResource optimistic', queryResource);
+                return {
+                  ...(queryResource.hasValue() ? queryResource.value() : {}),
+                  ...mutationParams,
+                };
+              },
+              filter: ({
+                mutationParams,
+                mutationResource,
+                queryIdentifier,
+                queryResource,
+              }) => {
+                type ExpectMutationResourceToBeRetrieved = Expect<
+                  Equal<typeof mutationResource, ResourceRef<User>>
+                >;
+
+                type ExpectQueryResourceToBeRetrieved = Expect<
+                  Equal<
+                    typeof queryResource,
+                    ResourceRef<{
+                      id: string;
+                      name: string;
+                      email: string;
+                    }>
+                  >
+                >;
+
+                type ExpectQueryIdentifierToBeRetrieved = Expect<
+                  Equal<typeof queryIdentifier, string>
+                >;
+
+                type ExpectMutationParamsToBeRetrieved = Expect<
+                  Equal<typeof mutationParams, User>
+                >;
+
+                return queryIdentifier === mutationParams.id;
+              },
+            },
+          },
+        })
+      )
+    );
+    TestBed.configureTestingModule({
+      providers: [MutationStore, ApplicationRef],
+    });
+    const store = TestBed.inject(MutationStore);
+    store.selectUser('1');
+    await TestBed.inject(ApplicationRef).whenStable();
+    const user1Query = store.userQueryById()['1'];
+    expect(user1Query?.status()).toBe('resolved');
+    expect(user1Query?.value()).toEqual({
+      id: '1',
+      name: 'John Doe',
+      email: 'john.doe@example.com',
+    });
+    store.mutateUser({
+      id: '1',
+      name: 'Updated User',
+      email: 'updated.user@example.com',
+    });
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(user1Query?.status()).toBe('local');
+    expect(user1Query?.value()).toEqual({
+      id: '1',
+      name: 'Updated User',
+      email: 'updated.user@example.com',
+    });
   });
 });
 
@@ -268,7 +388,7 @@ it('Should be well typed', () => {
         >;
         return {
           queriesEffects: {
-            user: {
+            userQuery: {
               optimisticPatch: {
                 name: ({ mutationResource, queryResource, targetedState }) => {
                   type ExpectMutationResourceToBeRetrieved = Expect<

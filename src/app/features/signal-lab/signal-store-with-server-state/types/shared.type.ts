@@ -4,7 +4,7 @@ import {
   AccessTypeObjectPropertyByDottedPath,
   DottedPathPathToTuple,
 } from './access-type-object-property-by-dotted-path.type';
-import { InternalType } from './util.type';
+import { InternalType, MergeObject } from './util.type';
 
 // todo rename, and rename server state constraints
 export type QueryAndMutationRecordConstraints = {
@@ -14,11 +14,20 @@ export type QueryAndMutationRecordConstraints = {
 
 export type CustomReloadOnSpecificMutationStatus<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
-> = (data: {
-  queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
-  mutationResource: ResourceRef<QueryAndMutationRecord['mutation']['state']>;
-  mutationParams: NonNullable<QueryAndMutationRecord['mutation']['params']>;
-}) => boolean;
+> = (
+  data: MergeObject<
+    {
+      queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
+      mutationResource: ResourceRef<
+        QueryAndMutationRecord['mutation']['state']
+      >;
+      mutationParams: NonNullable<QueryAndMutationRecord['mutation']['params']>;
+    },
+    QueryAndMutationRecord['query']['isGroupedResource'] extends true
+      ? { queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'] }
+      : {}
+  >
+) => boolean;
 
 export type ReloadQueriesConfig<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
