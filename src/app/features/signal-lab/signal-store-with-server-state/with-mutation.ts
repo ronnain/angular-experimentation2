@@ -243,9 +243,6 @@ export function withMutation<
           mutationConfigData.mutationRef.resourceParamsSrc;
 
         const mutationResource = mutationConfigData.mutationRef.resource;
-        const mutationResourceOption = mutationFactory(
-          store as unknown as StoreInput
-        )(store as unknown as StoreInput, context as unknown as Input);
 
         const queriesMutation = (queriesEffectsFn?.(
           store as unknown as StoreInput
@@ -277,6 +274,7 @@ export function withMutation<
               const mutationValueChange = mutationResource.hasValue()
                 ? mutationResource.value()
                 : undefined;
+
               const mutationParamsChange = mutationResourceParamsSrc();
 
               untracked(() => {
@@ -321,25 +319,26 @@ export function withMutation<
           },
         };
       }),
-      withMethods((store) => ({
-        [`mutate${capitalizedMutationName}`]: (
-          mutationParams: ResourceArgsParams
-        ) => {
-          const mutationResourceOption = mutationFactory(
-            store as unknown as StoreInput
-          )(store as unknown as StoreInput, context as unknown as Input);
-          const mutationConfig = mutationResourceOption.mutationRef;
-
-          const mutationMethod = mutationConfig.method;
-          if (mutationMethod) {
-            const mutationParamsResult = mutationMethod(mutationParams);
-
-            mutationConfig.resourceParamsSrc.set(
-              mutationParamsResult as ResourceParams
-            );
-          }
-        },
-      }))
+      withMethods((store) => {
+        // ! only used to get the method (do not used to get the src because, it will regenerate the mutation)
+        const mutationResourceOption = mutationFactory(
+          store as unknown as StoreInput
+        )(store as unknown as StoreInput, context as unknown as Input);
+        const mutationConfig = mutationResourceOption.mutationRef;
+        return {
+          [`mutate${capitalizedMutationName}`]: (
+            mutationParams: ResourceArgsParams
+          ) => {
+            const mutationMethod = mutationConfig.method;
+            if (mutationMethod) {
+              const mutationParamsResult = mutationMethod(mutationParams);
+              store.__mutation[`${mutationName}Mutation`].paramsSource.set(
+                mutationParamsResult as ResourceParams
+              );
+            }
+          },
+        };
+      })
       //@ts-ignore
     )(context);
   }) as unknown as SignalStoreFeature<
@@ -423,7 +422,6 @@ function reloadQueriesOnMutationChange<
           });
         })
         .forEach(([queryIdentifier, queryResource]) => {
-          console.log('queryIdentifier', queryIdentifier);
           if (queryMutationConfig.reload) {
             const statusMappings = {
               onMutationError: 'error',
@@ -433,12 +431,6 @@ function reloadQueriesOnMutationChange<
 
             Object.entries(queryMutationConfig.reload).forEach(
               ([reloadType, reloadConfig]) => {
-                console.log(
-                  'reloadType',
-                  queryIdentifier,
-                  reloadType,
-                  reloadConfig
-                );
                 const expectedStatus =
                   statusMappings[reloadType as keyof typeof statusMappings];
                 if (expectedStatus && mutationStatus === expectedStatus) {
@@ -455,7 +447,6 @@ function reloadQueriesOnMutationChange<
                       queryResource?.reload();
                     }
                   } else if (reloadConfig) {
-                    console.log('reload queryResource', queryIdentifier);
                     queryResource?.reload();
                   }
                 }
