@@ -78,3 +78,16 @@ export type OptimisticPatchQueryFn<
   mutationParams: NonNullable<NoInfer<MutationParams>>;
   targetedState: TargetedType | undefined;
 }) => TargetedType;
+
+export type FilterQueryById<
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
+> = (data: {
+  queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
+  queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
+  mutationResource: ResourceRef<
+    NoInfer<QueryAndMutationRecord['mutation']['state']>
+  >;
+  mutationParams: NonNullable<
+    NoInfer<QueryAndMutationRecord['mutation']['params']>
+  >;
+}) => boolean;

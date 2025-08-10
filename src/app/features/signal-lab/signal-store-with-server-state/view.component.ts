@@ -20,6 +20,7 @@ import { withQueryById } from './with-query-by-id';
 import { User } from '../resource-by-group/api.service';
 import { delay, lastValueFrom, of } from 'rxjs';
 import { queryById } from './query-by-id';
+import { mutation, withMutation } from './with-mutation';
 
 const testUsersParam = signal<number>(5);
 
@@ -28,6 +29,12 @@ const testQueryById = signalStore(
   withState({
     users: [] as User[],
   }),
+  withMutation('user', () =>
+    mutation({
+      method: (user: User) => user,
+      loader: async ({ params }) => params,
+    })
+  ),
   withQueryById(
     'loadUser',
     () =>
@@ -60,6 +67,16 @@ const testQueryById = signalStore(
               .filter((user) => user.id !== queryResource.value()?.id),
             queryResource.value(),
           ];
+        },
+      },
+
+      on: {
+        userMutation: {
+          filter: ({ queryIdentifier, mutationParams }) =>
+            queryIdentifier === mutationParams.id,
+          optimisticPatch: {
+            name: ({ mutationParams }) => mutationParams.name,
+          },
         },
       },
     })
@@ -170,7 +187,7 @@ const testQueryById = signalStore(
 
     <div>testQueryById:users: {{ testQueryById.users() | json }}</div>
     <hr />
-    <h2>testQueryById:userQuery: {{ testQueryById.loadUserQueryById() }}</h2>
+    <button (click)="mutationUserQueryById()">Trigger Mutation</button>
   `,
 })
 export default class ViewComponent {
@@ -179,6 +196,12 @@ export default class ViewComponent {
   private readonly injector = inject(Injector);
   testUsersParam = testUsersParam;
 
+  mutationUserQueryById() {
+    this.testQueryById.mutateUser({
+      id: '5',
+      name: 'updated',
+    });
+  }
   add4() {
     this.testNestedEffect.update((data) => ({
       ...data,

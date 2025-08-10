@@ -32,6 +32,7 @@ import {
   AssociatedStateMapperFn,
   BooleanOrMapperFnByPath,
 } from './types/boolean-or-mapper-fn-by-path.type';
+import { triggerQueryReloadFromMutationChange } from './core/query.core';
 
 export type QueryRef<ResourceState, ResourceParams> = {
   resource: ResourceRef<ResourceState | undefined>;
@@ -255,13 +256,13 @@ export function withQuery<
                         });
                       }
                       if (mutationEffectOptions.reload) {
-                        triggerQueryReloadFromMutationChange<ResourceState>(
-                          mutationEffectOptions.reload,
+                        triggerQueryReloadFromMutationChange<ResourceState>({
+                          reload: mutationEffectOptions.reload,
                           mutationStatus,
                           queryResource,
                           mutationResource,
-                          mutationParamsSrc
-                        );
+                          mutationParamsSrc,
+                        });
                       }
                       if (mutationEffectOptions.optimisticPatch) {
                         if (mutationStatus === 'loading') {
@@ -326,43 +327,6 @@ export function withQuery<
       false
     >
   >;
-}
-
-function triggerQueryReloadFromMutationChange<
-  ResourceState extends object | undefined
->(
-  reload: ReloadQueriesConfig<any>,
-  mutationStatus: string,
-  queryResource: ResourceRef<ResourceState | undefined>,
-  mutationResource: ResourceRef<any>,
-  mutationParamsSrc: Signal<any>
-) {
-  const statusMappings = {
-    onMutationError: 'error',
-    onMutationResolved: 'resolved',
-    onMutationLoading: 'loading',
-  };
-
-  Object.entries(reload).forEach(([reloadType, reloadConfig]) => {
-    const expectedStatus =
-      statusMappings[reloadType as keyof typeof statusMappings];
-
-    if (expectedStatus && mutationStatus === expectedStatus) {
-      if (typeof reloadConfig === 'function') {
-        if (
-          reloadConfig({
-            queryResource,
-            mutationResource,
-            mutationParams: mutationParamsSrc() as any,
-          })
-        ) {
-          queryResource.reload();
-        }
-      } else if (reloadConfig) {
-        queryResource.reload();
-      }
-    }
-  });
 }
 
 function optimisticUpdateQueryStateFromMutation<

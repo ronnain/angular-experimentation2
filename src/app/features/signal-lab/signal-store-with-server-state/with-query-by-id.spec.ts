@@ -13,6 +13,8 @@ import {
 import { SIGNAL } from '@angular/core/primitives/signals';
 import { ResourceByIdRef } from '../resource-by-id';
 import { queryById } from './query-by-id';
+import { mutation, withMutation } from './with-mutation';
+import { vi } from 'vitest';
 
 type User = {
   id: string;
@@ -138,7 +140,6 @@ describe('withQueryById', () => {
               type ExpectQueryParamsToBeTyped = Expect<
                 Equal<typeof queryParams, string>
               >;
-              console.log('queryParams', queryParams);
               expect(queryParams).toBe('5');
 
               type ExpectQueryResourceToBeTyped = Expect<
@@ -149,7 +150,6 @@ describe('withQueryById', () => {
               type ExpectLastResolvedResourceIdentifierToBeTyped = Expect<
                 Equal<typeof queryIdentifier, string>
               >;
-              console.log('queryIdentifier', queryIdentifier);
               expect(queryIdentifier).toBe('5');
 
               type ExpectLastResolvedResourceToBeTyped = Expect<
@@ -178,7 +178,6 @@ describe('withQueryById', () => {
       providers: [Store, ApplicationRef],
     });
     const store = TestBed.inject(Store);
-    console.log('store.userQueryById', store.userQueryById);
     expect(store.usersFetched().length).toBe(0);
 
     await TestBed.inject(ApplicationRef).whenStable();
@@ -187,12 +186,206 @@ describe('withQueryById', () => {
     type ExpectUserQueryToBeAnObjectWithResourceByIdentifier = Expect<
       Equal<typeof store.userQueryById, ResourceByIdRef<string, NoInfer<User>>>
     >;
-    console.log('store.usersFetched()', store.usersFetched());
     expect(store.usersFetched().length).toBe(1);
     expect(store.usersFetched()[0]).toBe(returnedUser);
   });
 
-  it('3- Should expose private query type', async () => {
+  it('3- Declarative: should handle optimistic updates on query value', async () => {
+    const returnedUser = {
+      id: '5',
+      name: 'John Doe',
+      email: 'test@a.com',
+    };
+    const Store = signalStore(
+      withState({
+        usersFetched: [] as User[],
+        lastUserFetched: undefined as User | undefined,
+      }),
+      withMutation('user', () =>
+        mutation({
+          method(user: User) {
+            return user;
+          },
+          loader({ params }) {
+            return lastValueFrom(of<User>(params));
+          },
+        })
+      ),
+      withQueryById(
+        'user',
+        () =>
+          queryById({
+            params: () => '5',
+            loader: ({ params }) => {
+              return lastValueFrom(of<User>(returnedUser));
+            },
+            identifier: (params) => params,
+          }),
+        (store) => ({
+          on: {
+            userMutation: {
+              optimisticUpdate: ({ mutationParams }) => mutationParams,
+              filter: ({ mutationParams, queryIdentifier }) =>
+                mutationParams.id === queryIdentifier,
+            },
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store, ApplicationRef],
+    });
+    const store = TestBed.inject(Store);
+    await TestBed.inject(ApplicationRef).whenStable();
+    const userQuery5 = store.userQueryById()['5'];
+    expect(userQuery5?.value()).toBe(returnedUser);
+
+    store.mutateUser({
+      id: '5',
+      name: 'Updated User',
+      email: 'updated.doe@example.com',
+    });
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(userQuery5?.value()).toEqual({
+      id: '5',
+      name: 'Updated User',
+      email: 'updated.doe@example.com',
+    });
+  });
+
+  it('4- Declarative: should handle optimistic patch on query value', async () => {
+    const returnedUser = {
+      id: '5',
+      name: 'John Doe',
+      email: 'test@a.com',
+    };
+    const Store = signalStore(
+      withState({
+        usersFetched: [] as User[],
+        lastUserFetched: undefined as User | undefined,
+      }),
+      withMutation('user', () =>
+        mutation({
+          method(user: User) {
+            return user;
+          },
+          loader({ params }) {
+            return lastValueFrom(of<User>(params));
+          },
+        })
+      ),
+      withQueryById(
+        'user',
+        () =>
+          queryById({
+            params: () => '5',
+            loader: ({ params }) => {
+              return lastValueFrom(of<User>(returnedUser));
+            },
+            identifier: (params) => params,
+          }),
+        (store) => ({
+          on: {
+            userMutation: {
+              optimisticPatch: {
+                name: ({ mutationParams }) => mutationParams.name,
+              },
+              filter: ({ mutationParams, queryIdentifier }) =>
+                mutationParams.id === queryIdentifier,
+            },
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store, ApplicationRef],
+    });
+    const store = TestBed.inject(Store);
+    await TestBed.inject(ApplicationRef).whenStable();
+    const userQuery5 = store.userQueryById()['5'];
+    expect(userQuery5?.value()).toBe(returnedUser);
+
+    store.mutateUser({
+      id: '5',
+      name: 'Updated User',
+      email: 'updated.doe@example.com',
+    });
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(userQuery5?.value()).toEqual({
+      id: '5',
+      name: 'Updated User',
+      email: 'test@a.com',
+    });
+  });
+
+  it('5- Declarative: should handle query reload on mutation change', async () => {
+    const returnedUser = {
+      id: '5',
+      name: 'John Doe',
+      email: 'test@a.com',
+    };
+    const Store = signalStore(
+      withState({
+        usersFetched: [] as User[],
+        lastUserFetched: undefined as User | undefined,
+      }),
+      withMutation('user', () =>
+        mutation({
+          method(user: User) {
+            return user;
+          },
+          loader({ params }) {
+            return lastValueFrom(of<User>(params).pipe(delay(10)));
+          },
+        })
+      ),
+      withQueryById(
+        'user',
+        () =>
+          queryById({
+            params: () => '5',
+            loader: ({ params }) => {
+              return lastValueFrom(of<User>(returnedUser));
+            },
+            identifier: (params) => params,
+          }),
+        (store) => ({
+          on: {
+            userMutation: {
+              filter: ({ mutationParams, queryIdentifier }) =>
+                mutationParams.id === queryIdentifier,
+              reload: {
+                onMutationLoading: true,
+                onMutationResolved: true,
+              },
+            },
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store, ApplicationRef],
+    });
+    const store = TestBed.inject(Store);
+    await TestBed.inject(ApplicationRef).whenStable();
+    const userQuery5 = store.userQueryById()['5'];
+    expect(userQuery5?.value()).toBe(returnedUser);
+    const userQuery5ReloadSpy = vi.spyOn(userQuery5!, 'reload');
+    store.mutateUser({
+      id: '5',
+      name: 'Updated User',
+      email: 'updated.doe@example.com',
+    });
+
+    await wait(50);
+
+    expect(userQuery5ReloadSpy.mock.calls.length).toBe(2);
+  });
+
+  it('#1- Should expose private query type', async () => {
     const returnedUser = {
       id: '5',
       name: 'John Doe',
@@ -224,7 +417,6 @@ describe('withQueryById', () => {
               type ExpectQueryParamsToBeTyped = Expect<
                 Equal<typeof queryParams, string>
               >;
-              console.log('queryParams', queryParams);
               expect(queryParams).toBe('5');
 
               type ExpectQueryResourceToBeTyped = Expect<
@@ -235,7 +427,6 @@ describe('withQueryById', () => {
               type ExpectLastResolvedResourceIdentifierToBeTyped = Expect<
                 Equal<typeof queryIdentifier, string>
               >;
-              console.log('queryIdentifier', queryIdentifier);
               expect(queryIdentifier).toBe('5');
 
               type ExpectLastResolvedResourceToBeTyped = Expect<

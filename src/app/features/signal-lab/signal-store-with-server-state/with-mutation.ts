@@ -31,10 +31,9 @@ import {
   OptimisticPathMutationQuery,
   ReloadQueriesConfig,
   QueryAndMutationRecordConstraints,
+  FilterQueryById,
 } from './types/shared.type';
-import { extend } from 'fp-ts';
 import { ResourceByIdRef } from './resource-by-id-signal-store';
-import { identifierName } from '@angular/compiler';
 
 declare const __MutationBrandSymbol: unique symbol;
 
@@ -56,19 +55,6 @@ type OptimisticMutationQuery<
       : {}
   >
 ) => QueryAndMutationRecord['query']['state'];
-
-type FilterQueryById<
-  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
-> = (data: {
-  queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
-  queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
-  mutationResource: ResourceRef<
-    NoInfer<QueryAndMutationRecord['mutation']['state']>
-  >;
-  mutationParams: NonNullable<
-    NoInfer<QueryAndMutationRecord['mutation']['params']>
-  >;
-}) => boolean;
 
 type QueryImperativeEffect<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
