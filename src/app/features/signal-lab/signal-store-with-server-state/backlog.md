@@ -12,7 +12,6 @@ Ajout des tests manquants en même temps
 
 ## Feature
 
-- rxQueryById
 - withMutationById
 - withServerState
 - toGlobalServerState
