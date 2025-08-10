@@ -5,7 +5,6 @@ import { withQueryById } from './with-query-by-id';
 import { Equal, Expect } from '../../../../../test-type';
 import {
   ApplicationRef,
-  inject,
   Injector,
   ResourceRef,
   runInInjectionContext,
@@ -13,8 +12,9 @@ import {
 import { SIGNAL } from '@angular/core/primitives/signals';
 import { ResourceByIdRef } from '../resource-by-id';
 import { queryById } from './query-by-id';
-import { mutation, withMutation } from './with-mutation';
+import { withMutation } from './with-mutation';
 import { vi } from 'vitest';
+import { mutation } from './mutation';
 
 type User = {
   id: string;

@@ -1,9 +1,9 @@
 import {
-  ResourceLoader,
   ResourceLoaderParams,
   ResourceOptions,
   ResourceStreamingLoader,
 } from '@angular/core';
+import { ResourceMethod } from './shared.type';
 
 export type ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
   | Omit<ResourceOptions<NoInfer<ResourceState>, Params>, 'params' | 'loader'> &
@@ -44,7 +44,7 @@ export type ResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
             stream: ResourceStreamingLoader<ResourceState, Params>;
           }
         | {
-            method: (args: ParamsArgs) => Params;
+            method: ResourceMethod<ParamsArgs, Params>;
             loader?: never;
             params?: never;
             /**

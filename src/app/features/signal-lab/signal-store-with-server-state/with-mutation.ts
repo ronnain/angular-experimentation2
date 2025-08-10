@@ -4,8 +4,6 @@ import {
   Signal,
   WritableSignal,
   effect,
-  resource,
-  signal,
   untracked,
 } from '@angular/core';
 import {
@@ -25,18 +23,21 @@ import {
   createNestedStateUpdate,
   getNestedStateValue,
 } from './core/update-state.util';
-import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
 import {
   OptimisticPatchQueryFn,
   OptimisticPathMutationQuery,
   ReloadQueriesConfig,
   QueryAndMutationRecordConstraints,
   FilterQueryById,
+  ResourceMethod,
 } from './types/shared.type';
 import { ResourceByIdRef } from './resource-by-id-signal-store';
 
-declare const __MutationBrandSymbol: unique symbol;
-
+export type MutationRef<ResourceState, ResourceParams, ParamsArgs> = {
+  resource: ResourceRef<ResourceState | undefined>;
+  resourceParamsSrc: WritableSignal<ResourceParams | undefined>;
+  method: ResourceMethod<ParamsArgs, ResourceParams> | undefined;
+};
 type OptimisticMutationQuery<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 > = (
@@ -137,57 +138,6 @@ type QueriesMutation<
     : never;
 };
 
-/**
- * Configures a query.
- * And optionally associates the query result to a client state.
- */
-export function mutation<
-  mutationState extends object | undefined,
-  mutationParams,
-  MutationArgsParams,
-  Input extends SignalStoreFeatureResult,
-  const StoreInput extends Prettify<
-    StateSignals<Input['state']> &
-      Input['props'] &
-      Input['methods'] &
-      WritableStateSource<Prettify<Input['state']>>
-  >
->(
-  mutationConfig: ResourceWithParamsOrParamsFn<
-    mutationState,
-    mutationParams,
-    MutationArgsParams
-  >
-): (
-  store: StoreInput,
-  context: Input
-) => {
-  mutationConfig: ResourceWithParamsOrParamsFn<
-    NoInfer<mutationState>,
-    NoInfer<mutationParams>,
-    NoInfer<MutationArgsParams>
-  >;
-  /**
-   * Only used to help type inference, not used in the actual implementation.
-   */
-  __types: InternalType<
-    NoInfer<mutationState>,
-    NoInfer<mutationParams>,
-    NoInfer<MutationArgsParams>,
-    false
-  >;
-} {
-  return (store, context) => ({
-    mutationConfig: mutationConfig,
-    __types: {} as InternalType<
-      NoInfer<mutationState>,
-      NoInfer<mutationParams>,
-      NoInfer<MutationArgsParams>,
-      false
-    >,
-  });
-}
-
 export type __InternalSharedMutationConfig<MutationName, State, Params, Args> =
   {
     [key in `${MutationName & string}Mutation`]: InternalType<
@@ -230,7 +180,6 @@ type MutationStoreOutput<
     ) => MutationParams;
   };
 };
-// todo handle uoptimistic as a switchMap update (as withQuery, take the last incoming value)
 export function withMutation<
   Input extends SignalStoreFeatureResult,
   const StoreInput extends Prettify<
@@ -242,14 +191,19 @@ export function withMutation<
   const MutationName extends string,
   ResourceState extends object | undefined,
   ResourceParams,
-  ResourceArgsParams,
-  MutationConfig extends ResourceWithParamsOrParamsFn<any, any, any>
+  ResourceArgsParams
 >(
   mutationName: MutationName,
   mutationFactory: (store: StoreInput) => (
     store: StoreInput,
     context: Input
-  ) => { mutationConfig: MutationConfig } & {
+  ) => {
+    mutationRef: MutationRef<
+      NoInfer<ResourceState>,
+      NoInfer<ResourceParams>,
+      NoInfer<ResourceArgsParams>
+    >;
+  } & {
     __types: InternalType<
       ResourceState,
       ResourceParams,
@@ -279,25 +233,19 @@ export function withMutation<
     const capitalizedMutationName =
       mutationName.charAt(0).toUpperCase() + mutationName.slice(1);
 
-    // mutationResourceParamsFnSignal will be used has params signal to trigger the mutation loader
-    const mutationResourceParamsFnSignal = signal<ResourceParams | undefined>(
-      undefined
-    );
-
     return signalStoreFeature(
       withProps((store) => {
+        const mutationConfigData = mutationFactory(
+          store as unknown as StoreInput
+        )(store as unknown as StoreInput, context as unknown as Input);
+
+        const mutationResourceParamsSrc =
+          mutationConfigData.mutationRef.resourceParamsSrc;
+
+        const mutationResource = mutationConfigData.mutationRef.resource;
         const mutationResourceOption = mutationFactory(
           store as unknown as StoreInput
         )(store as unknown as StoreInput, context as unknown as Input);
-        const mutationConfig = mutationResourceOption.mutationConfig;
-
-        const resourceParamsSrc =
-          mutationConfig.params ?? mutationResourceParamsFnSignal;
-
-        const mutationResource = resource<ResourceState, ResourceParams>({
-          ...mutationResourceOption.mutationConfig,
-          params: resourceParamsSrc,
-        } as any);
 
         const queriesMutation = (queriesEffectsFn?.(
           store as unknown as StoreInput
@@ -329,7 +277,7 @@ export function withMutation<
               const mutationValueChange = mutationResource.hasValue()
                 ? mutationResource.value()
                 : undefined;
-              const mutationParamsChange = resourceParamsSrc();
+              const mutationParamsChange = mutationResourceParamsSrc();
 
               untracked(() => {
                 // Handle optimistic updates on loading
@@ -337,9 +285,9 @@ export function withMutation<
                   mutationStatus,
                   queriesWithOptimisticMutation,
                   store: store as any,
-                  mutationResource,
-                  resourceParamsSrc,
-                  mutationResourceParamsFnSignal,
+                  mutationResource:
+                    mutationResource as ResourceRef<ResourceState>,
+                  resourceParamsSrc: mutationResourceParamsSrc,
                 });
               });
 
@@ -350,8 +298,7 @@ export function withMutation<
                   queriesWithOptimisticPatch,
                   store: store as any,
                   mutationResource,
-                  resourceParamsSrc,
-                  mutationResourceParamsFnSignal,
+                  resourceParamsSrc: mutationResourceParamsSrc,
                 });
               });
               // Handle reload queries
@@ -360,15 +307,16 @@ export function withMutation<
                   queriesWithReload,
                   store: store as any,
                   mutationStatus,
-                  mutationResource,
-                  mutationResourceParamsFnSignal,
+                  resourceParamsSrc: mutationResourceParamsSrc,
+                  mutationResource:
+                    mutationResource as ResourceRef<ResourceState>,
                 });
               });
             }),
           }),
           __mutation: {
             [`${mutationName}Mutation`]: {
-              paramsSource: resourceParamsSrc,
+              paramsSource: mutationResourceParamsSrc,
             },
           },
         };
@@ -380,13 +328,13 @@ export function withMutation<
           const mutationResourceOption = mutationFactory(
             store as unknown as StoreInput
           )(store as unknown as StoreInput, context as unknown as Input);
-          const mutationConfig = mutationResourceOption.mutationConfig;
+          const mutationConfig = mutationResourceOption.mutationRef;
 
           const mutationMethod = mutationConfig.method;
           if (mutationMethod) {
             const mutationParamsResult = mutationMethod(mutationParams);
 
-            mutationResourceParamsFnSignal.set(
+            mutationConfig.resourceParamsSrc.set(
               mutationParamsResult as ResourceParams
             );
           }
@@ -412,13 +360,13 @@ function reloadQueriesOnMutationChange<
   store,
   mutationStatus,
   mutationResource,
-  mutationResourceParamsFnSignal,
+  resourceParamsSrc,
 }: {
   queriesWithReload: [string, QueryImperativeEffect<any>][];
   store: WritableSignal<any>;
   mutationStatus: string;
   mutationResource: ResourceRef<ResourceState>;
-  mutationResourceParamsFnSignal: WritableSignal<ResourceParams | undefined>;
+  resourceParamsSrc: () => any;
 }) {
   queriesWithReload.forEach(([queryName, queryMutationConfig]) => {
     const queryTargeted = (store as any)[queryName] as
@@ -446,7 +394,7 @@ function reloadQueriesOnMutationChange<
                     queryResource,
                     mutationResource,
                     mutationParams: untracked(() =>
-                      mutationResourceParamsFnSignal()
+                      resourceParamsSrc()
                     ) as NonNullable<NoInfer<ResourceParams>>,
                   })
                 ) {
@@ -469,9 +417,9 @@ function reloadQueriesOnMutationChange<
             queryIdentifier: queryIdentifier as string | number,
             queryResource: queryResource as ResourceRef<any>,
             mutationResource,
-            mutationParams: untracked(() =>
-              mutationResourceParamsFnSignal()
-            ) as NonNullable<NoInfer<ResourceParams>>,
+            mutationParams: untracked(() => resourceParamsSrc()) as NonNullable<
+              NoInfer<ResourceParams>
+            >,
           });
         })
         .forEach(([queryIdentifier, queryResource]) => {
@@ -500,7 +448,7 @@ function reloadQueriesOnMutationChange<
                         queryResource: queryResource as ResourceRef<any>,
                         mutationResource,
                         mutationParams: untracked(() =>
-                          mutationResourceParamsFnSignal()
+                          resourceParamsSrc()
                         ) as NonNullable<NoInfer<ResourceParams>>,
                       })
                     ) {
@@ -529,14 +477,12 @@ function setOptimisticPatchQueriesValue<
   store,
   mutationResource,
   resourceParamsSrc,
-  mutationResourceParamsFnSignal,
 }: {
   mutationStatus: ResourceStatus;
   queriesWithOptimisticPatch: [string, QueryImperativeEffect<any>][];
   store: WritableSignal<any>;
   mutationResource: ResourceRef<ResourceState>;
   resourceParamsSrc: () => any;
-  mutationResourceParamsFnSignal: WritableSignal<ResourceParams | undefined>;
 }) {
   if (mutationStatus === 'loading') {
     queriesWithOptimisticPatch.forEach(([queryName, queryMutationConfig]) => {
@@ -568,7 +514,7 @@ function setOptimisticPatchQueriesValue<
               queryResource: queryResource as ResourceRef<any>,
               mutationResource,
               mutationParams: untracked(() =>
-                mutationResourceParamsFnSignal()
+                resourceParamsSrc()
               ) as NonNullable<NoInfer<ResourceParams>>,
             });
           })
@@ -598,14 +544,12 @@ function setOptimisticQueryValues<
   store,
   mutationResource,
   resourceParamsSrc,
-  mutationResourceParamsFnSignal,
 }: {
   mutationStatus: ResourceStatus;
   queriesWithOptimisticMutation: [string, QueryImperativeEffect<any>][];
   store: WritableSignal<any>;
   mutationResource: ResourceRef<ResourceState>;
   resourceParamsSrc: () => any;
-  mutationResourceParamsFnSignal: WritableSignal<ResourceParams | undefined>;
 }) {
   if (mutationStatus === 'loading') {
     queriesWithOptimisticMutation.forEach(
@@ -636,7 +580,7 @@ function setOptimisticQueryValues<
                 queryIdentifier: queryIdentifier as string | number,
                 queryResource: queryResource as ResourceRef<any>,
                 mutationResource,
-                mutationParams: mutationResourceParamsFnSignal() as NonNullable<
+                mutationParams: resourceParamsSrc() as NonNullable<
                   NoInfer<ResourceParams>
                 >,
               });
@@ -645,7 +589,7 @@ function setOptimisticQueryValues<
               const optimisticValue = queryMutationConfig.optimistic?.({
                 mutationResource,
                 queryResource: queryResource as ResourceRef<any>,
-                mutationParams: mutationResourceParamsFnSignal() as NonNullable<
+                mutationParams: resourceParamsSrc() as NonNullable<
                   NoInfer<ResourceParams>
                 >,
               });

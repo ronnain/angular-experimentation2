@@ -8,9 +8,10 @@ import {
 } from '@ngrx/signals';
 import { ResourceRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { mutation, withMutation } from './with-mutation';
+import { withMutation } from './with-mutation';
 import { rxQuery } from './rx-query';
 import { withQuery } from './with-query';
+import { mutation } from './mutation';
 
 type User = {
   id: string;

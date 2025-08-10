@@ -91,3 +91,7 @@ export type FilterQueryById<
     NoInfer<QueryAndMutationRecord['mutation']['params']>
   >;
 }) => boolean;
+
+export type ResourceMethod<ParamsArgs, ResourceParams> = (
+  args: ParamsArgs
+) => ResourceParams;

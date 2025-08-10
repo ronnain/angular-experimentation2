@@ -9,8 +9,9 @@ import {
 import { withQuery } from './with-query';
 import { ResourceRef, ResourceStreamItem, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { mutation, withMutation } from './with-mutation';
+import { withMutation } from './with-mutation';
 import { query } from './query';
+import { mutation } from './mutation';
 
 type User = {
   id: string;

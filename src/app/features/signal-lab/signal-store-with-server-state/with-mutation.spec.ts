@@ -11,12 +11,13 @@ import { Equal, Expect } from '../../../../../test-type';
 import { withQuery } from './with-query';
 import { delay, lastValueFrom, of, tap } from 'rxjs';
 import { ApplicationRef, ResourceRef, signal } from '@angular/core';
-import { mutation, withMutation } from './with-mutation';
+import { withMutation } from './with-mutation';
 import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { withQueryById } from './with-query-by-id';
 import { vi } from 'vitest';
 import { query } from './query';
 import { queryById } from './query-by-id';
+import { mutation } from './mutation';
 
 type User = {
   id: string;

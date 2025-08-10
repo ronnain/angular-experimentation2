@@ -18,9 +18,59 @@ import { nestedEffect } from './types/util';
 import { signalStore, withState } from '@ngrx/signals';
 import { withQueryById } from './with-query-by-id';
 import { User } from '../resource-by-group/api.service';
-import { delay, lastValueFrom, of } from 'rxjs';
+import { delay, lastValueFrom, map, of } from 'rxjs';
 import { queryById } from './query-by-id';
-import { mutation, withMutation } from './with-mutation';
+import { withMutation } from './with-mutation';
+import { mutation } from './mutation';
+import { withQuery } from './with-query';
+import { rxQuery } from './rx-query';
+
+const StoreTest = signalStore(
+  withMutation('userEmail', () =>
+    mutation({
+      method: ({ id, email }: { id: string; email: string }) => ({
+        id,
+        email,
+      }),
+      loader: ({ params }) => {
+        return lastValueFrom(
+          of({
+            id: params.id,
+            name: 'Updated Name',
+          } satisfies User).pipe(
+            map((data) => {
+              throw new Error('Error during mutation');
+              return data;
+            })
+          )
+        );
+      },
+    })
+  ),
+  withQuery(
+    'user',
+    () =>
+      rxQuery({
+        params: () => '5',
+        stream: ({ params }) => {
+          return of({
+            id: params,
+            name: 'John Doe',
+          }).pipe(delay(10));
+        },
+      }),
+    () => ({
+      on: {
+        userEmailMutation: {
+          reload: {
+            onMutationError: ({ mutationParams }) =>
+              mutationParams.id === 'error',
+          },
+        },
+      },
+    })
+  )
+);
 
 const testUsersParam = signal<number>(5);
 
@@ -188,13 +238,17 @@ const testQueryById = signalStore(
     <div>testQueryById:users: {{ testQueryById.users() | json }}</div>
     <hr />
     <button (click)="mutationUserQueryById()">Trigger Mutation</button>
+    <hr />
+    storeTest userEmailMutation status{{ storeTest.userEmailMutation.status() }}
   `,
+  providers: [StoreTest],
 })
 export default class ViewComponent {
   protected readonly store = inject(TestStore);
   protected readonly declarativeStore = inject(DeclarativeStore);
   private readonly injector = inject(Injector);
   testUsersParam = testUsersParam;
+  protected readonly storeTest = inject(StoreTest);
 
   mutationUserQueryById() {
     this.testQueryById.mutateUser({

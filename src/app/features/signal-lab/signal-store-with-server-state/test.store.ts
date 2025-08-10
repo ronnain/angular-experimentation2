@@ -8,9 +8,10 @@ import {
 } from '@ngrx/signals';
 import { withQuery } from './with-query';
 import { BehaviorSubject, delay, lastValueFrom, of } from 'rxjs';
-import { inject, resource, signal } from '@angular/core';
-import { mutation, withMutation } from './with-mutation';
+import { resource, signal } from '@angular/core';
+import { withMutation } from './with-mutation';
 import { query } from './query';
+import { mutation } from './mutation';
 
 type User = {
   id: string;

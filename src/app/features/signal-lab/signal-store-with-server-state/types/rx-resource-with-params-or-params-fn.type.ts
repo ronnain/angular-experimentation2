@@ -1,6 +1,7 @@
 import { ResourceLoaderParams } from '@angular/core';
 import { RxResourceOptions } from '@angular/core/rxjs-interop';
 import { Observable } from 'rxjs';
+import { ResourceMethod } from './shared.type';
 
 export type RxResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
   | Omit<
@@ -17,7 +18,7 @@ export type RxResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
             ) => Observable<ResourceState>;
           }
         | {
-            method: (args: ParamsArgs) => Params;
+            method: ResourceMethod<ParamsArgs, Params>;
             loader?: never;
             params?: never;
             stream: (
