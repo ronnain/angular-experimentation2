@@ -24,25 +24,24 @@ import { withMutation } from './with-mutation';
 import { mutation } from './mutation';
 import { withQuery } from './with-query';
 import { rxQuery } from './rx-query';
+import { rxMutation } from './rx-mutation';
 
 const StoreTest = signalStore(
   withMutation('userEmail', () =>
-    mutation({
+    rxMutation({
       method: ({ id, email }: { id: string; email: string }) => ({
         id,
         email,
       }),
-      loader: ({ params }) => {
-        return lastValueFrom(
-          of({
-            id: params.id,
-            name: 'Updated Name',
-          } satisfies User).pipe(
-            map((data) => {
-              throw new Error('Error during mutation');
-              return data;
-            })
-          )
+      stream: ({ params }) => {
+        return of({
+          id: params.id,
+          name: 'Updated Name',
+        } satisfies User).pipe(
+          map((data) => {
+            throw new Error('Error during mutation');
+            return data;
+          })
         );
       },
     })
