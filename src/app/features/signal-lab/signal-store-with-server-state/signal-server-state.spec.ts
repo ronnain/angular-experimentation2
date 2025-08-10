@@ -95,4 +95,59 @@ describe('SignalServerState', () => {
     expect(userServerStateStore.userQuery).toBeDefined();
     expect(userServerStateStore.mutateUpdateName).toBeDefined();
   });
+
+  it('3-should you the withServerState in signalStore and expose global server state api', () => {
+    const serverStateFeature = signalStoreFeature(
+      withMutation('updateName', () =>
+        rxMutation({
+          method: (user: User) => user,
+          stream: ({ params: user }) => of(user),
+        })
+      ),
+      withQuery('user', () =>
+        rxQuery({
+          params: () => '1',
+          stream: ({ params }) =>
+            of({
+              id: params,
+              name: 'Romain',
+            }),
+        })
+      )
+    );
+
+    const { withGlobalUserServerState } = ServerState(
+      'user',
+      toSignalStoreFeatureResult(serverStateFeature)
+    );
+
+    const ConsumerStore = signalStore(
+      withState({
+        selectedId: '1',
+      }),
+      withGlobalUserServerState()
+    );
+
+    TestBed.configureTestingModule({
+      providers: [ConsumerStore],
+    });
+    const consumerUserServerStateStore = TestBed.inject(ConsumerStore);
+
+    type ExpectServerStateStorePropertiesToBeExposed = Expect<
+      Equal<
+
+          | 'updateNameMutation'
+          | 'userQuery'
+          | 'mutateUpdateName' extends keyof typeof consumerUserServerStateStore
+          ? true
+          : false,
+        true
+      >
+    >;
+
+    expect(consumerUserServerStateStore).toBeDefined();
+    expect(consumerUserServerStateStore.updateNameMutation).toBeDefined();
+    expect(consumerUserServerStateStore.userQuery).toBeDefined();
+    expect(consumerUserServerStateStore.mutateUpdateName).toBeDefined();
+  });
 });

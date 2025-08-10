@@ -40,6 +40,7 @@ export function ServerState<
         ) => PluggableConfig
       : never
   ): SignalStoreFeature<Input, FeatureResult> => {
+    // todo return the feature that may be pluged !
     return config as unknown as SignalStoreFeature<Input, FeatureResult>;
   };
   return {
