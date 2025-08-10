@@ -10,8 +10,6 @@ import { Signal, signal } from '@angular/core';
 import { rxResourceById } from '../rx-resource-by-id';
 import { RxResourceByIdConfig } from './types/rx-resource-by-id-config.type';
 
-// todo test
-
 export function rxQueryById<
   QueryState extends object | undefined,
   QueryParams,
