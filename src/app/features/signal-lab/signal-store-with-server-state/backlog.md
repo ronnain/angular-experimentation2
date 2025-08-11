@@ -15,6 +15,8 @@ Ajout des tests manquants en même temps
 - withMutationById
 - withServerState
 - toGlobalServerState
+- localServer state: https://stackblitz.com/edit/stackblitz-starters-31qrd2nq?file=withFeature%2F1-simple-only-one-helper-to-use.ts
+- genericLocalServerState (use created https://stackblitz.com/edit/stackblitz-starters-31qrd2nq?file=withFeature%2Fhandle-feature-with-generic.ts)
 
 ## NestedEffect
 
