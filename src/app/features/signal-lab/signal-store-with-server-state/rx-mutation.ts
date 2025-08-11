@@ -6,7 +6,7 @@ import {
 } from '@ngrx/signals';
 import { RxResourceWithParamsOrParamsFn } from './types/rx-resource-with-params-or-params-fn.type';
 import { InternalType } from './types/util.type';
-import { Signal, signal, WritableSignal } from '@angular/core';
+import { signal, WritableSignal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { MutationRef } from './with-mutation';
 

@@ -1,4 +1,9 @@
-import { signalStore, signalStoreFeature, withState } from '@ngrx/signals';
+import {
+  signalStore,
+  signalStoreFeature,
+  withProps,
+  withState,
+} from '@ngrx/signals';
 import { ServerState, toSignalStoreFeatureResult } from './signal-server-state';
 import { withMutation } from './with-mutation';
 import { rxMutation } from './rx-mutation';
@@ -33,6 +38,10 @@ describe('SignalServerState', () => {
       )
     );
     const { UserServerStateStore, withGlobalUserServerState } = ServerState(
+      'user' as const,
+      toSignalStoreFeatureResult(serverStateFeature)
+    );
+    const test = ServerState(
       'user' as const,
       toSignalStoreFeatureResult(serverStateFeature)
     );
@@ -146,8 +155,57 @@ describe('SignalServerState', () => {
     >;
 
     expect(consumerUserServerStateStore).toBeDefined();
-    expect(consumerUserServerStateStore.updateNameMutation).toBeDefined();
-    expect(consumerUserServerStateStore.userQuery).toBeDefined();
+    expect(consumerUserServerStateStore.updateNameMutation.value).toBeDefined();
+    expect(consumerUserServerStateStore.userQuery.value).toBeDefined();
     expect(consumerUserServerStateStore.mutateUpdateName).toBeDefined();
+  });
+
+  it('4- should inject a single instance of server state store', () => {
+    let instanceCount = 0;
+    const serverStateFeature = signalStoreFeature(
+      withMutation('updateName', () =>
+        rxMutation({
+          method: (user: User) => user,
+          stream: ({ params: user }) => of(user),
+        })
+      ),
+      withQuery('user', () =>
+        rxQuery({
+          params: () => '1',
+          stream: ({ params }) =>
+            of({
+              id: params,
+              name: 'Romain',
+            }),
+        })
+      ),
+      withProps(() => {
+        instanceCount++;
+        return {};
+      })
+    );
+
+    const { UserServerStateStore, withGlobalUserServerState } = ServerState(
+      'user',
+      toSignalStoreFeatureResult(serverStateFeature)
+    );
+
+    const ConsumerStore = signalStore(
+      withState({
+        selectedId: '1',
+      }),
+      withGlobalUserServerState()
+    );
+
+    TestBed.configureTestingModule({
+      providers: [UserServerStateStore, ConsumerStore],
+    });
+    const userServerStateStore = TestBed.inject(UserServerStateStore);
+
+    const consumerServerStateStore = TestBed.inject(ConsumerStore);
+
+    expect(userServerStateStore).toBeDefined();
+    expect(consumerServerStateStore).toBeDefined();
+    expect(instanceCount).toBe(1);
   });
 });

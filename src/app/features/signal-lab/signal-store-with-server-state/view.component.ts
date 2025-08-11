@@ -15,7 +15,7 @@ import {
 } from '@angular/core';
 import { DeclarativeStore, TestStore } from './test.store';
 import { nestedEffect } from './types/util';
-import { signalStore, withState } from '@ngrx/signals';
+import { signalStore, signalStoreFeature, withState } from '@ngrx/signals';
 import { withQueryById } from './with-query-by-id';
 import { User } from '../resource-by-group/api.service';
 import { delay, lastValueFrom, map, of } from 'rxjs';
@@ -25,6 +25,31 @@ import { mutation } from './mutation';
 import { withQuery } from './with-query';
 import { rxQuery } from './rx-query';
 import { rxMutation } from './rx-mutation';
+import { ServerState, toSignalStoreFeatureResult } from './signal-server-state';
+
+const serverStateFeature = signalStoreFeature(
+  withMutation('updateName', () =>
+    rxMutation({
+      method: (user: User) => user,
+      stream: ({ params: user }) => of(user),
+    })
+  ),
+  withQuery('user', () =>
+    rxQuery({
+      params: () => '1',
+      stream: ({ params }) =>
+        of({
+          id: params,
+          name: 'Romain',
+        }),
+    })
+  )
+);
+
+const { UserServerStateStore } = ServerState(
+  'user',
+  toSignalStoreFeatureResult(serverStateFeature)
+);
 
 const StoreTest = signalStore(
   withMutation('userEmail', () =>
@@ -239,6 +264,8 @@ const testQueryById = signalStore(
     <button (click)="mutationUserQueryById()">Trigger Mutation</button>
     <hr />
     storeTest userEmailMutation status{{ storeTest.userEmailMutation.status() }}
+    <hr />
+    userServerStateStore: {{ userServerStateStore.userQuery.status() }}
   `,
   providers: [StoreTest],
 })
@@ -248,6 +275,7 @@ export default class ViewComponent {
   private readonly injector = inject(Injector);
   testUsersParam = testUsersParam;
   protected readonly storeTest = inject(StoreTest);
+  protected readonly userServerStateStore = inject(UserServerStateStore);
 
   mutationUserQueryById() {
     this.testQueryById.mutateUser({

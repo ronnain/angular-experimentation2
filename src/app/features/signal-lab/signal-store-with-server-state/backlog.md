@@ -12,6 +12,7 @@ Ajout des tests manquants en même temps
 
 ## Feature
 
+- associatedState, prévoir un cas où ça vient du store ?
 - withMutationById
 - withServerState
 - toGlobalServerState

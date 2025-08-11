@@ -1,13 +1,14 @@
+import { inject } from '@angular/core';
 import {
   EmptyFeatureResult,
   Prettify,
   signalStore,
+  signalStoreFeature,
   SignalStoreFeature,
   SignalStoreFeatureResult,
   StateSignals,
-  WritableStateSource,
+  withProps,
 } from '@ngrx/signals';
-import { S } from 'vitest/dist/chunks/config.d.D2ROskhv.js';
 
 // flat to the host or not - optional
 
@@ -23,7 +24,7 @@ export function ServerState<
   const capitalizedStateMutationName =
     serverStateName.charAt(0).toUpperCase() + serverStateName.slice(1);
 
-  const serverStateStore = signalStore(
+  const ServerStateStore = signalStore(
     { providedIn: 'root' },
     feature as unknown as SignalStoreFeature
   );
@@ -41,11 +42,23 @@ export function ServerState<
       : never
   ): SignalStoreFeature<Input, FeatureResult> => {
     // todo return the feature that may be pluged !
-    return config as unknown as SignalStoreFeature<Input, FeatureResult>;
+    return signalStoreFeature(
+      withProps(() => {
+        // plug the config into the store
+        // return config ? config(signalStore) : {};
+        //@ts-ignore
+        const globalServerStateStore = inject(ServerStateStore);
+        return {
+          //@ts-ignore
+          ...globalServerStateStore,
+        };
+      })
+    ) as unknown as SignalStoreFeature<Input, FeatureResult>;
   };
   return {
-    [`${capitalizedStateMutationName}ServerStateStore`]: serverStateStore,
-    [`with${capitalizedStateMutationName}ServerState`]: withGlobalServerState,
+    [`${capitalizedStateMutationName}ServerStateStore`]: ServerStateStore,
+    [`withGlobal${capitalizedStateMutationName}ServerState`]:
+      withGlobalServerState,
   } as any as {
     [key in `${Capitalize<ServerStateName>}ServerStateStore`]: ReturnType<
       typeof signalStore<FeatureResult>
