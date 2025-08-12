@@ -14,7 +14,7 @@ import {
   withProps,
 } from '@ngrx/signals';
 import { MergeObject } from './types/util.type';
-import { createSignalProxy } from './signal-proxy';
+import { createSignalProxy, SignalProxy } from './signal-proxy';
 
 // flat to the host or not - optional
 
@@ -41,7 +41,9 @@ export function ServerStateStore<
     | (FeatureResult & {
         isPluggable?: IsPluggable;
       })
-    | ((data: SignalState<PluggableParams>) => FeatureResult),
+    // the proxy is used to enable to access the properties of config data that does not exist when the store is created
+    // it may only works with one level of properties
+    | ((data: SignalProxy<PluggableParams>) => FeatureResult),
   options?: {}
 ) {
   const capitalizedStateMutationName =
