@@ -1,4 +1,4 @@
-import { inject } from '@angular/core';
+import { inject, signal, Signal, Type } from '@angular/core';
 import {
   EmptyFeatureResult,
   Prettify,
@@ -9,8 +9,17 @@ import {
   StateSignals,
   withProps,
 } from '@ngrx/signals';
+import { MergeObject } from './types/util.type';
 
 // flat to the host or not - optional
+
+type PluggableConfig<IsPluggable extends boolean> = {
+  isPluggable: IsPluggable;
+};
+
+type InferInjectedType<T extends Type<unknown>> = T extends Type<infer U>
+  ? U
+  : never;
 
 /**
  * pluggableConfig is only used by the withGlobalServerState.
@@ -18,30 +27,43 @@ import {
  */
 export function ServerState<
   const ServerStateName extends string,
-  PluggableConfig,
+  IsPluggable extends false | unknown,
+  PluggableParams,
   FeatureResult extends SignalStoreFeatureResult
->(serverStateName: ServerStateName, feature: FeatureResult, options?: {}) {
+>(
+  serverStateName: ServerStateName,
+  feature:
+    | (FeatureResult & {
+        isPluggable?: IsPluggable;
+      })
+    | ((data: Signal<PluggableParams | undefined>) => FeatureResult),
+  options?: {}
+) {
   const capitalizedStateMutationName =
     serverStateName.charAt(0).toUpperCase() + serverStateName.slice(1);
+  const isPluggable = 'isPluggable' in feature ? feature.isPluggable : false;
 
+  // todo improve the DX by using a proxy to generated needed signals that needs to be accessed
+  const pluggableConfig = signal<PluggableParams | undefined>(undefined);
+  //@ts-ignore
+  const featureResult = isPluggable ? feature : feature(pluggableConfig);
   const ServerStateStore = signalStore(
     { providedIn: 'root' },
-    feature as unknown as SignalStoreFeature
+    featureResult as unknown as SignalStoreFeature
   );
 
   const withGlobalServerState = <
     Input extends SignalStoreFeatureResult,
-    PluggableConfig
+    PluggableConfigInner
   >(
-    config?: PluggableConfig extends {}
+    config?: PluggableConfigInner extends {}
       ? (
           store: Prettify<
             StateSignals<Input['state']> & Input['props'] & Input['methods']
           >
-        ) => PluggableConfig
+        ) => PluggableConfigInner
       : never
   ): SignalStoreFeature<Input, FeatureResult> => {
-    // todo return the feature that may be pluged !
     return signalStoreFeature(
       withProps(() => {
         // plug the config into the store
@@ -55,27 +77,51 @@ export function ServerState<
       })
     ) as unknown as SignalStoreFeature<Input, FeatureResult>;
   };
+
   return {
     [`${capitalizedStateMutationName}ServerStateStore`]: ServerStateStore,
     [`withGlobal${capitalizedStateMutationName}ServerState`]:
       withGlobalServerState,
-  } as any as {
-    [key in `${Capitalize<ServerStateName>}ServerStateStore`]: ReturnType<
-      typeof signalStore<FeatureResult>
-    >;
-  } & {
-    [key in `withGlobal${Capitalize<ServerStateName>}ServerState`]: typeof withGlobalServerState;
-  };
+  } as any as MergeObject<
+    {
+      [key in `${Capitalize<ServerStateName>}ServerStateStore`]: ReturnType<
+        typeof signalStore<FeatureResult>
+      >;
+    } & {
+      [key in `withGlobal${Capitalize<ServerStateName>}ServerState`]: typeof withGlobalServerState;
+    } & {
+      isPluggable: IsPluggable;
+    },
+    IsPluggable extends false
+      ? {}
+      : {
+          [key in `injectPluggable${Capitalize<ServerStateName>}ServerState`]: (
+            data: PluggableParams
+          ) => InferInjectedType<
+            NonNullable<
+              ReturnType<
+                typeof inject<ReturnType<typeof signalStore<FeatureResult>>>
+              >
+            >
+          >;
+        }
+  >;
 }
 
-export function toSignalStoreFeatureResult<Feature extends SignalStoreFeature>(
-  feature: Feature
+export function toSignalStoreFeatureResult<
+  Feature extends SignalStoreFeature,
+  const IsPluggable extends boolean = false
+>(
+  feature: Feature,
+  options?: {
+    isPluggable?: IsPluggable;
+  }
 ) {
-  type Re = typeof feature extends SignalStoreFeature<
-    EmptyFeatureResult,
-    infer Output
-  >
-    ? Output
-    : never;
-  return feature as unknown as Re;
+  type SignalStoreFeatureInferredResult =
+    typeof feature extends SignalStoreFeature<EmptyFeatureResult, infer Output>
+      ? Output
+      : never;
+  (feature as any)['isPluggable'] = options?.isPluggable ?? false;
+  return feature as unknown as SignalStoreFeatureInferredResult &
+    PluggableConfig<IsPluggable>;
 }

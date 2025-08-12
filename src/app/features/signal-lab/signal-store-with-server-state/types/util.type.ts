@@ -69,3 +69,25 @@ export type HasChild<T> = T extends any[]
 type OmitStrict<T, K extends keyof T> = T extends any
   ? Pick<T, Exclude<keyof T, K>>
   : never;
+
+/**
+ * Negates a boolean type.
+ */
+export type Not<T extends boolean> = T extends true ? false : true;
+
+/**
+ * @internal
+ */
+const secret = Symbol('secret');
+
+/**
+ * @internal
+ */
+type Secret = typeof secret;
+
+/**
+ * Checks if the given type is `never`.
+ */
+export type IsNever<T> = [T] extends [never] ? true : false;
+
+export type IsAny<T> = [T] extends [Secret] ? Not<IsNever<T>> : false;

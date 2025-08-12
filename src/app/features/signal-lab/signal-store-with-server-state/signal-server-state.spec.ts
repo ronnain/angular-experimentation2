@@ -12,6 +12,9 @@ import { withQuery } from './with-query';
 import { rxQuery } from './rx-query';
 import { TestBed } from '@angular/core/testing';
 import { Equal, Expect } from '../../../../../test-type';
+import { signal, Signal } from '@angular/core';
+import { IsAny } from './types/util.type';
+import { expectTypeOf } from 'vitest';
 
 type User = {
   id: string;
@@ -37,6 +40,7 @@ describe('SignalServerState', () => {
         })
       )
     );
+
     const { UserServerStateStore, withGlobalUserServerState } = ServerState(
       'user' as const,
       toSignalStoreFeatureResult(serverStateFeature)
@@ -185,10 +189,10 @@ describe('SignalServerState', () => {
       })
     );
 
-    const { UserServerStateStore, withGlobalUserServerState } = ServerState(
-      'user',
-      toSignalStoreFeatureResult(serverStateFeature)
-    );
+    const { UserServerStateStore, withGlobalUserServerState, isPluggable } =
+      ServerState('user', toSignalStoreFeatureResult(serverStateFeature));
+    const isPluggableT = isPluggable;
+    //    ^?
 
     const ConsumerStore = signalStore(
       withState({
@@ -201,11 +205,82 @@ describe('SignalServerState', () => {
       providers: [UserServerStateStore, ConsumerStore],
     });
     const userServerStateStore = TestBed.inject(UserServerStateStore);
-
+    type ExpectSuerStoreNotAny = Expect<
+      Equal<IsAny<typeof userServerStateStore>, false>
+    >;
     const consumerServerStateStore = TestBed.inject(ConsumerStore);
+
+    type ExpectConsumerServerStateStoreNotAny = Expect<
+      Equal<IsAny<typeof consumerServerStateStore>, false>
+    >;
 
     expect(userServerStateStore).toBeDefined();
     expect(consumerServerStateStore).toBeDefined();
     expect(instanceCount).toBe(1);
+  });
+
+  it('5- should handle pluggable config to a server state store', () => {
+    let instanceCount = 0;
+
+    const {
+      injectPluggableUserServerState,
+      withGlobalUserServerState,
+      isPluggable,
+    } = ServerState(
+      'user',
+      // todo improve the DX by using a proxy to generated needed signals that needs to be accessed
+      (dataS: Signal<{ selectedId: Signal<string> } | undefined>) =>
+        toSignalStoreFeatureResult(
+          signalStoreFeature(
+            withMutation('updateName', () =>
+              rxMutation({
+                method: (user: User) => user,
+                stream: ({ params: user }) => of(user),
+              })
+            ),
+            withQuery('user', () =>
+              rxQuery({
+                params: dataS()?.selectedId ?? (() => undefined),
+                stream: ({ params }) =>
+                  of({
+                    id: params,
+                    name: 'Romain',
+                  }),
+              })
+            ),
+            withProps(() => {
+              instanceCount++;
+              return {};
+            })
+          ),
+          {
+            isPluggable: true,
+          }
+        )
+    );
+
+    const ConsumerStore = signalStore(
+      { providedIn: 'root' },
+      withState({
+        selectedId: '1',
+      }),
+      withGlobalUserServerState()
+    );
+
+    TestBed.runInInjectionContext(() => {
+      const selectedId = signal('1');
+      const userServerStateStore = injectPluggableUserServerState({
+        selectedId,
+      });
+
+      const consumerServerStateStore = TestBed.inject(ConsumerStore);
+
+      expect(userServerStateStore).toBeDefined();
+      expect(consumerServerStateStore).toBeDefined();
+      expect(instanceCount).toBe(1);
+      expectTypeOf(
+        userServerStateStore.userQuery.value()
+      ).toEqualTypeOf<User>();
+    });
   });
 });
