@@ -16,6 +16,7 @@ import {
 import { DeclarativeStore, TestStore } from './test.store';
 import { nestedEffect } from './types/util';
 import {
+  SignalState,
   signalStore,
   signalStoreFeature,
   withProps,
@@ -30,15 +31,22 @@ import { mutation } from './mutation';
 import { withQuery } from './with-query';
 import { rxQuery } from './rx-query';
 import { rxMutation } from './rx-mutation';
-import { ServerState, toSignalStoreFeatureResult } from './signal-server-state';
+import {
+  ServerStateStore,
+  toServerStateStoreResult,
+} from './server-state-store';
+import { SignalProxy } from './signal-proxy';
 
-const { injectPluggablePluggableUserServerState } = ServerState(
+const {
+  injectPluggablePluggableUserServerState,
+  PluggableUserServerStateStore,
+} = ServerStateStore(
   'pluggableUser',
-  (data: Signal<{ selectedId: Signal<string | undefined> } | undefined>) =>
-    toSignalStoreFeatureResult(
+  (data: SignalProxy<{ selectedId: string | undefined }>) =>
+    toServerStateStoreResult(
       signalStoreFeature(
         withProps(() => ({
-          selectedId: computed(() => data()?.selectedId ?? undefined),
+          selectedId: computed(() => data?.selectedId ?? undefined),
         })),
         withMutation('updateName', () =>
           rxMutation({
@@ -46,16 +54,19 @@ const { injectPluggablePluggableUserServerState } = ServerState(
             stream: ({ params: user }) => of(user),
           })
         ),
-        withQuery('user', (store) =>
-          rxQuery({
-            params: store.selectedId,
-            stream: ({ params }) =>
-              of({
+        withQuery('user', () => {
+          return rxQuery({
+            params: data.selectedId,
+            stream: ({ params }) => {
+              console.log('params', params);
+              debugger;
+              return of({
                 id: params,
                 name: 'Romain',
-              }),
-          })
-        )
+              });
+            },
+          });
+        })
       ),
       {
         isPluggable: true,
@@ -278,8 +289,14 @@ const testQueryById = signalStore(
     storeTest userEmailMutation status{{ storeTest.userEmailMutation.status() }}
     <hr />
     userServerStateStore:
+    {{ pluggableUserServerStateStore.userQuery.status() }} :
+    user2ServerStateStore
+    {{ !!pluggableUserServerStateStore }}
+    <hr />
+    IICICICII user2ServerStateStore:
     {{ user2ServerStateStore.userQuery.status() }} : user2ServerStateStore
     {{ !!user2ServerStateStore }}
+    <button (click)="changeUserSelected()">change user selected</button>
   `,
   providers: [StoreTest],
 })
@@ -290,15 +307,19 @@ export default class ViewComponent {
   testUsersParam = testUsersParam;
   protected readonly storeTest = inject(StoreTest);
   protected readonly userSelectedId = signal('1');
+  protected readonly pluggableUserServerStateStore = inject(
+    PluggableUserServerStateStore
+  );
 
+  protected readonly user2ServerStateStore =
+    injectPluggablePluggableUserServerState({
+      //@ts-ignore
+      selectedId: this.userSelectedId,
+    });
   // protected readonly user2ServerStateStore =
   //   injectPluggablePluggableUserServerState({
   //     selectedId: this.userSelectedId,
   //   });
-  protected readonly user2ServerStateStore =
-    injectPluggablePluggableUserServerState({
-      selectedId: this.userSelectedId,
-    });
   mutationUserQueryById() {
     this.testQueryById.mutateUser({
       id: '5',
@@ -310,6 +331,10 @@ export default class ViewComponent {
       ...data,
       '4': signal(0),
     }));
+  }
+
+  changeUserSelected() {
+    this.userSelectedId.set(this.userSelectedId() === '1' ? '2' : '1');
   }
 
   protected readonly testQueryById = inject(testQueryById);

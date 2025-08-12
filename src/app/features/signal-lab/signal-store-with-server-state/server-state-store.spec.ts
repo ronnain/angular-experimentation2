@@ -1,10 +1,15 @@
 import {
+  DeepSignal,
+  SignalState,
   signalStore,
   signalStoreFeature,
   withProps,
   withState,
 } from '@ngrx/signals';
-import { ServerState, toSignalStoreFeatureResult } from './signal-server-state';
+import {
+  ServerStateStore,
+  toServerStateStoreResult,
+} from './server-state-store';
 import { withMutation } from './with-mutation';
 import { rxMutation } from './rx-mutation';
 import { of } from 'rxjs';
@@ -41,13 +46,14 @@ describe('SignalServerState', () => {
       )
     );
 
-    const { UserServerStateStore, withGlobalUserServerState } = ServerState(
+    const { UserServerStateStore, withGlobalUserServerState } =
+      ServerStateStore(
+        'user' as const,
+        toServerStateStoreResult(serverStateFeature)
+      );
+    const test = ServerStateStore(
       'user' as const,
-      toSignalStoreFeatureResult(serverStateFeature)
-    );
-    const test = ServerState(
-      'user' as const,
-      toSignalStoreFeatureResult(serverStateFeature)
+      toServerStateStoreResult(serverStateFeature)
     );
     expect(UserServerStateStore).toBeDefined();
     expect(withGlobalUserServerState).toBeDefined();
@@ -60,7 +66,6 @@ describe('SignalServerState', () => {
     );
   });
 
-  // todo test one instance of server state store after
   it('2-should inject a store and expose global server state api', () => {
     const serverStateFeature = signalStoreFeature(
       withMutation('updateName', () =>
@@ -81,9 +86,9 @@ describe('SignalServerState', () => {
       )
     );
 
-    const { UserServerStateStore } = ServerState(
+    const { UserServerStateStore } = ServerStateStore(
       'user',
-      toSignalStoreFeatureResult(serverStateFeature)
+      toServerStateStoreResult(serverStateFeature)
     );
 
     TestBed.configureTestingModule({
@@ -129,9 +134,9 @@ describe('SignalServerState', () => {
       )
     );
 
-    const { withGlobalUserServerState } = ServerState(
+    const { withGlobalUserServerState } = ServerStateStore(
       'user',
-      toSignalStoreFeatureResult(serverStateFeature)
+      toServerStateStoreResult(serverStateFeature)
     );
 
     const ConsumerStore = signalStore(
@@ -190,7 +195,7 @@ describe('SignalServerState', () => {
     );
 
     const { UserServerStateStore, withGlobalUserServerState, isPluggable } =
-      ServerState('user', toSignalStoreFeatureResult(serverStateFeature));
+      ServerStateStore('user', toServerStateStoreResult(serverStateFeature));
     const isPluggableT = isPluggable;
     //    ^?
 
@@ -219,18 +224,20 @@ describe('SignalServerState', () => {
     expect(instanceCount).toBe(1);
   });
 
-  it('5- should handle pluggable config to a server state store', () => {
-    let instanceCount = 0;
-
+  it('5- should enable to set the pluggable config by using the custom inject server state store', () => {
     const {
       injectPluggableUserServerState,
       withGlobalUserServerState,
       isPluggable,
-    } = ServerState(
+    } = ServerStateStore(
       'user',
       // todo improve the DX by using a proxy to generated needed signals that needs to be accessed
-      (dataS: Signal<{ selectedId: Signal<string> } | undefined>) =>
-        toSignalStoreFeatureResult(
+      (
+        dataS: { selectedId: Signal<string | undefined> } = {
+          selectedId: signal(undefined),
+        }
+      ) =>
+        toServerStateStoreResult(
           signalStoreFeature(
             withMutation('updateName', () =>
               rxMutation({
@@ -238,19 +245,15 @@ describe('SignalServerState', () => {
                 stream: ({ params: user }) => of(user),
               })
             ),
-            withQuery('user', () =>
-              rxQuery({
-                params: dataS()?.selectedId ?? (() => undefined),
+            withQuery('user', () => {
+              return rxQuery({
+                params: dataS.selectedId,
                 stream: ({ params }) =>
                   of({
                     id: params,
                     name: 'Romain',
                   }),
-              })
-            ),
-            withProps(() => {
-              instanceCount++;
-              return {};
+              });
             })
           ),
           {
@@ -283,4 +286,6 @@ describe('SignalServerState', () => {
       ).toEqualTypeOf<User>();
     });
   });
+
+  // todo add tests about the proxy & set..UpdateConfig
 });

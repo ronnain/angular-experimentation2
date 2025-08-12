@@ -1,7 +1,11 @@
-import { inject, signal, Signal, Type } from '@angular/core';
+import { inject, signal, Signal, Type, WritableSignal } from '@angular/core';
 import {
+  DeepSignal,
   EmptyFeatureResult,
+  patchState,
   Prettify,
+  SignalState,
+  signalState,
   signalStore,
   signalStoreFeature,
   SignalStoreFeature,
@@ -10,6 +14,7 @@ import {
   withProps,
 } from '@ngrx/signals';
 import { MergeObject } from './types/util.type';
+import { createSignalProxy } from './signal-proxy';
 
 // flat to the host or not - optional
 
@@ -25,10 +30,10 @@ type InferInjectedType<T extends Type<unknown>> = T extends Type<infer U>
  * pluggableConfig is only used by the withGlobalServerState.
  * It enables to plug some source to the server state store.
  */
-export function ServerState<
+export function ServerStateStore<
   const ServerStateName extends string,
   IsPluggable extends false | unknown,
-  PluggableParams,
+  PluggableParams extends object,
   FeatureResult extends SignalStoreFeatureResult
 >(
   serverStateName: ServerStateName,
@@ -36,15 +41,14 @@ export function ServerState<
     | (FeatureResult & {
         isPluggable?: IsPluggable;
       })
-    | ((data: Signal<PluggableParams | undefined>) => FeatureResult),
+    | ((data: SignalState<PluggableParams>) => FeatureResult),
   options?: {}
 ) {
   const capitalizedStateMutationName =
     serverStateName.charAt(0).toUpperCase() + serverStateName.slice(1);
   const isPluggable = 'isPluggable' in feature ? feature.isPluggable : true;
 
-  // todo improve the DX by using a proxy to generated needed signals that needs to be accessed
-  const pluggableConfig = signal<PluggableParams | undefined>(undefined);
+  const pluggableConfig = createSignalProxy(signal({}));
   //@ts-ignore
   const featureResult = isPluggable ? feature(pluggableConfig) : feature;
 
@@ -55,7 +59,7 @@ export function ServerState<
 
   const injectPluggableUserServerState = (pluggableData: PluggableParams) => {
     const store = inject(ServerStateStore);
-    pluggableConfig.set(pluggableData);
+    pluggableConfig.$set(pluggableData);
     return store;
   };
 
@@ -84,7 +88,6 @@ export function ServerState<
       })
     ) as unknown as SignalStoreFeature<Input, FeatureResult>;
   };
-  // todo expose configPlug
   return {
     [`${capitalizedStateMutationName}ServerStateStore`]: ServerStateStore,
     [`withGlobal${capitalizedStateMutationName}ServerState`]:
@@ -93,6 +96,15 @@ export function ServerState<
       ? {
           [`injectPluggable${capitalizedStateMutationName}ServerState`]:
             injectPluggableUserServerState,
+          [`set${capitalizedStateMutationName}ServerStateConfig`]: (
+            config: PluggableParams | undefined
+          ) => {
+            if (config) {
+              pluggableConfig.$set(config);
+            } else {
+              pluggableConfig.$set({});
+            }
+          },
         }
       : {}),
   } as any as MergeObject<
@@ -117,11 +129,15 @@ export function ServerState<
               >
             >
           >;
+        } & {
+          [key in `set${Capitalize<ServerStateName>}ServerStateConfig`]: (
+            config: PluggableParams | undefined
+          ) => void;
         }
   >;
 }
 
-export function toSignalStoreFeatureResult<
+export function toServerStateStoreResult<
   Feature extends SignalStoreFeature,
   const IsPluggable extends boolean = false
 >(
