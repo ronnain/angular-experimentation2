@@ -41,16 +41,23 @@ export function ServerState<
 ) {
   const capitalizedStateMutationName =
     serverStateName.charAt(0).toUpperCase() + serverStateName.slice(1);
-  const isPluggable = 'isPluggable' in feature ? feature.isPluggable : false;
+  const isPluggable = 'isPluggable' in feature ? feature.isPluggable : true;
 
   // todo improve the DX by using a proxy to generated needed signals that needs to be accessed
   const pluggableConfig = signal<PluggableParams | undefined>(undefined);
   //@ts-ignore
-  const featureResult = isPluggable ? feature : feature(pluggableConfig);
+  const featureResult = isPluggable ? feature(pluggableConfig) : feature;
+
   const ServerStateStore = signalStore(
     { providedIn: 'root' },
     featureResult as unknown as SignalStoreFeature
   );
+
+  const injectPluggableUserServerState = (pluggableData: PluggableParams) => {
+    const store = inject(ServerStateStore);
+    pluggableConfig.set(pluggableData);
+    return store;
+  };
 
   const withGlobalServerState = <
     Input extends SignalStoreFeatureResult,
@@ -77,11 +84,17 @@ export function ServerState<
       })
     ) as unknown as SignalStoreFeature<Input, FeatureResult>;
   };
-
+  // todo expose configPlug
   return {
     [`${capitalizedStateMutationName}ServerStateStore`]: ServerStateStore,
     [`withGlobal${capitalizedStateMutationName}ServerState`]:
       withGlobalServerState,
+    ...(isPluggable
+      ? {
+          [`injectPluggable${capitalizedStateMutationName}ServerState`]:
+            injectPluggableUserServerState,
+        }
+      : {}),
   } as any as MergeObject<
     {
       [key in `${Capitalize<ServerStateName>}ServerStateStore`]: ReturnType<

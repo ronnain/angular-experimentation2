@@ -15,7 +15,12 @@ import {
 } from '@angular/core';
 import { DeclarativeStore, TestStore } from './test.store';
 import { nestedEffect } from './types/util';
-import { signalStore, signalStoreFeature, withState } from '@ngrx/signals';
+import {
+  signalStore,
+  signalStoreFeature,
+  withProps,
+  withState,
+} from '@ngrx/signals';
 import { withQueryById } from './with-query-by-id';
 import { User } from '../resource-by-group/api.service';
 import { delay, lastValueFrom, map, of } from 'rxjs';
@@ -27,39 +32,23 @@ import { rxQuery } from './rx-query';
 import { rxMutation } from './rx-mutation';
 import { ServerState, toSignalStoreFeatureResult } from './signal-server-state';
 
-const serverStateFeature = signalStoreFeature(
-  withMutation('updateName', () =>
-    rxMutation({
-      method: (user: User) => user,
-      stream: ({ params: user }) => of(user),
-    })
-  ),
-  withQuery('user', () =>
-    rxQuery({
-      params: () => '1',
-      stream: ({ params }) =>
-        of({
-          id: params,
-          name: 'Romain',
-        }),
-    })
-  )
-);
-
 const { injectPluggablePluggableUserServerState } = ServerState(
   'pluggableUser',
   (data: Signal<{ selectedId: Signal<string | undefined> } | undefined>) =>
     toSignalStoreFeatureResult(
       signalStoreFeature(
+        withProps(() => ({
+          selectedId: computed(() => data()?.selectedId ?? undefined),
+        })),
         withMutation('updateName', () =>
           rxMutation({
             method: (user: User) => user,
             stream: ({ params: user }) => of(user),
           })
         ),
-        withQuery('user', () =>
+        withQuery('user', (store) =>
           rxQuery({
-            params: data()?.selectedId ?? (() => undefined),
+            params: store.selectedId,
             stream: ({ params }) =>
               of({
                 id: params,
@@ -302,11 +291,14 @@ export default class ViewComponent {
   protected readonly storeTest = inject(StoreTest);
   protected readonly userSelectedId = signal('1');
 
+  // protected readonly user2ServerStateStore =
+  //   injectPluggablePluggableUserServerState({
+  //     selectedId: this.userSelectedId,
+  //   });
   protected readonly user2ServerStateStore =
     injectPluggablePluggableUserServerState({
       selectedId: this.userSelectedId,
     });
-
   mutationUserQueryById() {
     this.testQueryById.mutateUser({
       id: '5',
