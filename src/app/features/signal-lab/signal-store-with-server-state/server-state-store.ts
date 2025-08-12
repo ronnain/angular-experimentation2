@@ -14,7 +14,11 @@ import {
   withProps,
 } from '@ngrx/signals';
 import { MergeObject } from './types/util.type';
-import { createSignalProxy, SignalProxy } from './signal-proxy';
+import {
+  createSignalProxy,
+  SignalProxy,
+  SignalWrapperParams,
+} from './signal-proxy';
 
 // flat to the host or not - optional
 
@@ -123,7 +127,7 @@ export function ServerStateStore<
       ? {}
       : {
           [key in `injectPluggable${Capitalize<ServerStateName>}ServerState`]: (
-            data: PluggableParams
+            data: SignalWrapperParams<PluggableParams>
           ) => InferInjectedType<
             NonNullable<
               ReturnType<
@@ -133,7 +137,7 @@ export function ServerStateStore<
           >;
         } & {
           [key in `set${Capitalize<ServerStateName>}ServerStateConfig`]: (
-            config: PluggableParams | undefined
+            config: SignalWrapperParams<PluggableParams> | undefined
           ) => void;
         }
   >;

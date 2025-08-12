@@ -20,6 +20,7 @@ import { Equal, Expect } from '../../../../../test-type';
 import { signal, Signal } from '@angular/core';
 import { IsAny } from './types/util.type';
 import { expectTypeOf } from 'vitest';
+import { SignalProxy } from './signal-proxy';
 
 type User = {
   id: string;
@@ -232,11 +233,7 @@ describe('SignalServerState', () => {
     } = ServerStateStore(
       'user',
       // todo improve the DX by using a proxy to generated needed signals that needs to be accessed
-      (
-        dataS: { selectedId: Signal<string | undefined> } = {
-          selectedId: signal(undefined),
-        }
-      ) =>
+      (data: SignalProxy<{ selectedId: string | undefined }>) =>
         toServerStateStoreResult(
           signalStoreFeature(
             withMutation('updateName', () =>
@@ -247,7 +244,7 @@ describe('SignalServerState', () => {
             ),
             withQuery('user', () => {
               return rxQuery({
-                params: dataS.selectedId,
+                params: data.selectedId,
                 stream: ({ params }) =>
                   of({
                     id: params,

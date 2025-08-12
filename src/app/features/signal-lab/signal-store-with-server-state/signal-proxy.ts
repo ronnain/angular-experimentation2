@@ -13,6 +13,12 @@ type UnwrapSignals<T> = {
   [K in keyof T]: T[K] extends Signal<infer U> ? U : T[K];
 };
 
+export type SignalWrapperParams<T extends object> = {
+  readonly [K in keyof T]: T[K] extends Signal<infer U>
+    ? Signal<U>
+    : Signal<T[K]>;
+};
+
 export type SignalProxy<T extends object> = {
   // For each property, you read it as a Signal of its final value (signals unwrapped).
   readonly [K in keyof T]: T[K] extends Signal<infer U>
