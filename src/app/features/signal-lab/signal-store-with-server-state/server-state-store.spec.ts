@@ -17,7 +17,7 @@ import { withQuery } from './with-query';
 import { rxQuery } from './rx-query';
 import { TestBed } from '@angular/core/testing';
 import { Equal, Expect } from '../../../../../test-type';
-import { signal, Signal } from '@angular/core';
+import { ApplicationRef, signal, Signal } from '@angular/core';
 import { IsAny } from './types/util.type';
 import { expectTypeOf } from 'vitest';
 import { SignalProxy } from './signal-proxy';
@@ -225,14 +225,13 @@ describe('SignalServerState', () => {
     expect(instanceCount).toBe(1);
   });
 
-  it('5- should enable to set the pluggable config by using the custom inject server state store', () => {
+  it('5- should enable to set the pluggable config by using the custom inject server state store', (done) => {
     const {
       injectPluggableUserServerState,
       withGlobalUserServerState,
       isPluggable,
     } = ServerStateStore(
       'user',
-      // todo improve the DX by using a proxy to generated needed signals that needs to be accessed
       (data: SignalProxy<{ selectedId: string | undefined }>) =>
         toServerStateStoreResult(
           signalStoreFeature(
@@ -259,30 +258,36 @@ describe('SignalServerState', () => {
         )
     );
 
-    const ConsumerStore = signalStore(
-      { providedIn: 'root' },
-      withState({
-        selectedId: '1',
-      }),
-      withGlobalUserServerState()
-    );
-
-    TestBed.runInInjectionContext(() => {
+    TestBed.runInInjectionContext(async () => {
       const selectedId = signal('1');
       const userServerStateStore = injectPluggableUserServerState({
         selectedId,
       });
-
-      const consumerServerStateStore = TestBed.inject(ConsumerStore);
-
-      expect(userServerStateStore).toBeDefined();
-      expect(consumerServerStateStore).toBeDefined();
-      expect(instanceCount).toBe(1);
+      await wait(10);
+      await TestBed.inject(ApplicationRef).whenStable();
+      console.log(
+        'userServerStateStore.userQuery.status()',
+        userServerStateStore.userQuery.status()
+      );
       expectTypeOf(
         userServerStateStore.userQuery.value()
       ).toEqualTypeOf<User>();
+
+      expect(userServerStateStore.userQuery.value()).toEqual({
+        id: '1',
+        name: 'Romain',
+      });
+
+      selectedId.set('2');
+
+      expect(userServerStateStore.userQuery.value()).toEqual({
+        id: '2',
+        name: 'Romain',
+      });
     });
   });
-
-  // todo add tests about the proxy & set..UpdateConfig
 });
+
+function wait(ms: number = 0): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
