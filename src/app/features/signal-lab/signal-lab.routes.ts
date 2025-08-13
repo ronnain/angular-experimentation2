@@ -27,7 +27,7 @@ export const signalLabRoutes: Route[] = [
           import('./signal-store-with-server-state/demo/users-list.view'),
         children: [
           {
-            path: ':id',
+            path: ':userId',
             loadComponent: () =>
               import('./signal-store-with-server-state/demo/user-details.view'),
           },

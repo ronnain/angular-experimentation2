@@ -179,7 +179,6 @@ export function MySignalStore(
 
   const mergeConfig = operations.reduce(
     (acc, operation) => {
-      debugger;
       const config = operation({
         value: internalState,
         methods: acc?.methods ?? {},

@@ -58,8 +58,6 @@ const {
           return rxQuery({
             params: data.selectedId,
             stream: ({ params }) => {
-              console.log('params', params);
-              debugger;
               return of({
                 id: params,
                 name: 'Romain',
