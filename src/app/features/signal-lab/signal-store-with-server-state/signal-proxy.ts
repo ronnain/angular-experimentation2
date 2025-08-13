@@ -25,7 +25,7 @@ export type SignalProxy<T extends object> = {
   readonly $raw: Signal<T>;
 
   /** Replace the whole object */
-  $set(next: T): void;
+  $set(next: SignalWrapperParams<T>): void;
 
   /** Get the raw property (Signal or plain value) from the current object */
   $ref<K extends keyof T>(key: K): T[K];
