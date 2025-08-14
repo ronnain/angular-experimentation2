@@ -6,10 +6,7 @@ import {
   withProps,
   withState,
 } from '@ngrx/signals';
-import {
-  ServerStateStore,
-  toServerStateStoreResult,
-} from './server-state-store';
+import { ServerStateStore } from './server-state-store';
 import { withMutation } from './with-mutation';
 import { rxMutation } from './rx-mutation';
 import { of } from 'rxjs';
@@ -48,14 +45,8 @@ describe('SignalServerState', () => {
     );
 
     const { UserServerStateStore, withGlobalUserServerState } =
-      ServerStateStore(
-        'user' as const,
-        toServerStateStoreResult(serverStateFeature)
-      );
-    const test = ServerStateStore(
-      'user' as const,
-      toServerStateStoreResult(serverStateFeature)
-    );
+      ServerStateStore('user', serverStateFeature);
+    const test = ServerStateStore('user', serverStateFeature);
     expect(UserServerStateStore).toBeDefined();
     expect(withGlobalUserServerState).toBeDefined();
 
@@ -87,10 +78,12 @@ describe('SignalServerState', () => {
       )
     );
 
-    const { UserServerStateStore } = ServerStateStore(
+    const { UserServerStateStore, test } = ServerStateStore(
       'user',
-      toServerStateStoreResult(serverStateFeature)
+      serverStateFeature
     );
+    const testresut = test;
+    //.   ^?
 
     TestBed.configureTestingModule({
       providers: [UserServerStateStore],
@@ -137,7 +130,7 @@ describe('SignalServerState', () => {
 
     const { withGlobalUserServerState } = ServerStateStore(
       'user',
-      toServerStateStoreResult(serverStateFeature)
+      serverStateFeature
     );
 
     const ConsumerStore = signalStore(
@@ -196,8 +189,7 @@ describe('SignalServerState', () => {
     );
 
     const { UserServerStateStore, withGlobalUserServerState, isPluggable } =
-      ServerStateStore('user', toServerStateStoreResult(serverStateFeature));
-    const isPluggableT = isPluggable;
+      ServerStateStore('user', serverStateFeature);
     //    ^?
 
     const ConsumerStore = signalStore(
@@ -233,29 +225,27 @@ describe('SignalServerState', () => {
     } = ServerStateStore(
       'user',
       (data: SignalProxy<{ selectedId: string | undefined }>) =>
-        toServerStateStoreResult(
-          signalStoreFeature(
-            withMutation('updateName', () =>
-              rxMutation({
-                method: (user: User) => user,
-                stream: ({ params: user }) => of(user),
-              })
-            ),
-            withQuery('user', () => {
-              return rxQuery({
-                params: data.selectedId,
-                stream: ({ params }) =>
-                  of({
-                    id: params,
-                    name: 'Romain',
-                  }),
-              });
+        signalStoreFeature(
+          withMutation('updateName', () =>
+            rxMutation({
+              method: (user: User) => user,
+              stream: ({ params: user }) => of(user),
             })
           ),
-          {
-            isPluggable: true,
-          }
-        )
+          withQuery('user', () => {
+            return rxQuery({
+              params: data.selectedId,
+              stream: ({ params }) =>
+                of({
+                  id: params,
+                  name: 'Romain',
+                }),
+            });
+          })
+        ),
+      {
+        isPluggable: true,
+      }
     );
 
     TestBed.runInInjectionContext(async () => {

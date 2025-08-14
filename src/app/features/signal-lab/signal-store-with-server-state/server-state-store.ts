@@ -11,7 +11,10 @@ import {
   SignalStoreFeature,
   SignalStoreFeatureResult,
   StateSignals,
+  StateSource,
   withProps,
+  withState,
+  WritableStateSource,
 } from '@ngrx/signals';
 import { MergeObject } from './types/util.type';
 import {
@@ -19,6 +22,7 @@ import {
   SignalProxy,
   SignalWrapperParams,
 } from './signal-proxy';
+import { SignalStoreHooks } from './inner-signal-store';
 
 // flat to the host or not - optional
 
@@ -33,22 +37,35 @@ type InferInjectedType<T extends Type<unknown>> = T extends Type<infer U>
 /**
  * pluggableConfig is only used by the withGlobalServerState.
  * It enables to plug some source to the server state store.
+ * Si c'est un signalStore de provided, ne pas exposer le withGlobalServerState ?
  */
 export function ServerStateStore<
   const ServerStateName extends string,
-  IsPluggable extends false | unknown,
   PluggableParams extends object,
-  FeatureResult extends SignalStoreFeatureResult
+  State,
+  Props,
+  Methods,
+  SignalStoreFeatureResultInfer extends {
+    state: State extends [object] ? State : {};
+    props: [Props] extends [object] ? Props : {};
+    methods: [Methods] extends [Record<string, Function>] ? Methods : {};
+  },
+  IsPluggable extends true | false = false
 >(
   serverStateName: ServerStateName,
   feature:
-    | (FeatureResult & {
-        isPluggable?: IsPluggable;
-      })
+    | SignalStoreFeature<EmptyFeatureResult, SignalStoreFeatureResultInfer>
     // the proxy is used to enable to access the properties of config data that does not exist when the store is created
     // it may only works with one level of properties
-    | ((data: SignalProxy<PluggableParams>) => FeatureResult),
-  options?: {}
+    | ((
+        data: SignalProxy<PluggableParams>
+      ) => SignalStoreFeature<
+        EmptyFeatureResult,
+        SignalStoreFeatureResultInfer
+      >),
+  options?: {
+    isPluggable?: IsPluggable;
+  }
 ) {
   const capitalizedStateMutationName =
     serverStateName.charAt(0).toUpperCase() + serverStateName.slice(1);
@@ -59,7 +76,7 @@ export function ServerStateStore<
   const featureResult = isPluggable ? feature(pluggableConfig) : feature;
 
   const ServerStateStore = signalStore(
-    { providedIn: 'root' },
+    { providedIn: 'root' }, // todo only if the option is provided
     featureResult as unknown as SignalStoreFeature
   );
 
@@ -69,6 +86,7 @@ export function ServerStateStore<
     return store;
   };
 
+  // todo remove global from the name
   const withGlobalServerState = <
     Input extends SignalStoreFeatureResult,
     PluggableConfigInner
@@ -80,11 +98,11 @@ export function ServerStateStore<
           >
         ) => PluggableConfigInner
       : never
-  ): SignalStoreFeature<Input, FeatureResult> => {
+  ): SignalStoreFeature<Input, SignalStoreFeatureResultInfer> => {
     return signalStoreFeature(
       withProps(() => {
-        // plug the config into the store
-        // return config ? config(signalStore) : {};
+        // todo plug the config into the store
+        // todo inject It only if it is the global flag
         //@ts-ignore
         const globalServerStateStore = inject(ServerStateStore);
         return {
@@ -92,7 +110,7 @@ export function ServerStateStore<
           ...globalServerStateStore,
         };
       })
-    ) as unknown as SignalStoreFeature<Input, FeatureResult>;
+    ) as unknown as SignalStoreFeature<Input, SignalStoreFeatureResultInfer>;
   };
   return {
     [`${capitalizedStateMutationName}ServerStateStore`]: ServerStateStore,
@@ -116,12 +134,13 @@ export function ServerStateStore<
   } as any as MergeObject<
     {
       [key in `${Capitalize<ServerStateName>}ServerStateStore`]: ReturnType<
-        typeof signalStore<FeatureResult>
+        typeof signalStore<SignalStoreFeatureResultInfer>
       >;
     } & {
       [key in `withGlobal${Capitalize<ServerStateName>}ServerState`]: typeof withGlobalServerState;
     } & {
       isPluggable: IsPluggable;
+      test: SignalStoreFeatureResultInfer;
     },
     IsPluggable extends false
       ? {}
@@ -131,7 +150,9 @@ export function ServerStateStore<
           ) => InferInjectedType<
             NonNullable<
               ReturnType<
-                typeof inject<ReturnType<typeof signalStore<FeatureResult>>>
+                typeof inject<
+                  ReturnType<typeof signalStore<SignalStoreFeatureResultInfer>>
+                >
               >
             >
           >;
@@ -143,20 +164,84 @@ export function ServerStateStore<
   >;
 }
 
-export function toServerStateStoreResult<
-  Feature extends SignalStoreFeature,
-  const IsPluggable extends boolean = false
->(
-  feature: Feature,
-  options?: {
-    isPluggable?: IsPluggable;
-  }
-) {
-  type SignalStoreFeatureInferredResult =
-    typeof feature extends SignalStoreFeature<EmptyFeatureResult, infer Output>
-      ? Output
-      : never;
-  (feature as any)['isPluggable'] = options?.isPluggable ?? false;
-  return feature as unknown as SignalStoreFeatureInferredResult &
-    PluggableConfig<IsPluggable>;
+function testGetSignalStoreOrFeature<
+  State,
+  Props,
+  Methods,
+  Result extends {
+    state: State;
+    props: Props;
+    methods: Methods;
+  },
+  Entity extends SignalStoreFeature<EmptyFeatureResult, InferInnerSS<Result>>
+>(entity: Entity): Entity;
+function testGetSignalStoreOrFeature<
+  // store
+  State,
+  Props,
+  Methods,
+  Result extends {
+    state: {
+      count: number;
+    };
+    props: {};
+    methods: {};
+  },
+  Entity extends Type<
+    SignalStoreMembers<{
+      state: [State] extends [object] ? State : {};
+      props: [Props] extends [object] ? Props : {};
+      methods: [Methods] extends [Record<string, Function>] ? Methods : {};
+    }>
+  >
+>(entity: Entity): Entity;
+function testGetSignalStoreOrFeature(entity: any) {
+  return {} as any;
 }
+
+const tSS = testGetSignalStoreOrFeature(
+  signalStore(
+    withState({
+      count: 0,
+      count2: 0,
+    })
+  )
+);
+
+const tSSF = testGetSignalStoreOrFeature(
+  signalStoreFeature(
+    withState({
+      count: 0,
+    })
+  )
+);
+
+type SignalStoreMembers<FeatureResult extends SignalStoreFeatureResult> =
+  Prettify<
+    StateSignals<FeatureResult['state']> &
+      FeatureResult['props'] &
+      FeatureResult['methods']
+  >;
+
+export type InnerSignalStore<
+  State extends object = object,
+  Props extends object = object,
+  Methods extends Record<string, Function> = Record<string, Function>
+> = {
+  stateSignals: StateSignals<State>;
+  props: Props;
+  methods: Methods;
+  hooks: SignalStoreHooks;
+} & WritableStateSource<State>;
+
+type InferInnerSS<T> = T extends InnerSignalStore<infer S, infer P, infer M>
+  ? {
+      state: S;
+      props: P;
+      methods: M;
+    }
+  : {
+      state: {};
+      props: {};
+      methods: {};
+    };

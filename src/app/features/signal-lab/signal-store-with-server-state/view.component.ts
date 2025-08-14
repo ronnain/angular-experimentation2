@@ -372,6 +372,11 @@ export default class ViewComponent {
 
   constructor() {
     effect(() => {
+      const s = signalStore(withState({ count: 0 }));
+      console.log('signalStore', s);
+      const sf = signalStoreFeature(withState({ count: 0 }));
+      console.log('signalStoreFeature', sf);
+      debugger;
       if (!this.newKeysForNestedEffect().newKeys) {
         return;
       }
