@@ -64,6 +64,11 @@ export function ServerStateStore<
         SignalStoreFeatureResultInfer
       >),
   options?: {
+    /**
+     * If 'root', the store will be provided in the root injector.
+     * If not provided, the store will not be provided (used for local store)
+     */
+    providedIn?: 'root';
     isPluggable?: IsPluggable;
   }
 ) {
