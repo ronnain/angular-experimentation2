@@ -37,8 +37,9 @@ type InferInjectedType<T extends Type<unknown>> = T extends Type<infer U>
 /**
  * pluggableConfig is only used by the withGlobalServerState.
  * It enables to plug some source to the server state store.
- * Si c'est un signalStore de provided, ne pas exposer le withGlobalServerState ?
- */
+ * Si c'est un signalStore de provided, le withServerState expose le server store via consumerStore.ServerStateName....
+ * Si c'est une signalStoreFeature, le withServerState expose le server store via consumerStore...
+ **/
 export function ServerStateStore<
   const ServerStateName extends string,
   PluggableParams extends object,

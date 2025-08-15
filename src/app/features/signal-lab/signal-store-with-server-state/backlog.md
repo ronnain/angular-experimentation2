@@ -13,11 +13,14 @@ Ajout des tests manquants en même temps
 ## Feature
 
 - associatedState, prévoir un cas où ça vient du store ?
+- pour les withQuery/MutationById créer un proxy
+- gérer les streams via les resourcesById?
 - withMutationById
 - withServerState
 - toGlobalServerState
 - localServer state: https://stackblitz.com/edit/stackblitz-starters-31qrd2nq?file=withFeature%2F1-simple-only-one-helper-to-use.ts
 - genericLocalServerState (use created https://stackblitz.com/edit/stackblitz-starters-31qrd2nq?file=withFeature%2Fhandle-feature-with-generic.ts)
+  -faire les with... avec les events/sources de ngrx
 
 ### ServerStateStore
 

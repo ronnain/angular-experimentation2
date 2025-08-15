@@ -42,17 +42,29 @@ type OptimisticMutationQuery<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 > = (
   data: MergeObject<
-    {
-      queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
-      mutationResource: ResourceRef<
-        NoInfer<QueryAndMutationRecord['mutation']['state']>
-      >;
-      mutationParams: NonNullable<
-        NoInfer<QueryAndMutationRecord['mutation']['params']>
-      >;
-    },
-    QueryAndMutationRecord['query']['isGroupedResource'] extends true
-      ? { queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'] }
+    MergeObject<
+      {
+        queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
+        mutationResource: ResourceRef<
+          NoInfer<QueryAndMutationRecord['mutation']['state']>
+        >;
+        mutationParams: NonNullable<
+          NoInfer<QueryAndMutationRecord['mutation']['params']>
+        >;
+      },
+      QueryAndMutationRecord['query']['isGroupedResource'] extends true
+        ? {
+            queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
+          }
+        : {}
+    >,
+    QueryAndMutationRecord['mutation']['isGroupedResource'] extends true
+      ? {
+          mutationResources: ResourceByIdRef<
+            string,
+            QueryAndMutationRecord['mutation']['state']
+          >;
+        }
       : {}
   >
 ) => QueryAndMutationRecord['query']['state'];
@@ -87,7 +99,7 @@ type QueryImperativeEffect<
     : {}
 >;
 
-type QueriesMutation<
+export type QueriesMutation<
   Input extends SignalStoreFeatureResult,
   StoreInput extends Prettify<
     StateSignals<Input['state']> &
@@ -97,7 +109,9 @@ type QueriesMutation<
   >,
   MutationState,
   MutationParams,
-  MutationArgsParams
+  MutationArgsParams,
+  MutationIsGroupedResource,
+  MutationGroupIdentifier
 > = {
   queriesEffects?: Input['props'] extends {
     __query: infer Queries;
@@ -130,8 +144,8 @@ type QueriesMutation<
             state: MutationState;
             params: MutationParams;
             args: MutationArgsParams;
-            isGroupedResource: false;
-            groupIdentifier: unknown;
+            isGroupedResource: MutationIsGroupedResource;
+            groupIdentifier: MutationGroupIdentifier;
           };
         }>;
       }
@@ -218,7 +232,9 @@ export function withMutation<
     StoreInput,
     NoInfer<ResourceState>,
     NoInfer<ResourceParams>,
-    NoInfer<ResourceArgsParams>
+    NoInfer<ResourceArgsParams>,
+    false,
+    unknown
   >
 ): SignalStoreFeature<
   Input,

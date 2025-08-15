@@ -29,7 +29,10 @@ import {
   OptimisticPatchQueryFn,
   CustomReloadOnSpecificMutationStatus,
 } from './types/shared.type';
-import { __InternalSharedMutationConfig } from './with-mutation';
+import {
+  __InternalSharedMutationConfig,
+  QueriesMutation,
+} from './with-mutation';
 import { ResourceByIdRef } from '../resource-by-id';
 import {
   AssociatedStateMapperFnById,
@@ -42,7 +45,7 @@ import {
 } from './core/update-state.util';
 import { triggerQueryReloadFromMutationChange } from './core/query.core';
 
-export type QueryByIdRef<
+export type MutationByIdRef<
   GroupIdentifier extends string | number,
   ResourceState,
   ResourceParams
@@ -115,7 +118,7 @@ type QueryDeclarativeEffect<
 /**
  *
  * @param resourceName
- * @param queryFactory
+ * @param mutationFactory
  * @param options To help for type inference, you may always get the store as a parameter. Otherwise the mapResourceToState may be requested without the real needs
  * @example
  * ```ts
@@ -132,7 +135,7 @@ withQuery(
  * ```
  * @returns
  */
-export function withQueryById<
+export function withMutationById<
   Input extends SignalStoreFeatureResult,
   const ResourceName extends string,
   ResourceState extends object | undefined,
@@ -147,11 +150,11 @@ export function withQueryById<
   >
 >(
   resourceName: ResourceName,
-  queryFactory: (store: StoreInput) => (
+  mutationFactory: (store: StoreInput) => (
     store: StoreInput,
     context: Input
   ) => {
-    queryByIdRef: QueryByIdRef<
+    mutationByIdRef: MutationByIdRef<
       NoInfer<GroupIdentifier>,
       NoInfer<ResourceState>,
       NoInfer<ResourceParams>
@@ -165,52 +168,17 @@ export function withQueryById<
       GroupIdentifier
     >;
   },
-  optionsFactory?: (store: StoreInput) => {
-    // Exclude path from the MergeObject, it will enable the const type inference, otherwise it will be inferred as string
-    /**
-     * Will update the state at the given path with the resource data (if the data id resolved or set 'local').
-     * If the type of targeted state does not match the type of the resource,
-     * a function is required.
-     * - If the function is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
-     */
-    state?: BooleanOrMapperFnByPathById<
-      NoInfer<Input>['state'],
-      NoInfer<ResourceState>,
-      NoInfer<ResourceParams>,
-      NoInfer<GroupIdentifier>
-    > extends infer BooleanOrMapperFnByPath
-      ? {
-          [Path in keyof BooleanOrMapperFnByPath]?: BooleanOrMapperFnByPath[Path];
-        }
-      : never;
-    on?: Input['props'] extends {
-      __mutation: infer Mutations;
-    }
-      ? {
-          [key in keyof Mutations]?: Mutations[key] extends InternalType<
-            infer MutationState,
-            infer MutationParams,
-            infer MutationArgsParams,
-            infer MutationIsByGroup
-          >
-            ? QueryDeclarativeEffect<{
-                query: InternalType<
-                  ResourceState,
-                  ResourceParams,
-                  ResourceArgsParams,
-                  false
-                >;
-                mutation: InternalType<
-                  MutationState,
-                  MutationParams,
-                  MutationArgsParams,
-                  MutationIsByGroup
-                >;
-              }>
-            : never;
-        }
-      : never;
-  }
+  queriesEffectsFn?: (
+    store: StoreInput
+  ) => QueriesMutation<
+    Input,
+    StoreInput,
+    NoInfer<ResourceState>,
+    NoInfer<ResourceParams>,
+    NoInfer<ResourceArgsParams>,
+    true,
+    NoInfer<GroupIdentifier>
+  >
 ): SignalStoreFeature<
   Input,
   WithQueryByIdOutputStoreConfig<
@@ -226,14 +194,14 @@ export function withQueryById<
       withProps((store) => {
         const _injector = inject(Injector);
 
-        const queryConfigData = queryFactory(store as unknown as StoreInput)(
+        const queryConfigData = mutationFactory(store as unknown as StoreInput)(
           store as unknown as StoreInput,
           context as unknown as Input
         );
 
         const resourceParamsSrc =
-          queryConfigData.queryByIdRef.resourceParamsSrc;
-        const queryResourcesById = queryConfigData.queryByIdRef.resourceById;
+          queryConfigData.mutationByIdRef.resourceParamsSrc;
+        const queryResourcesById = queryConfigData.mutationByIdRef.resourceById;
         const queryOptions = optionsFactory?.(store as unknown as StoreInput);
 
         const associatedClientStates = Object.entries(
