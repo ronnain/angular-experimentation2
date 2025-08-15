@@ -4,7 +4,8 @@ import {
   AccessTypeObjectPropertyByDottedPath,
   DottedPathPathToTuple,
 } from './access-type-object-property-by-dotted-path.type';
-import { InternalType, MergeObject } from './util.type';
+import { InternalType, MergeObject, MergeObjects } from './util.type';
+import { ResourceByIdRef } from '../resource-by-id-signal-store';
 
 // todo rename, and rename server state constraints
 export type QueryAndMutationRecordConstraints = {
@@ -15,17 +16,31 @@ export type QueryAndMutationRecordConstraints = {
 export type CustomReloadOnSpecificMutationStatus<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 > = (
-  data: MergeObject<
-    {
-      queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
-      mutationResource: ResourceRef<
-        QueryAndMutationRecord['mutation']['state']
-      >;
-      mutationParams: NonNullable<QueryAndMutationRecord['mutation']['params']>;
-    },
-    QueryAndMutationRecord['query']['isGroupedResource'] extends true
-      ? { queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'] }
-      : {}
+  data: MergeObjects<
+    [
+      {
+        queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
+        mutationResource: ResourceRef<
+          QueryAndMutationRecord['mutation']['state']
+        >;
+        mutationParams: NonNullable<
+          QueryAndMutationRecord['mutation']['params']
+        >;
+      },
+      QueryAndMutationRecord['query']['isGroupedResource'] extends true
+        ? {
+            queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
+          }
+        : {},
+      QueryAndMutationRecord['mutation']['isGroupedResource'] extends true
+        ? {
+            mutationResources: ResourceByIdRef<
+              string,
+              QueryAndMutationRecord['mutation']['state']
+            >;
+          }
+        : {}
+    ]
   >
 ) => boolean;
 
@@ -72,25 +87,46 @@ export type OptimisticPatchQueryFn<
   MutationParams,
   MutationArgsParams,
   TargetedType
-> = (data: {
-  queryResource: NoInfer<ResourceRef<QueryState>>;
-  mutationResource: NoInfer<ResourceRef<MutationState>>;
-  mutationParams: NonNullable<NoInfer<MutationParams>>;
-  targetedState: TargetedType | undefined;
-}) => TargetedType;
+> = (
+  data: MergeObjects<
+    [
+      {
+        queryResource: NoInfer<ResourceRef<QueryState>>;
+        mutationResource: NoInfer<ResourceRef<MutationState>>;
+        mutationParams: NonNullable<NoInfer<MutationParams>>;
+        targetedState: TargetedType | undefined;
+        mutationResources: never; // todo
+      }
+    ]
+  >
+) => TargetedType;
 
 export type FilterQueryById<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
-> = (data: {
-  queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
-  queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
-  mutationResource: ResourceRef<
-    NoInfer<QueryAndMutationRecord['mutation']['state']>
-  >;
-  mutationParams: NonNullable<
-    NoInfer<QueryAndMutationRecord['mutation']['params']>
-  >;
-}) => boolean;
+> = (
+  data: MergeObjects<
+    [
+      {
+        queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
+        queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
+        mutationResource: ResourceRef<
+          NoInfer<QueryAndMutationRecord['mutation']['state']>
+        >;
+        mutationParams: NonNullable<
+          NoInfer<QueryAndMutationRecord['mutation']['params']>
+        >;
+      },
+      QueryAndMutationRecord['mutation']['isGroupedResource'] extends true
+        ? {
+            mutationResources: ResourceByIdRef<
+              string,
+              QueryAndMutationRecord['mutation']['state']
+            >;
+          }
+        : {}
+    ]
+  >
+) => boolean;
 
 export type ResourceMethod<ParamsArgs, ResourceParams> = (
   args: ParamsArgs

@@ -17,7 +17,7 @@ import {
   WritableStateSource,
 } from '@ngrx/signals';
 import { Merge } from '../../../util/types/merge';
-import { InternalType, MergeObject } from './types/util.type';
+import { InternalType, MergeObject, MergeObjects } from './types/util.type';
 
 import {
   createNestedStateUpdate,
@@ -41,8 +41,8 @@ export type MutationRef<ResourceState, ResourceParams, ParamsArgs> = {
 type OptimisticMutationQuery<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 > = (
-  data: MergeObject<
-    MergeObject<
+  data: MergeObjects<
+    [
       {
         queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
         mutationResource: ResourceRef<
@@ -56,16 +56,16 @@ type OptimisticMutationQuery<
         ? {
             queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
           }
+        : {},
+      QueryAndMutationRecord['mutation']['isGroupedResource'] extends true
+        ? {
+            mutationResources: ResourceByIdRef<
+              string,
+              QueryAndMutationRecord['mutation']['state']
+            >;
+          }
         : {}
-    >,
-    QueryAndMutationRecord['mutation']['isGroupedResource'] extends true
-      ? {
-          mutationResources: ResourceByIdRef<
-            string,
-            QueryAndMutationRecord['mutation']['state']
-          >;
-        }
-      : {}
+    ]
   >
 ) => QueryAndMutationRecord['query']['state'];
 

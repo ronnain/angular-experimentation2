@@ -1,3 +1,5 @@
+import { Prettify } from '@ngrx/signals';
+
 // It is not possible to get all the properties key of an optional object, so make the optional properties required
 export type MakeOptionalPropertiesRequired<
   T,
@@ -7,6 +9,15 @@ export type MakeOptionalPropertiesRequired<
 };
 
 export type MergeObject<A, B> = A & B;
+
+export type MergeObjects<F extends unknown[], Acc = {}> = F extends [
+  infer First,
+  ...infer Rest
+]
+  ? First extends object
+    ? MergeObjects<Rest, MergeObject<Acc, First>>
+    : Prettify<Acc>
+  : Prettify<Acc>;
 
 export type InternalType<
   State,
