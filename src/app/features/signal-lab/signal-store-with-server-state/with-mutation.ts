@@ -287,11 +287,11 @@ export function withMutation<
           ...(hasQueriesEffects && {
             [`_${mutationName}Effect`]: effect(() => {
               const mutationStatus = mutationResource.status();
-              const mutationValueChange = mutationResource.hasValue()
+              const _mutationValueChange = mutationResource.hasValue()
                 ? mutationResource.value()
                 : undefined;
 
-              const mutationParamsChange = mutationResourceParamsSrc();
+              const _mutationParamsChange = mutationResourceParamsSrc();
 
               untracked(() => {
                 // Handle optimistic updates on loading
@@ -308,11 +308,14 @@ export function withMutation<
               // Handle optimistic patch
               untracked(() => {
                 setOptimisticPatchQueriesValue({
+                  // todo test all the cases that arguments are properly retrieved
                   mutationStatus,
                   queriesWithOptimisticPatch,
                   store: store as any,
                   mutationResource,
-                  resourceParamsSrc: mutationResourceParamsSrc,
+                  mutationParamsSrc: mutationResourceParamsSrc,
+                  mutationIdentifier: undefined,
+                  mutationResources: undefined,
                 });
               });
               // Handle reload queries
@@ -475,66 +478,91 @@ function reloadQueriesOnMutationChange<
 }
 
 function setOptimisticPatchQueriesValue<
-  ResourceState extends object | undefined,
-  ResourceParams,
-  ResourceArgsParams
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 >({
-  mutationStatus,
   queriesWithOptimisticPatch,
   store,
+  mutationStatus,
   mutationResource,
-  resourceParamsSrc,
+  mutationParamsSrc,
+  mutationIdentifier,
+  mutationResources,
 }: {
   mutationStatus: ResourceStatus;
-  queriesWithOptimisticPatch: [string, QueryImperativeEffect<any>][];
+  queriesWithOptimisticPatch: [
+    string,
+    QueryImperativeEffect<QueryAndMutationRecord>
+  ][];
   store: WritableSignal<any>;
-  mutationResource: ResourceRef<ResourceState>;
-  resourceParamsSrc: () => any;
+  mutationResource: ResourceRef<QueryAndMutationRecord['mutation']['state']>;
+  mutationParamsSrc: () => QueryAndMutationRecord['mutation']['params'];
+  mutationIdentifier:
+    | QueryAndMutationRecord['mutation']['groupIdentifier']
+    | undefined;
+  mutationResources:
+    | ResourceByIdRef<
+        string | number,
+        QueryAndMutationRecord['mutation']['state']
+      >
+    | undefined;
 }) {
   if (mutationStatus === 'loading') {
     queriesWithOptimisticPatch.forEach(([queryName, queryMutationConfig]) => {
       const queryTargeted = (store as any)[queryName] as
-        | ResourceRef<any>
-        | ResourceByIdRef<string | number, any>;
+        | ResourceRef<QueryAndMutationRecord['query']['state']>
+        | ResourceByIdRef<
+            string | number,
+            QueryAndMutationRecord['query']['state']
+          >;
       if ('hasValue' in queryTargeted) {
-        optimisticPatchQueryResource<
-          ResourceState,
-          ResourceParams,
-          ResourceArgsParams
-        >({
-          queryResource: queryTargeted,
+        const queryResource = queryTargeted;
+        optimisticPatchQueryResource<QueryAndMutationRecord>({
+          queryResource,
           queryMutationConfig,
           mutationResource,
-          resourceParamsSrc,
+          mutationParamsSrc,
+          mutationResources,
+          mutationIdentifier,
+          queryIdentifier: undefined,
+          queryResources: undefined,
         });
       } else {
+        const queryResources = queryTargeted;
         // use the filter to get the queries to update
         Object.entries(
-          (queryTargeted as ResourceByIdRef<string | number, any>)()
+          (
+            queryTargeted as ResourceByIdRef<
+              string | number,
+              ResourceRef<QueryAndMutationRecord['query']['state']>
+            >
+          )()
         )
           .filter(([queryIdentifier, queryResource]) => {
             if (!('filter' in queryMutationConfig)) {
               return true;
             }
             return queryMutationConfig.filter({
-              queryIdentifier: queryIdentifier as string | number,
-              queryResource: queryResource as ResourceRef<any>,
+              queryResource,
               mutationResource,
-              mutationParams: untracked(() =>
-                resourceParamsSrc()
-              ) as NonNullable<NoInfer<ResourceParams>>,
-            });
+              mutationParams: mutationParamsSrc() as NonNullable<
+                QueryAndMutationRecord['mutation']['params']
+              >,
+              queryIdentifier,
+              queryResources,
+              mutationIdentifier,
+              mutationResources,
+            } as Parameters<FilterQueryById<QueryAndMutationRecord>>[0]);
           })
           .forEach(([queryIdentifier, queryResource]) => {
-            optimisticPatchQueryResource<
-              ResourceState,
-              ResourceParams,
-              ResourceArgsParams
-            >({
-              queryResource: queryResource as ResourceRef<any>,
+            optimisticPatchQueryResource<QueryAndMutationRecord>({
+              queryResource: queryResource as NonNullable<typeof queryResource>,
               queryMutationConfig,
               mutationResource,
-              resourceParamsSrc,
+              mutationParamsSrc,
+              queryIdentifier,
+              queryResources,
+              mutationIdentifier,
+              mutationResources,
             });
           });
       }
@@ -609,30 +637,39 @@ function setOptimisticQueryValues<
 }
 
 function optimisticPatchQueryResource<
-  ResourceState extends object | undefined,
-  ResourceParams,
-  ResourceArgsParams
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 >({
   queryResource,
   queryMutationConfig,
   mutationResource,
-  resourceParamsSrc,
+  mutationParamsSrc,
+  queryIdentifier,
+  mutationResources,
+  queryResources,
+  mutationIdentifier,
 }: {
-  queryResource: ResourceRef<any>;
-  queryMutationConfig: QueryImperativeEffect<any>;
-  mutationResource: ResourceRef<ResourceState>;
-  resourceParamsSrc: () => any;
+  queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
+  queryMutationConfig: QueryImperativeEffect<QueryAndMutationRecord>;
+  mutationResource: ResourceRef<QueryAndMutationRecord['mutation']['state']>;
+  mutationParamsSrc: () => any;
+  queryIdentifier:
+    | QueryAndMutationRecord['query']['groupIdentifier']
+    | undefined;
+  queryResources:
+    | ResourceByIdRef<string | number, QueryAndMutationRecord['query']['state']>
+    | undefined;
+  mutationIdentifier?: QueryAndMutationRecord['mutation']['groupIdentifier'];
+  mutationResources:
+    | ResourceByIdRef<
+        string | number,
+        QueryAndMutationRecord['mutation']['state']
+      >
+    | undefined;
 }) {
   Object.entries(
     queryMutationConfig.optimisticPatch as Record<
       string,
-      OptimisticPatchQueryFn<
-        any,
-        ResourceState,
-        ResourceParams,
-        ResourceArgsParams,
-        any
-      >
+      OptimisticPatchQueryFn<QueryAndMutationRecord, any>
     >
   ).forEach(([path, optimisticPatch]) => {
     const queryValue = queryResource.hasValue()
@@ -641,14 +678,18 @@ function optimisticPatchQueryResource<
     const optimisticValue = optimisticPatch({
       mutationResource,
       queryResource,
-      mutationParams: resourceParamsSrc() as NonNullable<
-        NoInfer<ResourceParams>
+      mutationParams: mutationParamsSrc() as NonNullable<
+        NoInfer<QueryAndMutationRecord['mutation']['params']>
       >,
       targetedState: getNestedStateValue({
         state: queryValue,
         keysPath: path.split('.'),
       }),
-    });
+      queryIdentifier,
+      queryResources,
+      mutationIdentifier,
+      mutationResources,
+    } as Parameters<OptimisticPatchQueryFn<QueryAndMutationRecord, any>>[0]);
 
     const updatedValue = createNestedStateUpdate({
       state: queryValue,

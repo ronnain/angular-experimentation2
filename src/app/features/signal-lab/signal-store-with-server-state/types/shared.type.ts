@@ -70,33 +70,49 @@ export type OptimisticPathMutationQuery<
         QueryAndMutationRecord['query']['state'],
         DottedPathPathToTuple<queryPatchPath>
       > extends infer TargetedType
-        ? OptimisticPatchQueryFn<
-            QueryAndMutationRecord['query']['state'],
-            QueryAndMutationRecord['mutation']['state'],
-            QueryAndMutationRecord['mutation']['params'],
-            QueryAndMutationRecord['mutation']['args'],
-            TargetedType
-          >
+        ? OptimisticPatchQueryFn<QueryAndMutationRecord, TargetedType>
         : never;
     }
   : never;
 
 export type OptimisticPatchQueryFn<
-  QueryState,
-  MutationState,
-  MutationParams,
-  MutationArgsParams,
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints,
   TargetedType
 > = (
   data: MergeObjects<
     [
       {
-        queryResource: NoInfer<ResourceRef<QueryState>>;
-        mutationResource: NoInfer<ResourceRef<MutationState>>;
-        mutationParams: NonNullable<NoInfer<MutationParams>>;
+        queryResource: NoInfer<
+          ResourceRef<QueryAndMutationRecord['query']['state']>
+        >;
+        mutationResource: NoInfer<
+          ResourceRef<QueryAndMutationRecord['mutation']['state']>
+        >;
+        mutationParams: NonNullable<
+          NoInfer<QueryAndMutationRecord['mutation']['params']>
+        >;
         targetedState: TargetedType | undefined;
-        mutationResources: never; // todo
-      }
+      },
+      QueryAndMutationRecord['query']['groupIdentifier'] extends string | number
+        ? {
+            queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
+            queryResources: ResourceByIdRef<
+              QueryAndMutationRecord['query']['groupIdentifier'],
+              QueryAndMutationRecord['query']['state']
+            >;
+          }
+        : {},
+      QueryAndMutationRecord['mutation']['groupIdentifier'] extends
+        | string
+        | number
+        ? {
+            mutationIdentifier: QueryAndMutationRecord['mutation']['groupIdentifier'];
+            mutationResources: ResourceByIdRef<
+              QueryAndMutationRecord['mutation']['groupIdentifier'],
+              QueryAndMutationRecord['mutation']['state']
+            >;
+          }
+        : {}
     ]
   >
 ) => TargetedType;
@@ -107,7 +123,6 @@ export type FilterQueryById<
   data: MergeObjects<
     [
       {
-        queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
         queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
         mutationResource: ResourceRef<
           NoInfer<QueryAndMutationRecord['mutation']['state']>
@@ -116,10 +131,22 @@ export type FilterQueryById<
           NoInfer<QueryAndMutationRecord['mutation']['params']>
         >;
       },
-      QueryAndMutationRecord['mutation']['isGroupedResource'] extends true
+      QueryAndMutationRecord['query']['groupIdentifier'] extends string | number
         ? {
+            queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
+            queryResources: ResourceByIdRef<
+              QueryAndMutationRecord['query']['groupIdentifier'],
+              QueryAndMutationRecord['query']['state']
+            >;
+          }
+        : {},
+      QueryAndMutationRecord['mutation']['groupIdentifier'] extends
+        | string
+        | number
+        ? {
+            mutationIdentifier: QueryAndMutationRecord['mutation']['groupIdentifier'];
             mutationResources: ResourceByIdRef<
-              string,
+              QueryAndMutationRecord['mutation']['groupIdentifier'],
               QueryAndMutationRecord['mutation']['state']
             >;
           }

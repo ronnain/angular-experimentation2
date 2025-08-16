@@ -14,10 +14,11 @@ import { ApplicationRef, ResourceRef, signal } from '@angular/core';
 import { withMutation } from './with-mutation';
 import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { withQueryById } from './with-query-by-id';
-import { vi } from 'vitest';
+import { expectTypeOf, vi } from 'vitest';
 import { query } from './query';
 import { queryById } from './query-by-id';
 import { mutation } from './mutation';
+import { ResourceByIdRef } from '../resource-by-id';
 
 type User = {
   id: string;
@@ -557,7 +558,48 @@ describe('withMutation', () => {
           queriesEffects: {
             userQueryById: {
               optimisticPatch: {
-                email: ({ mutationParams }) => mutationParams.email,
+                email: ({
+                  mutationParams,
+                  queryResource,
+                  mutationResource,
+                  queryIdentifier,
+                  queryResources,
+                  targetedState,
+                }) => {
+                  expectTypeOf(queryResource).toEqualTypeOf<
+                    ResourceRef<{
+                      id: string;
+                      name: string;
+                      email: string;
+                    }>
+                  >();
+                  expect(mutationResource).toBeDefined();
+
+                  expectTypeOf(mutationResource).toEqualTypeOf<
+                    ResourceRef<User>
+                  >();
+                  expect(mutationResource).toBeDefined();
+
+                  expectTypeOf(queryIdentifier).toEqualTypeOf<string>();
+                  expect(targetedState).toBeDefined();
+
+                  expectTypeOf(queryResources).toEqualTypeOf<
+                    ResourceByIdRef<
+                      string,
+                      {
+                        id: string;
+                        name: string;
+                        email: string;
+                      }
+                    >
+                  >();
+                  expectTypeOf(targetedState).toEqualTypeOf<
+                    string | undefined
+                  >();
+                  expect(targetedState).toBeDefined();
+
+                  return mutationParams.email;
+                },
               },
               filter: ({ queryIdentifier }) => {
                 // should invalidate all queries with id > 5
