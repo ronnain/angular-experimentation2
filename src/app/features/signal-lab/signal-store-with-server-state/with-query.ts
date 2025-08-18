@@ -270,13 +270,7 @@ export function withQuery<
                             Object.entries(
                               mutationEffectOptions.optimisticPatch as Record<
                                 string,
-                                OptimisticPatchQueryFn<
-                                  any,
-                                  ResourceState,
-                                  ResourceParams,
-                                  ResourceArgsParams,
-                                  any
-                                >
+                                OptimisticPatchQueryFn<any, any>
                               >
                             ).forEach(([path, optimisticPatch]) => {
                               const queryValue = queryResource.hasValue()

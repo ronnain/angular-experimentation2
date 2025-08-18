@@ -7,7 +7,7 @@ import {
 import { ResourceByIdConfig } from './types/resource-by-id-config.type';
 import { InternalType } from './types/util.type';
 import { MutationByIdRef } from './with-mutation-by-id';
-import { Signal, signal } from '@angular/core';
+import { signal, WritableSignal } from '@angular/core';
 import { resourceById } from './resource-by-id-signal-store';
 
 export function mutationById<
@@ -36,7 +36,8 @@ export function mutationById<
   mutationByIdRef: MutationByIdRef<
     NoInfer<MutationGroupIdentifier>,
     NoInfer<MutationState>,
-    NoInfer<MutationParams>
+    NoInfer<MutationParams>,
+    NoInfer<MutationArgsParams>
   >;
   /**
    * Only used to help type inference, not used in the actual implementation.
@@ -67,9 +68,10 @@ export function mutationById<
   return (store, context) => ({
     mutationByIdRef: {
       resourceById: mutationResourcesById,
-      resourceParamsSrc: resourceParamsSrc as Signal<
+      resourceParamsSrc: resourceParamsSrc as WritableSignal<
         MutationParams | undefined
       >,
+      method: mutationConfig.method,
     },
     __types: {} as InternalType<
       NoInfer<MutationState>,

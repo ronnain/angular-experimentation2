@@ -55,10 +55,17 @@ type OptimisticMutationQuery<
       QueryAndMutationRecord['query']['isGroupedResource'] extends true
         ? {
             queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
+            queryResources: ResourceByIdRef<
+              string,
+              QueryAndMutationRecord['query']['state']
+            >;
           }
         : {},
-      QueryAndMutationRecord['mutation']['isGroupedResource'] extends true
+      QueryAndMutationRecord['mutation']['groupIdentifier'] extends
+        | string
+        | number
         ? {
+            mutationIdentifier: QueryAndMutationRecord['mutation']['groupIdentifier'];
             mutationResources: ResourceByIdRef<
               string,
               QueryAndMutationRecord['mutation']['state']
@@ -69,7 +76,7 @@ type OptimisticMutationQuery<
   >
 ) => QueryAndMutationRecord['query']['state'];
 
-type QueryImperativeEffect<
+export type QueryImperativeEffect<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 > = MergeObject<
   {
@@ -295,20 +302,21 @@ export function withMutation<
 
               untracked(() => {
                 // Handle optimistic updates on loading
-                setOptimisticQueryValues<ResourceState, ResourceParams>({
+                setOptimisticQueryValues({
                   mutationStatus,
                   queriesWithOptimisticMutation,
                   store: store as any,
                   mutationResource:
                     mutationResource as ResourceRef<ResourceState>,
-                  resourceParamsSrc: mutationResourceParamsSrc,
+                  mutationParamsSrc: mutationResourceParamsSrc,
+                  mutationIdentifier: undefined,
+                  mutationResources: undefined,
                 });
               });
 
               // Handle optimistic patch
               untracked(() => {
                 setOptimisticPatchQueriesValue({
-                  // todo test all the cases that arguments are properly retrieved
                   mutationStatus,
                   queriesWithOptimisticPatch,
                   store: store as any,
@@ -477,7 +485,7 @@ function reloadQueriesOnMutationChange<
   });
 }
 
-function setOptimisticPatchQueriesValue<
+export function setOptimisticPatchQueriesValue<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 >({
   queriesWithOptimisticPatch,
@@ -570,63 +578,89 @@ function setOptimisticPatchQueriesValue<
   }
 }
 
-function setOptimisticQueryValues<
-  ResourceState extends object | undefined,
-  ResourceParams
+export function setOptimisticQueryValues<
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 >({
-  mutationStatus,
-  queriesWithOptimisticMutation,
   store,
+  queriesWithOptimisticMutation,
+  mutationStatus,
   mutationResource,
-  resourceParamsSrc,
+  mutationParamsSrc,
+  mutationIdentifier,
+  mutationResources,
 }: {
-  mutationStatus: ResourceStatus;
-  queriesWithOptimisticMutation: [string, QueryImperativeEffect<any>][];
   store: WritableSignal<any>;
-  mutationResource: ResourceRef<ResourceState>;
-  resourceParamsSrc: () => any;
+  queriesWithOptimisticMutation: [string, QueryImperativeEffect<any>][];
+  mutationStatus: ResourceStatus;
+  mutationResource: ResourceRef<QueryAndMutationRecord['mutation']['state']>;
+  mutationParamsSrc: () => QueryAndMutationRecord['mutation']['params'];
+  mutationIdentifier:
+    | QueryAndMutationRecord['mutation']['groupIdentifier']
+    | undefined;
+  mutationResources:
+    | ResourceByIdRef<
+        string | number,
+        QueryAndMutationRecord['mutation']['state']
+      >
+    | undefined;
 }) {
   if (mutationStatus === 'loading') {
     queriesWithOptimisticMutation.forEach(
       ([queryName, queryMutationConfig]) => {
         const queryTargeted = (store as any)[queryName] as
-          | ResourceRef<any>
+          | ResourceRef<QueryAndMutationRecord['query']['state']>
           | ResourceByIdRef<string | number, any>;
         if ('hasValue' in queryTargeted) {
           const queryResource = queryTargeted;
           const optimisticValue = queryMutationConfig?.optimistic?.({
             mutationResource,
             queryResource,
-            mutationParams: resourceParamsSrc() as NonNullable<
-              NoInfer<ResourceParams>
+            mutationParams: mutationParamsSrc() as NonNullable<
+              QueryAndMutationRecord['mutation']['params']
             >,
           });
           queryResource.set(optimisticValue);
         } else {
           // use the filter to get the queries to update
           Object.entries(
-            (queryTargeted as ResourceByIdRef<string | number, any>)()
+            (
+              queryTargeted as ResourceByIdRef<
+                string | number,
+                QueryAndMutationRecord['query']['state']
+              >
+            )()
           )
             .filter(([queryIdentifier, queryResource]) => {
               if (!('filter' in queryMutationConfig)) {
                 return true;
               }
               return queryMutationConfig.filter({
-                queryIdentifier: queryIdentifier as string | number,
-                queryResource: queryResource as ResourceRef<any>,
-                mutationResource,
-                mutationParams: resourceParamsSrc() as NonNullable<
-                  NoInfer<ResourceParams>
+                queryResource: queryResource as NonNullable<
+                  typeof queryResource
                 >,
+                mutationResource,
+                mutationParams: mutationParamsSrc() as NonNullable<
+                  QueryAndMutationRecord['mutation']['params']
+                >,
+                queryIdentifier: queryIdentifier as string | number,
+                queryResources: queryTargeted,
+                mutationIdentifier,
+                mutationResources,
               });
             })
             .forEach(([queryIdentifier, queryResource]) => {
               const optimisticValue = queryMutationConfig.optimistic?.({
-                mutationResource,
-                queryResource: queryResource as ResourceRef<any>,
-                mutationParams: resourceParamsSrc() as NonNullable<
-                  NoInfer<ResourceParams>
+                queryResource: queryResource as NonNullable<
+                  typeof queryResource
                 >,
+                mutationResource,
+                mutationParams: mutationParamsSrc() as NonNullable<
+                  QueryAndMutationRecord['mutation']['params']
+                >,
+                queryIdentifier,
+                queryResources: queryTargeted,
+                mutationIdentifier,
+                mutationResources,
               });
               queryResource?.set(optimisticValue);
             });
@@ -636,7 +670,7 @@ function setOptimisticQueryValues<
   }
 }
 
-function optimisticPatchQueryResource<
+export function optimisticPatchQueryResource<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 >({
   queryResource,
