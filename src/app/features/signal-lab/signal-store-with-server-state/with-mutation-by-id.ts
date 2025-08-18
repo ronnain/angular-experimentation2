@@ -30,6 +30,7 @@ import {
   __InternalSharedMutationConfig,
   QueriesMutation,
   QueryImperativeEffect,
+  reloadQueriesOnMutationChange,
   setOptimisticPatchQueriesValue,
   setOptimisticQueryValues,
 } from './with-mutation';
@@ -274,7 +275,6 @@ export function withMutationById<
                     const mutationStatus = mutationResource.status();
                     const _mutationValue = mutationResource.value(); // track also the value
                     const _mutationParamsChange = mutationResourceParamsSrc();
-
                     // Handle optimistic updates on loading
                     untracked(() => {
                       setOptimisticQueryValues({
@@ -297,6 +297,19 @@ export function withMutationById<
                         store: store as any,
                         mutationResource,
                         mutationParamsSrc: mutationResourceParamsSrc,
+                        mutationIdentifier: incomingMutationIdentifier,
+                        mutationResources: mutationResourcesById,
+                      });
+                    });
+
+                    // Handle reload queries
+                    untracked(() => {
+                      reloadQueriesOnMutationChange({
+                        queriesWithReload,
+                        store: store as any,
+                        mutationStatus,
+                        resourceParamsSrc: mutationResourceParamsSrc,
+                        mutationResource,
                         mutationIdentifier: incomingMutationIdentifier,
                         mutationResources: mutationResourcesById,
                       });

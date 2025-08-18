@@ -328,13 +328,15 @@ export function withMutation<
               });
               // Handle reload queries
               untracked(() => {
-                reloadQueriesOnMutationChange<ResourceState, ResourceParams>({
+                reloadQueriesOnMutationChange({
                   queriesWithReload,
                   store: store as any,
                   mutationStatus,
                   resourceParamsSrc: mutationResourceParamsSrc,
                   mutationResource:
                     mutationResource as ResourceRef<ResourceState>,
+                  mutationIdentifier: undefined,
+                  mutationResources: undefined,
                 });
               });
             }),
@@ -378,27 +380,36 @@ export function withMutation<
     >
   >;
 }
-function reloadQueriesOnMutationChange<
-  ResourceState extends object | undefined,
-  ResourceParams
+export function reloadQueriesOnMutationChange<
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 >({
   queriesWithReload,
   store,
   mutationStatus,
   mutationResource,
   resourceParamsSrc,
+  mutationIdentifier,
+  mutationResources,
 }: {
-  queriesWithReload: [string, QueryImperativeEffect<any>][];
+  queriesWithReload: [string, QueryImperativeEffect<QueryAndMutationRecord>][];
   store: WritableSignal<any>;
   mutationStatus: string;
-  mutationResource: ResourceRef<ResourceState>;
+  mutationResource: ResourceRef<QueryAndMutationRecord['mutation']['state']>;
   resourceParamsSrc: () => any;
+  mutationIdentifier:
+    | QueryAndMutationRecord['mutation']['groupIdentifier']
+    | undefined;
+  mutationResources:
+    | ResourceByIdRef<string, QueryAndMutationRecord['mutation']['state']>
+    | undefined;
 }) {
   queriesWithReload.forEach(([queryName, queryMutationConfig]) => {
     const queryTargeted = (store as any)[queryName] as
-      | ResourceRef<any>
-      | ResourceByIdRef<string | number, any>;
-
+      | ResourceRef<QueryAndMutationRecord['query']['state']>
+      | ResourceByIdRef<
+          string | number,
+          QueryAndMutationRecord['query']['state']
+        >;
     if ('hasValue' in queryTargeted) {
       const queryResource = queryTargeted;
       if (queryMutationConfig.reload) {
@@ -421,8 +432,14 @@ function reloadQueriesOnMutationChange<
                     mutationResource,
                     mutationParams: untracked(() =>
                       resourceParamsSrc()
-                    ) as NonNullable<NoInfer<ResourceParams>>,
-                  })
+                    ) as NonNullable<
+                      QueryAndMutationRecord['mutation']['params']
+                    >,
+                    queryIdentifier: undefined,
+                    queryResources: undefined,
+                    mutationIdentifier: undefined,
+                    mutationResources: undefined,
+                  } as any)
                 ) {
                   queryResource.reload();
                 }
@@ -440,13 +457,14 @@ function reloadQueriesOnMutationChange<
             return true;
           }
           return queryMutationConfig.filter({
-            queryIdentifier: queryIdentifier as string | number,
-            queryResource: queryResource as ResourceRef<any>,
+            queryResource,
             mutationResource,
-            mutationParams: untracked(() => resourceParamsSrc()) as NonNullable<
-              NoInfer<ResourceParams>
-            >,
-          });
+            mutationParams: resourceParamsSrc(),
+            queryIdentifier: queryIdentifier,
+            queryResources: queryTargeted,
+            mutationIdentifier: mutationIdentifier,
+            mutationResources: mutationResources,
+          } as any);
         })
         .forEach(([queryIdentifier, queryResource]) => {
           if (queryMutationConfig.reload) {
@@ -464,12 +482,14 @@ function reloadQueriesOnMutationChange<
                   if (typeof reloadConfig === 'function') {
                     if (
                       reloadConfig({
-                        queryResource: queryResource as ResourceRef<any>,
+                        queryResource,
                         mutationResource,
-                        mutationParams: untracked(() =>
-                          resourceParamsSrc()
-                        ) as NonNullable<NoInfer<ResourceParams>>,
-                      })
+                        mutationParams: resourceParamsSrc(),
+                        queryIdentifier: queryIdentifier,
+                        queryResources: queryTargeted,
+                        mutationIdentifier: mutationIdentifier,
+                        mutationResources: mutationResources,
+                      } as any)
                     ) {
                       queryResource?.reload();
                     }
@@ -670,7 +690,7 @@ export function setOptimisticQueryValues<
   }
 }
 
-export function optimisticPatchQueryResource<
+function optimisticPatchQueryResource<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 >({
   queryResource,

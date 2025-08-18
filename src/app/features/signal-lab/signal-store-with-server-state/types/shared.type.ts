@@ -34,6 +34,7 @@ export type CustomReloadOnSpecificMutationStatus<
         : {},
       QueryAndMutationRecord['mutation']['isGroupedResource'] extends true
         ? {
+            mutationIdentifier: QueryAndMutationRecord['mutation']['groupIdentifier'];
             mutationResources: ResourceByIdRef<
               string,
               QueryAndMutationRecord['mutation']['state']
