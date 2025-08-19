@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, input } from '@angular/core';
-import { injectPluggableUserDetailsServerState } from './user-details.store';
+import { Component, input } from '@angular/core';
+import { injectUserDetailsServerState } from './user-details.store';
 
 @Component({
   selector: 'app-user-details',
@@ -87,7 +87,7 @@ import { injectPluggableUserDetailsServerState } from './user-details.store';
 export default class UserDetailsView {
   readonly userId = input.required<string>();
 
-  protected readonly store = injectPluggableUserDetailsServerState({
+  protected readonly store = injectUserDetailsServerState({
     selectedId: this.userId,
   });
 }

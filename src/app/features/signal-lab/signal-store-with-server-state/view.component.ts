@@ -16,7 +16,6 @@ import {
 import { DeclarativeStore, TestStore } from './test.store';
 import { nestedEffect } from './types/util';
 import {
-  SignalState,
   signalStore,
   signalStoreFeature,
   withProps,
@@ -61,6 +60,7 @@ const { injectPluggableUserServerState, PluggableUserServerStateStore } =
         })
       ),
     {
+      providedIn: 'root',
       isPluggable: true,
     }
   );
@@ -367,7 +367,6 @@ export default class ViewComponent {
       console.log('signalStore', s);
       const sf = signalStoreFeature(withState({ count: 0 }));
       console.log('signalStoreFeature', sf);
-      debugger;
       if (!this.newKeysForNestedEffect().newKeys) {
         return;
       }

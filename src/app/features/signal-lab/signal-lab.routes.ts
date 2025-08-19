@@ -33,6 +33,13 @@ export const signalLabRoutes: Route[] = [
           },
         ],
       },
+      {
+        path: 'signal-server-state-demo',
+        loadComponent: () =>
+          import(
+            './signal-store-with-server-state/demo/signal-server-state-demo/signal-server-state-list.view'
+          ),
+      },
     ],
   },
 ];
