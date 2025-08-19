@@ -44,7 +44,7 @@ export function rxResourceById<T, R, GroupIdentifier extends string | number>({
       return;
     }
     const group = identifier(requestValue);
-
+    debugger;
     // The effect should only trigger when the request change
     const resourceByGroupValue = untracked(() => resourceByGroup());
     const groupResourceRefExist = resourceByGroupValue[group];

@@ -13,6 +13,7 @@ Ajout des tests manquants en même temps
 ## Feature
 
 - gérer les withMutationById depuis withQuery
+- gérer les resourceById pour permettre de préserver le résultat précédent, ou alors voir par rapport au cache pour ne pas relancer l'appel ?
 - associatedState, prévoir un cas où ça vient du store ?
 - pour les withQuery/MutationById créer un proxy
 - gérer les streams via les resourcesById?

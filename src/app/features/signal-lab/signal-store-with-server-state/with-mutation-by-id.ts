@@ -205,9 +205,6 @@ export function withMutationById<
           mutationConfigData.mutationByIdRef.resourceParamsSrc;
         const mutationResourcesById =
           mutationConfigData.mutationByIdRef.resourceById;
-        const queriesEffects = queriesEffectsFn?.(
-          store as unknown as StoreInput
-        ).queriesEffects;
 
         const queriesMutation = (queriesEffectsFn?.(
           store as unknown as StoreInput
