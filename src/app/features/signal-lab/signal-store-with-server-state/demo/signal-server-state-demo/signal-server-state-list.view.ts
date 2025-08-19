@@ -33,7 +33,7 @@ export type User = {
 };
 
 // pagnitaion si on revient sur la précédente afficher la liste d'utilisateur qui devrait être save
-
+// ajouter erreur -> recharge la liste ou les listes ?
 const { UserListServerStateStore } = ServerStateStore(
   'userList',
   signalStoreFeature(
