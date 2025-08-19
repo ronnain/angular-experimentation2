@@ -21,18 +21,16 @@ import {
   createNestedStateUpdate,
   getNestedStateValue,
 } from './core/update-state.util';
-import {
-  OptimisticPathMutationQuery,
-  ReloadQueriesConfig,
-  QueryAndMutationRecordConstraints,
-  OptimisticPatchQueryFn,
-} from './types/shared.type';
+import { OptimisticPatchQueryFn } from './types/shared.type';
 import { __InternalSharedMutationConfig } from './with-mutation';
 import {
   AssociatedStateMapperFn,
   BooleanOrMapperFnByPath,
 } from './types/boolean-or-mapper-fn-by-path.type';
-import { triggerQueryReloadFromMutationChange } from './core/query.core';
+import {
+  QueryDeclarativeEffect,
+  triggerQueryReloadFromMutationChange,
+} from './core/query.core';
 
 export type QueryRef<ResourceState, ResourceParams> = {
   resource: ResourceRef<ResourceState | undefined>;
@@ -65,28 +63,6 @@ type WithQueryOutputStoreConfig<
     }
   >;
   methods: {};
-};
-
-type QueryDeclarativeEffect<
-  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
-> = {
-  optimisticUpdate?: ({
-    queryResource,
-    mutationResource,
-    mutationParams,
-  }: {
-    queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
-    mutationResource: ResourceRef<QueryAndMutationRecord['mutation']['state']>;
-    mutationParams: NoInfer<QueryAndMutationRecord['mutation']['params']>;
-  }) => NoInfer<QueryAndMutationRecord['query']['state']>;
-  reload?: ReloadQueriesConfig<QueryAndMutationRecord>;
-  /**
-   * Will patch the query specific state with the mutation data.
-   * If the query is loading, it will not patch.
-   * If the mutation data is not compatible with the query state, it will not patch.
-   * Be careful! If the mutation is already in a loading state, trigger the mutation again will cancelled the previous mutation loader and will patch with the new value.
-   */
-  optimisticPatch?: OptimisticPathMutationQuery<QueryAndMutationRecord>;
 };
 
 /**
@@ -256,12 +232,16 @@ export function withQuery<
                         });
                       }
                       if (mutationEffectOptions.reload) {
-                        triggerQueryReloadFromMutationChange<ResourceState>({
+                        triggerQueryReloadFromMutationChange({
                           reload: mutationEffectOptions.reload,
                           mutationStatus,
                           queryResource,
-                          mutationResource,
+                          mutationResource: mutationResource,
                           mutationParamsSrc,
+                          queryIdentifier: undefined,
+                          queryResources: undefined,
+                          mutationIdentifier: undefined,
+                          mutationResources: undefined,
                         });
                       }
                       if (mutationEffectOptions.optimisticPatch) {
@@ -289,7 +269,6 @@ export function withQuery<
                                   keysPath: path.split('.'),
                                 }),
                               });
-                              console.log('optimisticValue', optimisticValue);
 
                               const updatedValue = createNestedStateUpdate({
                                 state: queryValue,

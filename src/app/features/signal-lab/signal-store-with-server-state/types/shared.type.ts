@@ -30,13 +30,17 @@ export type CustomReloadOnSpecificMutationStatus<
       QueryAndMutationRecord['query']['isGroupedResource'] extends true
         ? {
             queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
+            queryResources: ResourceByIdRef<
+              string | number,
+              QueryAndMutationRecord['query']['state']
+            >;
           }
         : {},
       QueryAndMutationRecord['mutation']['isGroupedResource'] extends true
         ? {
             mutationIdentifier: QueryAndMutationRecord['mutation']['groupIdentifier'];
             mutationResources: ResourceByIdRef<
-              string,
+              string | number,
               QueryAndMutationRecord['mutation']['state']
             >;
           }

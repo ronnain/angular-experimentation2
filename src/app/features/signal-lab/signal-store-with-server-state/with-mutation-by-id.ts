@@ -320,7 +320,7 @@ export function withMutationById<
             }),
           }),
           __mutation: {
-            [`${mutationName}Mutation`]: {
+            [`${mutationName}MutationById`]: {
               paramsSource: mutationResourceParamsSrc,
             },
           },
@@ -339,7 +339,7 @@ export function withMutationById<
             const mutationMethod = mutationConfig.method;
             if (mutationMethod) {
               const mutationParamsResult = mutationMethod(mutationParams);
-              store.__mutation[`${mutationName}Mutation`].paramsSource.set(
+              store.__mutation[`${mutationName}MutationById`].paramsSource.set(
                 mutationParamsResult as ResourceParams
               );
             }

@@ -1,20 +1,99 @@
-import { ResourceRef, Signal } from '@angular/core';
-import { ReloadQueriesConfig } from '../types/shared.type';
+import { ResourceRef, ResourceStatus, Signal } from '@angular/core';
+import {
+  CustomReloadOnSpecificMutationStatus,
+  FilterQueryById,
+  OptimisticPatchQueryFn,
+  OptimisticPathMutationQuery,
+  QueryAndMutationRecordConstraints,
+  ReloadQueriesConfig,
+} from '../types/shared.type';
+import { ResourceByIdRef } from '../resource-by-id-signal-store';
+import {
+  getNestedStateValue,
+  createNestedStateUpdate,
+} from './update-state.util';
+import { MergeObjects } from '../types/util.type';
+
+export type QueryDeclarativeEffect<
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
+> = {
+  optimisticUpdate?: (
+    data: MergeObjects<
+      [
+        {
+          queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
+          mutationResource: ResourceRef<
+            NoInfer<QueryAndMutationRecord['mutation']['state']>
+          >;
+          mutationParams: NonNullable<
+            NoInfer<QueryAndMutationRecord['mutation']['params']>
+          >;
+        },
+        QueryAndMutationRecord['query']['isGroupedResource'] extends true
+          ? {
+              queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
+              queryResources: ResourceByIdRef<
+                string,
+                QueryAndMutationRecord['query']['state']
+              >;
+            }
+          : {},
+        QueryAndMutationRecord['mutation']['groupIdentifier'] extends
+          | string
+          | number
+          ? {
+              mutationIdentifier: QueryAndMutationRecord['mutation']['groupIdentifier'];
+              mutationResources: ResourceByIdRef<
+                string,
+                QueryAndMutationRecord['mutation']['state']
+              >;
+            }
+          : {}
+      ]
+    >
+  ) => QueryAndMutationRecord['query']['state'];
+  reload?: ReloadQueriesConfig<QueryAndMutationRecord>;
+  /**
+   * Will patch the query specific state with the mutation data.
+   * If the query is loading, it will not patch.
+   * If the mutation data is not compatible with the query state, it will not patch.
+   * Be careful! If the mutation is already in a loading state, trigger the mutation again will cancelled the previous mutation loader and will patch with the new value.
+   */
+  optimisticPatch?: OptimisticPathMutationQuery<QueryAndMutationRecord>;
+  filter: FilterQueryById<QueryAndMutationRecord>;
+};
 
 export function triggerQueryReloadFromMutationChange<
-  ResourceState extends object | undefined
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
 >({
   reload,
   mutationStatus,
   queryResource,
   mutationResource,
   mutationParamsSrc,
+  queryIdentifier,
+  queryResources,
+  mutationIdentifier,
+  mutationResources,
 }: {
-  reload: ReloadQueriesConfig<any>;
+  reload: ReloadQueriesConfig<QueryAndMutationRecord>;
   mutationStatus: string;
-  queryResource: ResourceRef<ResourceState | undefined>;
-  mutationResource: ResourceRef<any>;
-  mutationParamsSrc: Signal<any>;
+  queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
+  queryResources:
+    | ResourceByIdRef<string | number, QueryAndMutationRecord['query']['state']>
+    | undefined;
+  mutationResource: ResourceRef<QueryAndMutationRecord['mutation']['state']>;
+  mutationParamsSrc: Signal<
+    QueryAndMutationRecord['mutation']['params'] | undefined
+  >;
+  queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
+  mutationIdentifier: QueryAndMutationRecord['mutation']['groupIdentifier'];
+  mutationResources:
+    | ResourceByIdRef<
+        string | number,
+        QueryAndMutationRecord['mutation']['state']
+      >
+    | undefined;
 }) {
   const statusMappings = {
     onMutationError: 'error',
@@ -33,6 +112,10 @@ export function triggerQueryReloadFromMutationChange<
             queryResource,
             mutationResource,
             mutationParams: mutationParamsSrc() as any,
+            queryIdentifier,
+            mutationIdentifier,
+            mutationResources,
+            queryResources,
           })
         ) {
           queryResource.reload();
@@ -42,4 +125,213 @@ export function triggerQueryReloadFromMutationChange<
       }
     }
   });
+}
+
+export function triggerQueryReloadOnMutationStatusChange<
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
+>({
+  mutationStatus,
+  queryResourcesById,
+  mutationEffectOptions,
+  mutationResource,
+  mutationParamsSrc,
+  reloadCConfig,
+  mutationIdentifier,
+  mutationResources,
+}: {
+  mutationStatus: string;
+  queryResourcesById: ResourceByIdRef<
+    string | number,
+    QueryAndMutationRecord['query']['state']
+  >;
+  mutationEffectOptions: QueryDeclarativeEffect<QueryAndMutationRecord>;
+  mutationResource: ResourceRef<QueryAndMutationRecord['mutation']['state']>;
+  mutationParamsSrc: Signal<QueryAndMutationRecord['mutation']['params']>;
+  reloadCConfig: {
+    onMutationError?:
+      | boolean
+      | CustomReloadOnSpecificMutationStatus<QueryAndMutationRecord>;
+    onMutationResolved?:
+      | boolean
+      | CustomReloadOnSpecificMutationStatus<QueryAndMutationRecord>;
+    onMutationLoading?:
+      | boolean
+      | CustomReloadOnSpecificMutationStatus<QueryAndMutationRecord>;
+  };
+  mutationIdentifier:
+    | QueryAndMutationRecord['mutation']['groupIdentifier']
+    | undefined;
+  mutationResources:
+    | ResourceByIdRef<
+        string | number,
+        QueryAndMutationRecord['mutation']['state']
+      >
+    | undefined;
+}) {
+  if (
+    (['error', 'loading', 'resolved'] satisfies ResourceStatus[]).includes(
+      mutationStatus as any
+    )
+  ) {
+    Object.entries(
+      queryResourcesById() as Record<string | number, ResourceRef<any>>
+    )
+      .filter(([queryIdentifier, queryResource]) => {
+        return mutationEffectOptions.filter({
+          queryResource,
+          mutationResource,
+          mutationParams: mutationParamsSrc(),
+          queryIdentifier,
+          queryResources: queryResourcesById,
+          mutationIdentifier,
+          mutationResources,
+        } as any);
+      })
+      .forEach(([queryIdentifier, queryResource]) => {
+        triggerQueryReloadFromMutationChange({
+          reload: reloadCConfig,
+          mutationStatus,
+          queryResource,
+          mutationResource,
+          mutationParamsSrc,
+          queryIdentifier,
+          mutationIdentifier,
+          mutationResources,
+          queryResources: queryResourcesById,
+        });
+      });
+  }
+}
+
+export function setOptimisticPatchFromMutationOnQueryValue<
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
+>({
+  mutationStatus,
+  queryResourcesById,
+  mutationEffectOptions,
+  mutationResource,
+  mutationParamsSrc,
+  mutationIdentifier,
+  mutationResources,
+}: {
+  mutationStatus: string;
+  queryResourcesById: ResourceByIdRef<
+    string | number,
+    QueryAndMutationRecord['query']['state']
+  >;
+  mutationEffectOptions: QueryDeclarativeEffect<QueryAndMutationRecord>;
+  mutationResource: ResourceRef<QueryAndMutationRecord['mutation']['state']>;
+  mutationParamsSrc: Signal<QueryAndMutationRecord['mutation']['params']>;
+  mutationIdentifier:
+    | QueryAndMutationRecord['mutation']['groupIdentifier']
+    | undefined;
+  mutationResources:
+    | ResourceByIdRef<
+        string | number,
+        QueryAndMutationRecord['mutation']['state']
+      >
+    | undefined;
+}) {
+  if (mutationStatus === 'loading') {
+    Object.entries(
+      queryResourcesById() as Record<string | number, ResourceRef<any>>
+    )
+      .filter(([queryIdentifier, queryResource]) =>
+        mutationEffectOptions.filter({
+          queryResource,
+          mutationResource,
+          mutationParams: mutationParamsSrc(),
+          queryIdentifier,
+          queryResources: queryResourcesById,
+          mutationIdentifier,
+          mutationResources,
+        } as any)
+      )
+      .forEach(([queryIdentifier, queryResource]) => {
+        Object.entries(
+          mutationEffectOptions.optimisticPatch as Record<
+            string,
+            OptimisticPatchQueryFn<any, any>
+          >
+        ).forEach(([path, optimisticPatch]) => {
+          const queryValue = queryResource.hasValue()
+            ? queryResource.value()
+            : undefined;
+          const optimisticValue = optimisticPatch({
+            mutationResource,
+            queryResource,
+            mutationParams: mutationParamsSrc(),
+            targetedState: getNestedStateValue({
+              state: queryValue,
+              keysPath: path.split('.'),
+            }),
+          });
+          const updatedValue = createNestedStateUpdate({
+            state: queryValue,
+            keysPath: path.split('.'),
+            value: optimisticValue,
+          });
+          queryResource.set(updatedValue);
+        });
+      });
+  }
+}
+
+export function setOptimisticUpdateFromMutationOnQueryValue<
+  QueryAndMutationRecord extends QueryAndMutationRecordConstraints
+>({
+  mutationStatus,
+  queryResourcesById,
+  mutationEffectOptions,
+  mutationResource,
+  mutationParamsSrc,
+  mutationIdentifier,
+  mutationResources,
+}: {
+  mutationStatus: string;
+  queryResourcesById: ResourceByIdRef<
+    string | number,
+    QueryAndMutationRecord['query']['state']
+  >;
+  mutationEffectOptions: QueryDeclarativeEffect<QueryAndMutationRecord>;
+  mutationResource: ResourceRef<QueryAndMutationRecord['mutation']['state']>;
+  mutationParamsSrc: Signal<QueryAndMutationRecord['mutation']['params']>;
+  mutationIdentifier:
+    | QueryAndMutationRecord['mutation']['groupIdentifier']
+    | undefined;
+  mutationResources:
+    | ResourceByIdRef<
+        string | number,
+        QueryAndMutationRecord['mutation']['state']
+      >
+    | undefined;
+}) {
+  if (mutationStatus === 'loading') {
+    Object.entries(
+      queryResourcesById() as Record<string | number, ResourceRef<any>>
+    )
+      .filter(([queryIdentifier, queryResource]) =>
+        mutationEffectOptions.filter({
+          queryResource,
+          mutationResource,
+          mutationParams: mutationParamsSrc(),
+          queryIdentifier,
+          queryResources: queryResourcesById,
+          mutationIdentifier,
+          mutationResources,
+        } as any)
+      )
+      .forEach(([queryIdentifier, queryResource]) => {
+        const updatedValue = mutationEffectOptions.optimisticUpdate!({
+          queryResource,
+          mutationResource,
+          mutationParams: mutationParamsSrc(),
+          queryIdentifier,
+          queryResources: queryResourcesById,
+          mutationIdentifier,
+          mutationResources,
+        } as any);
+        queryResource.set(updatedValue);
+      });
+  }
 }

@@ -31,10 +31,7 @@ import { mutation } from './mutation';
 import { withQuery } from './with-query';
 import { rxQuery } from './rx-query';
 import { rxMutation } from './rx-mutation';
-import {
-  ServerStateStore,
-  toServerStateStoreResult,
-} from './server-state-store';
+import { ServerStateStore } from './server-state-store';
 import { SignalProxy } from './signal-proxy';
 
 const {
@@ -43,33 +40,31 @@ const {
 } = ServerStateStore(
   'pluggableUser',
   (data: SignalProxy<{ selectedId: string | undefined }>) =>
-    toServerStateStoreResult(
-      signalStoreFeature(
-        withProps(() => ({
-          selectedId: computed(() => data?.selectedId ?? undefined),
-        })),
-        withMutation('updateName', () =>
-          rxMutation({
-            method: (user: User) => user,
-            stream: ({ params: user }) => of(user),
-          })
-        ),
-        withQuery('user', () => {
-          return rxQuery({
-            params: data.selectedId,
-            stream: ({ params }) => {
-              return of({
-                id: params,
-                name: 'Romain',
-              });
-            },
-          });
+    signalStoreFeature(
+      withProps(() => ({
+        selectedId: computed(() => data?.selectedId ?? undefined),
+      })),
+      withMutation('updateName', () =>
+        rxMutation({
+          method: (user: User) => user,
+          stream: ({ params: user }) => of(user),
         })
       ),
-      {
-        isPluggable: true,
-      }
-    )
+      withQuery('user', () => {
+        return rxQuery({
+          params: data.selectedId,
+          stream: ({ params }) => {
+            return of({
+              id: params,
+              name: 'Romain',
+            });
+          },
+        });
+      })
+    ),
+  {
+    isPluggable: true,
+  }
 );
 
 const StoreTest = signalStore(

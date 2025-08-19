@@ -15,6 +15,9 @@ import { queryById } from './query-by-id';
 import { withMutation } from './with-mutation';
 import { vi } from 'vitest';
 import { mutation } from './mutation';
+import { withMutationById } from './with-mutation-by-id';
+import { mutationById } from './mutation-by-id';
+import { rxMutationById } from './rx-mutation-by-id';
 
 type User = {
   id: string;
@@ -383,6 +386,205 @@ describe('withQueryById', () => {
     await wait(50);
 
     expect(userQuery5ReloadSpy.mock.calls.length).toBe(2);
+  });
+
+  it('6- Declarative: should handle query reload on mutation by id change', async () => {
+    const returnedUser = {
+      id: '5',
+      name: 'John Doe',
+      email: 'test@a.com',
+    };
+    const Store = signalStore(
+      withState({
+        usersFetched: [] as User[],
+        lastUserFetched: undefined as User | undefined,
+      }),
+      withMutationById('user', () =>
+        rxMutationById({
+          method(user: User) {
+            return user;
+          },
+          identifier: (params) => params.id,
+          stream: ({ params }) => of<User>(params).pipe(delay(10)),
+        })
+      ),
+      withQueryById(
+        'user',
+        () =>
+          queryById({
+            params: () => '5',
+            loader: ({ params }) => {
+              console.log('params', params);
+              return lastValueFrom(of<User>(returnedUser));
+            },
+            identifier: (params) => params,
+          }),
+        (store) => ({
+          on: {
+            userMutationById: {
+              filter: ({ queryIdentifier, mutationIdentifier }) =>
+                queryIdentifier === mutationIdentifier,
+              reload: {
+                onMutationLoading: true,
+                onMutationResolved: true,
+              },
+            },
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store, ApplicationRef],
+    });
+    const store = TestBed.inject(Store);
+    await TestBed.inject(ApplicationRef).whenStable();
+    const userQuery5 = store.userQueryById()['5'];
+    await wait(50);
+
+    expect(userQuery5?.value()).toBe(returnedUser);
+    const userQuery5ReloadSpy = vi.spyOn(userQuery5!, 'reload');
+    store.mutateUser({
+      id: '5',
+      name: 'Updated User',
+      email: 'updated.doe@example.com',
+    });
+
+    await wait(50);
+
+    expect(userQuery5ReloadSpy.mock.calls.length).toBe(2);
+  });
+
+  it('7- Declarative: should handle optimistic updates (from mutation by id) on query value', async () => {
+    const returnedUser = {
+      id: '5',
+      name: 'John Doe',
+      email: 'test@a.com',
+    };
+    const Store = signalStore(
+      withState({
+        usersFetched: [] as User[],
+        lastUserFetched: undefined as User | undefined,
+      }),
+      withMutationById('user', () =>
+        mutationById({
+          method(user: User) {
+            return user;
+          },
+          loader({ params }) {
+            return lastValueFrom(of<User>(params));
+          },
+          identifier: (params) => params.id,
+        })
+      ),
+      withQueryById(
+        'user',
+        () =>
+          queryById({
+            params: () => '5',
+            loader: ({ params }) => {
+              return lastValueFrom(of<User>(returnedUser));
+            },
+            identifier: (params) => params,
+          }),
+        (store) => ({
+          on: {
+            userMutationById: {
+              optimisticUpdate: ({ mutationParams }) => mutationParams,
+              filter: ({ mutationParams, queryIdentifier }) =>
+                mutationParams.id === queryIdentifier,
+            },
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store, ApplicationRef],
+    });
+    const store = TestBed.inject(Store);
+    await TestBed.inject(ApplicationRef).whenStable();
+    const userQuery5 = store.userQueryById()['5'];
+    expect(userQuery5?.value()).toBe(returnedUser);
+
+    store.mutateUser({
+      id: '5',
+      name: 'Updated User',
+      email: 'updated.doe@example.com',
+    });
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(userQuery5?.value()).toEqual({
+      id: '5',
+      name: 'Updated User',
+      email: 'updated.doe@example.com',
+    });
+  });
+
+  it('8- Declarative: should handle optimistic patch on query value (from mutation by id)', async () => {
+    const returnedUser = {
+      id: '5',
+      name: 'John Doe',
+      email: 'test@a.com',
+    };
+    const Store = signalStore(
+      withState({
+        usersFetched: [] as User[],
+        lastUserFetched: undefined as User | undefined,
+      }),
+      withMutationById('user', () =>
+        mutationById({
+          method(user: User) {
+            return user;
+          },
+          loader({ params }) {
+            return lastValueFrom(of<User>(params));
+          },
+          identifier: (params) => params.id,
+        })
+      ),
+      withQueryById(
+        'user',
+        () =>
+          queryById({
+            params: () => '5',
+            loader: ({ params }) => {
+              return lastValueFrom(of<User>(returnedUser));
+            },
+            identifier: (params) => params,
+          }),
+        (store) => ({
+          on: {
+            userMutationById: {
+              optimisticPatch: {
+                name: ({ mutationParams }) => mutationParams.name,
+              },
+              filter: ({ mutationParams, queryIdentifier }) =>
+                mutationParams.id === queryIdentifier,
+            },
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store, ApplicationRef],
+    });
+    const store = TestBed.inject(Store);
+    await TestBed.inject(ApplicationRef).whenStable();
+    const userQuery5 = store.userQueryById()['5'];
+    expect(userQuery5?.value()).toBe(returnedUser);
+
+    store.mutateUser({
+      id: '5',
+      name: 'Updated User',
+      email: 'updated.doe@example.com',
+    });
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(userQuery5?.value()).toEqual({
+      id: '5',
+      name: 'Updated User',
+      email: 'test@a.com',
+    });
   });
 
   it('#1- Should expose private query type', async () => {
