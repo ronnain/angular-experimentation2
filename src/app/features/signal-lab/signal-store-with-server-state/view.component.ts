@@ -34,38 +34,36 @@ import { rxMutation } from './rx-mutation';
 import { ServerStateStore } from './server-state-store';
 import { SignalProxy } from './signal-proxy';
 
-const {
-  injectPluggablePluggableUserServerState,
-  PluggableUserServerStateStore,
-} = ServerStateStore(
-  'pluggableUser',
-  (data: SignalProxy<{ selectedId: string | undefined }>) =>
-    signalStoreFeature(
-      withProps(() => ({
-        selectedId: computed(() => data?.selectedId ?? undefined),
-      })),
-      withMutation('updateName', () =>
-        rxMutation({
-          method: (user: User) => user,
-          stream: ({ params: user }) => of(user),
+const { injectPluggableUserServerState, PluggableUserServerStateStore } =
+  ServerStateStore(
+    'pluggableUser',
+    (data: SignalProxy<{ selectedId: string | undefined }>) =>
+      signalStoreFeature(
+        withProps(() => ({
+          selectedId: computed(() => data?.selectedId ?? undefined),
+        })),
+        withMutation('updateName', () =>
+          rxMutation({
+            method: (user: User) => user,
+            stream: ({ params: user }) => of(user),
+          })
+        ),
+        withQuery('user', () => {
+          return rxQuery({
+            params: data.selectedId,
+            stream: ({ params }) => {
+              return of({
+                id: params,
+                name: 'Romain',
+              });
+            },
+          });
         })
       ),
-      withQuery('user', () => {
-        return rxQuery({
-          params: data.selectedId,
-          stream: ({ params }) => {
-            return of({
-              id: params,
-              name: 'Romain',
-            });
-          },
-        });
-      })
-    ),
-  {
-    isPluggable: true,
-  }
-);
+    {
+      isPluggable: true,
+    }
+  );
 
 const StoreTest = signalStore(
   withMutation('userEmail', () =>
@@ -163,7 +161,7 @@ const testQueryById = signalStore(
       on: {
         userMutation: {
           filter: ({ queryIdentifier, mutationParams }) =>
-            queryIdentifier === mutationParams.id,
+            queryIdentifier.toString() === mutationParams.id,
           optimisticPatch: {
             name: ({ mutationParams }) => mutationParams.name,
           },
@@ -304,11 +302,9 @@ export default class ViewComponent {
     PluggableUserServerStateStore
   );
 
-  protected readonly user2ServerStateStore =
-    injectPluggablePluggableUserServerState({
-      //@ts-ignore
-      selectedId: this.userSelectedId,
-    });
+  protected readonly user2ServerStateStore = injectPluggableUserServerState({
+    selectedId: this.userSelectedId,
+  });
   // protected readonly user2ServerStateStore =
   //   injectPluggablePluggableUserServerState({
   //     selectedId: this.userSelectedId,

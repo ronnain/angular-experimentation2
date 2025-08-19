@@ -16,52 +16,66 @@ import { MergeObjects } from '../types/util.type';
 
 export type QueryDeclarativeEffect<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
-> = {
-  optimisticUpdate?: (
-    data: MergeObjects<
-      [
-        {
-          queryResource: ResourceRef<QueryAndMutationRecord['query']['state']>;
-          mutationResource: ResourceRef<
-            NoInfer<QueryAndMutationRecord['mutation']['state']>
-          >;
-          mutationParams: NonNullable<
-            NoInfer<QueryAndMutationRecord['mutation']['params']>
-          >;
-        },
-        QueryAndMutationRecord['query']['isGroupedResource'] extends true
-          ? {
-              queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
-              queryResources: ResourceByIdRef<
-                string,
+> = MergeObjects<
+  [
+    {
+      optimisticUpdate?: (
+        data: MergeObjects<
+          [
+            {
+              queryResource: ResourceRef<
                 QueryAndMutationRecord['query']['state']
               >;
-            }
-          : {},
-        QueryAndMutationRecord['mutation']['groupIdentifier'] extends
-          | string
-          | number
-          ? {
-              mutationIdentifier: QueryAndMutationRecord['mutation']['groupIdentifier'];
-              mutationResources: ResourceByIdRef<
-                string,
-                QueryAndMutationRecord['mutation']['state']
+              mutationResource: ResourceRef<
+                NoInfer<QueryAndMutationRecord['mutation']['state']>
               >;
-            }
-          : {}
-      ]
-    >
-  ) => QueryAndMutationRecord['query']['state'];
-  reload?: ReloadQueriesConfig<QueryAndMutationRecord>;
-  /**
-   * Will patch the query specific state with the mutation data.
-   * If the query is loading, it will not patch.
-   * If the mutation data is not compatible with the query state, it will not patch.
-   * Be careful! If the mutation is already in a loading state, trigger the mutation again will cancelled the previous mutation loader and will patch with the new value.
-   */
-  optimisticPatch?: OptimisticPathMutationQuery<QueryAndMutationRecord>;
-  filter: FilterQueryById<QueryAndMutationRecord>;
-};
+              mutationParams: NonNullable<
+                NoInfer<QueryAndMutationRecord['mutation']['params']>
+              >;
+            },
+            QueryAndMutationRecord['query']['isGroupedResource'] extends true
+              ? {
+                  queryIdentifier: QueryAndMutationRecord['query']['groupIdentifier'];
+                  queryResources: ResourceByIdRef<
+                    string,
+                    QueryAndMutationRecord['query']['state']
+                  >;
+                }
+              : {},
+            QueryAndMutationRecord['mutation']['groupIdentifier'] extends
+              | string
+              | number
+              ? {
+                  mutationIdentifier: QueryAndMutationRecord['mutation']['groupIdentifier'];
+                  mutationResources: ResourceByIdRef<
+                    string,
+                    QueryAndMutationRecord['mutation']['state']
+                  >;
+                }
+              : {}
+          ]
+        >
+      ) => QueryAndMutationRecord['query']['state'];
+      reload?: ReloadQueriesConfig<QueryAndMutationRecord>;
+      /**
+       * Will patch the query specific state with the mutation data.
+       * If the query is loading, it will not patch.
+       * If the mutation data is not compatible with the query state, it will not patch.
+       * Be careful! If the mutation is already in a loading state, trigger the mutation again will cancelled the previous mutation loader and will patch with the new value.
+       */
+      optimisticPatch?: OptimisticPathMutationQuery<QueryAndMutationRecord>;
+    },
+    QueryAndMutationRecord['mutation']['isGroupedResource'] extends true
+      ? {
+          filter: FilterQueryById<QueryAndMutationRecord>;
+        }
+      : QueryAndMutationRecord['query']['isGroupedResource'] extends true
+      ? {
+          filter: FilterQueryById<QueryAndMutationRecord>;
+        }
+      : {}
+  ]
+>;
 
 export function triggerQueryReloadFromMutationChange<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
@@ -177,7 +191,11 @@ export function triggerQueryReloadOnMutationStatusChange<
       queryResourcesById() as Record<string | number, ResourceRef<any>>
     )
       .filter(([queryIdentifier, queryResource]) => {
-        return mutationEffectOptions.filter({
+        return (
+          mutationEffectOptions as {
+            filter: FilterQueryById<QueryAndMutationRecord>;
+          }
+        ).filter({
           queryResource,
           mutationResource,
           mutationParams: mutationParamsSrc(),
@@ -237,7 +255,11 @@ export function setOptimisticPatchFromMutationOnQueryValue<
       queryResourcesById() as Record<string | number, ResourceRef<any>>
     )
       .filter(([queryIdentifier, queryResource]) =>
-        mutationEffectOptions.filter({
+        (
+          mutationEffectOptions as {
+            filter: FilterQueryById<QueryAndMutationRecord>;
+          }
+        ).filter({
           queryResource,
           mutationResource,
           mutationParams: mutationParamsSrc(),
@@ -311,7 +333,11 @@ export function setOptimisticUpdateFromMutationOnQueryValue<
       queryResourcesById() as Record<string | number, ResourceRef<any>>
     )
       .filter(([queryIdentifier, queryResource]) =>
-        mutationEffectOptions.filter({
+        (
+          mutationEffectOptions as {
+            filter: FilterQueryById<QueryAndMutationRecord>;
+          }
+        ).filter({
           queryResource,
           mutationResource,
           mutationParams: mutationParamsSrc(),

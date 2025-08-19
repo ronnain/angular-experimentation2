@@ -179,7 +179,7 @@ export function withQueryById<
                   ResourceState,
                   ResourceParams,
                   ResourceArgsParams,
-                  MutationIsByGroup,
+                  true,
                   GroupIdentifier
                 >;
                 mutation: InternalType<
