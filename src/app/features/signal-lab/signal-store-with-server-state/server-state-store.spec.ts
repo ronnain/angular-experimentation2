@@ -1,6 +1,4 @@
 import {
-  DeepSignal,
-  SignalState,
   signalStore,
   signalStoreFeature,
   withProps,
@@ -44,17 +42,19 @@ describe('SignalServerState', () => {
       )
     );
 
-    const { UserServerStateStore, withGlobalUserServerState } =
-      ServerStateStore('user', serverStateFeature);
-    const test = ServerStateStore('user', serverStateFeature);
+    const { UserServerStateStore, withUserServerState } = ServerStateStore(
+      'user',
+      serverStateFeature
+    );
+
     expect(UserServerStateStore).toBeDefined();
-    expect(withGlobalUserServerState).toBeDefined();
+    expect(withUserServerState).toBeDefined();
 
     const consumerStore = signalStore(
       withState({
         selectedId: '1',
       }),
-      withGlobalUserServerState()
+      withUserServerState()
     );
   });
 
@@ -82,30 +82,30 @@ describe('SignalServerState', () => {
       'user',
       serverStateFeature
     );
-    const testresut = test;
-    //.   ^?
 
     TestBed.configureTestingModule({
       providers: [UserServerStateStore],
     });
-    const userServerStateStore = TestBed.inject(UserServerStateStore);
+    TestBed.runInInjectionContext(() => {
+      const userServerStateStore = TestBed.inject(UserServerStateStore);
 
-    type ExpectServerStateStorePropertiesToBeExposed = Expect<
-      Equal<
+      type ExpectServerStateStorePropertiesToBeExposed = Expect<
+        Equal<
 
-          | 'updateNameMutation'
-          | 'userQuery'
-          | 'mutateUpdateName' extends keyof typeof userServerStateStore
-          ? true
-          : false,
-        true
-      >
-    >;
+            | 'updateNameMutation'
+            | 'userQuery'
+            | 'mutateUpdateName' extends keyof typeof userServerStateStore
+            ? true
+            : false,
+          true
+        >
+      >;
 
-    expect(userServerStateStore).toBeDefined();
-    expect(userServerStateStore.updateNameMutation).toBeDefined();
-    expect(userServerStateStore.userQuery).toBeDefined();
-    expect(userServerStateStore.mutateUpdateName).toBeDefined();
+      expect(userServerStateStore).toBeDefined();
+      expect(userServerStateStore.updateNameMutation).toBeDefined();
+      expect(userServerStateStore.userQuery).toBeDefined();
+      expect(userServerStateStore.mutateUpdateName).toBeDefined();
+    });
   });
 
   it('3-should you the withServerState in signalStore and expose global server state api', () => {
@@ -128,7 +128,7 @@ describe('SignalServerState', () => {
       )
     );
 
-    const { withGlobalUserServerState } = ServerStateStore(
+    const { withUserServerState } = ServerStateStore(
       'user',
       serverStateFeature
     );
@@ -137,7 +137,7 @@ describe('SignalServerState', () => {
       withState({
         selectedId: '1',
       }),
-      withGlobalUserServerState()
+      withUserServerState()
     );
 
     TestBed.configureTestingModule({
@@ -188,15 +188,16 @@ describe('SignalServerState', () => {
       })
     );
 
-    const { UserServerStateStore, withGlobalUserServerState, isPluggable } =
-      ServerStateStore('user', serverStateFeature);
-    //    ^?
+    const { UserServerStateStore, withUserServerState, isPluggable } =
+      ServerStateStore('user', serverStateFeature, {
+        providedIn: 'root',
+      });
 
     const ConsumerStore = signalStore(
       withState({
         selectedId: '1',
       }),
-      withGlobalUserServerState()
+      withUserServerState()
     );
 
     TestBed.configureTestingModule({
@@ -218,47 +219,41 @@ describe('SignalServerState', () => {
   });
 
   it('5- should enable to set the pluggable config by using the custom inject server state store', (done) => {
-    const {
-      injectPluggableUserServerState,
-      withGlobalUserServerState,
-      isPluggable,
-    } = ServerStateStore(
-      'user',
-      (data: SignalProxy<{ selectedId: string | undefined }>) =>
-        signalStoreFeature(
-          withMutation('updateName', () =>
-            rxMutation({
-              method: (user: User) => user,
-              stream: ({ params: user }) => of(user),
+    const { injectUserServerState, withUserServerState, isPluggable } =
+      ServerStateStore(
+        'user',
+        (data: SignalProxy<{ selectedId: string | undefined }>) =>
+          signalStoreFeature(
+            withMutation('updateName', () =>
+              rxMutation({
+                method: (user: User) => user,
+                stream: ({ params: user }) => of(user),
+              })
+            ),
+            withQuery('user', () => {
+              return rxQuery({
+                params: data.selectedId,
+                stream: ({ params }) =>
+                  of({
+                    id: params,
+                    name: 'Romain',
+                  }),
+              });
             })
           ),
-          withQuery('user', () => {
-            return rxQuery({
-              params: data.selectedId,
-              stream: ({ params }) =>
-                of({
-                  id: params,
-                  name: 'Romain',
-                }),
-            });
-          })
-        ),
-      {
-        isPluggable: true,
-      }
-    );
+        {
+          isPluggable: true,
+        }
+      );
 
     TestBed.runInInjectionContext(async () => {
       const selectedId = signal('1');
-      const userServerStateStore = injectPluggableUserServerState({
+      const userServerStateStore = injectUserServerState({
         selectedId,
       });
       await wait(10);
       await TestBed.inject(ApplicationRef).whenStable();
-      console.log(
-        'userServerStateStore.userQuery.status()',
-        userServerStateStore.userQuery.status()
-      );
+
       expectTypeOf(
         userServerStateStore.userQuery.value()
       ).toEqualTypeOf<User>();

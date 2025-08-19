@@ -12,6 +12,7 @@ Ajout des tests manquants en même temps
 
 ## Feature
 
+- gérer les withMutationById depuis withQuery
 - associatedState, prévoir un cas où ça vient du store ?
 - pour les withQuery/MutationById créer un proxy
 - gérer les streams via les resourcesById?

@@ -34,6 +34,8 @@ type InferInjectedType<T extends Type<unknown>> = T extends Type<infer U>
   ? U
   : never;
 
+// todo add more tests with withUserServerState, is global or not, pluggable or not
+
 /**
  * pluggableConfig is only used by the withGlobalServerState.
  * It enables to plug some source to the server state store.
@@ -70,21 +72,29 @@ export function ServerStateStore<
      * If not provided, the store will not be provided (used for local store)
      */
     providedIn?: 'root';
+    /**
+     * Flag that indicates if the store is pluggable or not.
+     * Since the the signalStoreFeature returns a function, it is not possible to distinguish if the user passed a pluggable config or not.
+     */
     isPluggable?: IsPluggable;
   }
 ) {
   const capitalizedStateMutationName =
     serverStateName.charAt(0).toUpperCase() + serverStateName.slice(1);
-  const isPluggable = 'isPluggable' in feature ? feature.isPluggable : true;
+  const isGlobalStore = options?.providedIn === 'root';
+  const isPluggable = options?.isPluggable ?? false;
 
   const pluggableConfig = createSignalProxy(signal({}));
   //@ts-ignore
   const featureResult = isPluggable ? feature(pluggableConfig) : feature;
 
-  const ServerStateStore = signalStore(
-    { providedIn: 'root' }, // todo only if the option is provided
-    featureResult as unknown as SignalStoreFeature
-  );
+  const ServerStateStore =
+    options?.providedIn === 'root'
+      ? signalStore(
+          { providedIn: 'root' },
+          featureResult as unknown as SignalStoreFeature
+        )
+      : signalStore(featureResult as unknown as SignalStoreFeature);
 
   const injectPluggableUserServerState = (pluggableData: PluggableParams) => {
     const store = inject(ServerStateStore);
@@ -92,8 +102,7 @@ export function ServerStateStore<
     return store;
   };
 
-  // todo remove global from the name
-  const withGlobalServerState = <
+  const withServerState = <
     Input extends SignalStoreFeatureResult,
     PluggableConfigInner
   >(
@@ -105,26 +114,29 @@ export function ServerStateStore<
         ) => PluggableConfigInner
       : never
   ): SignalStoreFeature<Input, SignalStoreFeatureResultInfer> => {
-    return signalStoreFeature(
-      withProps(() => {
-        // todo plug the config into the store
-        // todo inject It only if it is the global flag
-        //@ts-ignore
-        const globalServerStateStore = inject(ServerStateStore);
-        return {
+    if (isGlobalStore) {
+      return signalStoreFeature(
+        withProps(() => {
           //@ts-ignore
-          ...globalServerStateStore,
-        };
-      })
-    ) as unknown as SignalStoreFeature<Input, SignalStoreFeatureResultInfer>;
+          const globalServerStateStore = inject(ServerStateStore);
+          return {
+            //@ts-ignore
+            ...globalServerStateStore,
+          };
+        })
+      ) as unknown as SignalStoreFeature<Input, SignalStoreFeatureResultInfer>;
+    }
+    return featureResult as unknown as SignalStoreFeature<
+      Input,
+      SignalStoreFeatureResultInfer
+    >;
   };
   return {
     [`${capitalizedStateMutationName}ServerStateStore`]: ServerStateStore,
-    [`withGlobal${capitalizedStateMutationName}ServerState`]:
-      withGlobalServerState,
+    [`with${capitalizedStateMutationName}ServerState`]: withServerState,
     ...(isPluggable
       ? {
-          [`injectPluggable${capitalizedStateMutationName}ServerState`]:
+          [`inject${capitalizedStateMutationName}ServerState`]:
             injectPluggableUserServerState,
           [`set${capitalizedStateMutationName}ServerStateConfig`]: (
             config: PluggableParams | undefined
@@ -143,7 +155,7 @@ export function ServerStateStore<
         typeof signalStore<SignalStoreFeatureResultInfer>
       >;
     } & {
-      [key in `withGlobal${Capitalize<ServerStateName>}ServerState`]: typeof withGlobalServerState;
+      [key in `with${Capitalize<ServerStateName>}ServerState`]: typeof withServerState;
     } & {
       isPluggable: IsPluggable;
       test: SignalStoreFeatureResultInfer;
@@ -151,7 +163,7 @@ export function ServerStateStore<
     IsPluggable extends false
       ? {}
       : {
-          [key in `injectPluggable${Capitalize<ServerStateName>}ServerState`]: (
+          [key in `inject${Capitalize<ServerStateName>}ServerState`]: (
             data: SignalWrapperParams<PluggableParams>
           ) => InferInjectedType<
             NonNullable<
