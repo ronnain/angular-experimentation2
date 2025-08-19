@@ -39,6 +39,7 @@ export type User = {
 
 // pagnitaion si on revient sur la précédente afficher la liste d'utilisateur qui devrait être save
 // ajouter erreur -> recharge la liste ou les listes ?
+
 const UserListServerStateStore = signalStore(
   {
     providedIn: 'root',
@@ -135,15 +136,12 @@ export default class SignalServerStateListViewComponent {
   );
 
   sourcePage = signal(1);
-  nextPage = () =>
-    this.sourcePage.update((page) => page + 1);
-  previousPage = () =>
-    this.sourcePage.update((page) => page - 1);
+  nextPage = () => this.sourcePage.update((page) => page + 1);
+  previousPage = () => this.sourcePage.update((page) => page - 1);
 
   testResource = rxResource({
     params: this.sourcePage,
     stream: ({ params: page }) => {
-      debugger;
       return this.userListServerStateStore.api.getDataList$({
         page,
         pageSize: 4,

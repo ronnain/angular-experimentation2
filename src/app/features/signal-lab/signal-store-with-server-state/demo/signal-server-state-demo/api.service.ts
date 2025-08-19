@@ -21,8 +21,8 @@ export type User = {
 export class ApiService {
   // Not a single line of RxJS ??? Realy ahah
   private dataList$ = new BehaviorSubject<User[]>([
-    { id: '1', name: 'Gef' },
-    { id: '2', name: 'Frault' },
+    { id: '1', name: 'Romain' },
+    { id: '2', name: 'Geffrault' },
     { id: '3', name: 'Rom1' },
     { id: '4', name: 'Daniel' },
     { id: '5', name: 'Toto' },
