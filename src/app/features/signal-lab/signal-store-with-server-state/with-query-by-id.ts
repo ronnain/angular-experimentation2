@@ -330,7 +330,7 @@ export function withQueryById<
                           untracked(() => {
                             setOptimisticUpdateFromMutationOnQueryValue({
                               mutationStatus,
-                              queryResourcesById,
+                              queryResourceTarget: queryResourcesById,
                               mutationEffectOptions,
                               mutationResource,
                               mutationParamsSrc,
@@ -344,7 +344,7 @@ export function withQueryById<
                           untracked(() => {
                             triggerQueryReloadOnMutationStatusChange({
                               mutationStatus,
-                              queryResourcesById,
+                              queryResourceTarget: queryResourcesById,
                               mutationEffectOptions,
                               mutationResource,
                               mutationParamsSrc,
@@ -358,8 +358,9 @@ export function withQueryById<
                           untracked(() => {
                             setOptimisticPatchFromMutationOnQueryValue({
                               mutationStatus,
-                              queryResourcesById,
-                              mutationEffectOptions,
+                              queryResourceTarget: queryResourcesById,
+                              mutationEffectOptions:
+                                mutationEffectOptions as any,
                               mutationResource,
                               mutationParamsSrc,
                               mutationIdentifier: undefined,
@@ -427,7 +428,7 @@ export function withQueryById<
                               untracked(() => {
                                 setOptimisticUpdateFromMutationOnQueryValue({
                                   mutationStatus,
-                                  queryResourcesById,
+                                  queryResourceTarget: queryResourcesById,
                                   mutationEffectOptions,
                                   mutationResource,
                                   mutationParamsSrc,
@@ -441,7 +442,7 @@ export function withQueryById<
                               untracked(() => {
                                 triggerQueryReloadOnMutationStatusChange({
                                   mutationStatus,
-                                  queryResourcesById,
+                                  queryResourceTarget: queryResourcesById,
                                   mutationEffectOptions,
                                   mutationResource,
                                   mutationParamsSrc,
@@ -455,8 +456,9 @@ export function withQueryById<
                               untracked(() => {
                                 setOptimisticPatchFromMutationOnQueryValue({
                                   mutationStatus,
-                                  queryResourcesById,
-                                  mutationEffectOptions,
+                                  queryResourceTarget: queryResourcesById,
+                                  mutationEffectOptions:
+                                    mutationEffectOptions as any,
                                   mutationResource,
                                   mutationParamsSrc,
                                   mutationIdentifier: mutationIdentifier,
