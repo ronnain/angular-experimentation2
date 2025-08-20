@@ -12,8 +12,8 @@ Ajout des tests manquants en même temps
 
 ## Feature
 
-- gérer les withMutationById depuis withQuery
 - resourceById cache pour ne pas relancer l'appel ? Si on revient sur une même "page"
+- un système où on créé une mutation global, que l'on peut facilement hériter depuis différente query dans des store globale ou non (faire un cache avec les mutations comme clés, comme ça si une mutation change on invalide le cache même si la query n'est pas en train d'écouter)
 - dans les reload, forcer à n'utiliser que les clé définis
 - associatedState, prévoir un cas où ça vient du store ?
 - pour les withQuery/MutationById créer un proxy

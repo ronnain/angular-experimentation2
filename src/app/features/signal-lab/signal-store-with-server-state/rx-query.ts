@@ -22,10 +22,9 @@ export function rxQuery<
       WritableStateSource<Prettify<Input['state']>>
   >
 >(
-  queryConfig: RxResourceWithParamsOrParamsFn<
-    QueryState,
-    QueryParams,
-    QueryArgsParams
+  queryConfig: Omit<
+    RxResourceWithParamsOrParamsFn<QueryState, QueryParams, QueryArgsParams>,
+    'method'
   >
 ): (
   store: StoreInput,

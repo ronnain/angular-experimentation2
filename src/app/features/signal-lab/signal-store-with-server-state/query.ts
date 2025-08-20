@@ -21,10 +21,9 @@ export function query<
       WritableStateSource<Prettify<Input['state']>>
   >
 >(
-  queryConfig: ResourceWithParamsOrParamsFn<
-    QueryState,
-    QueryParams,
-    QueryArgsParams
+  queryConfig: Omit<
+    ResourceWithParamsOrParamsFn<QueryState, QueryParams, QueryArgsParams>,
+    'method'
   >
 ): (
   store: StoreInput,

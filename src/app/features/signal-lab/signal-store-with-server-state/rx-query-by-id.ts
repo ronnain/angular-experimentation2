@@ -23,11 +23,14 @@ export function rxQueryById<
       WritableStateSource<Prettify<Input['state']>>
   >
 >(
-  queryConfig: RxResourceByIdConfig<
-    QueryState,
-    QueryParams,
-    QueryArgsParams,
-    QueryGroupIdentifier
+  queryConfig: Omit<
+    RxResourceByIdConfig<
+      QueryState,
+      QueryParams,
+      QueryArgsParams,
+      QueryGroupIdentifier
+    >,
+    'method'
   >
 ): (
   store: StoreInput,
