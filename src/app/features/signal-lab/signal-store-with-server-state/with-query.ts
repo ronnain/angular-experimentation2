@@ -127,11 +127,16 @@ export function withQuery<
       __mutation: infer Mutations;
     }
       ? {
-          [key in keyof Mutations]?: Mutations[key] extends InternalType<
+          [key in keyof Mutations as `${key &
+            string}${'isGroupedResource' extends keyof Mutations[key]
+            ? Mutations[key]['isGroupedResource'] extends true
+              ? 'MutationById'
+              : ''
+            : never}`]?: Mutations[key] extends InternalType<
             infer MutationState,
             infer MutationParams,
             infer MutationArgsParams,
-            infer IsMutationGroupedResource,
+            infer MutationIsByGroup,
             infer MutationGroupIdentifier
           >
             ? QueryDeclarativeEffect<{
@@ -145,7 +150,7 @@ export function withQuery<
                   MutationState,
                   MutationParams,
                   MutationArgsParams,
-                  IsMutationGroupedResource,
+                  MutationIsByGroup,
                   MutationGroupIdentifier
                 >;
               }>

@@ -7,11 +7,19 @@ import {
   withState,
 } from '@ngrx/signals';
 import { withQuery } from './with-query';
-import { ResourceRef, ResourceStreamItem, signal } from '@angular/core';
+import {
+  ApplicationRef,
+  ResourceRef,
+  ResourceStreamItem,
+  signal,
+} from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { withMutation } from './with-mutation';
 import { query } from './query';
 import { mutation } from './mutation';
+import { withMutationById } from './with-mutation-by-id';
+import { rxMutationById } from './rx-mutation-by-id';
+import { vi } from 'vitest';
 
 type User = {
   id: string;
@@ -536,6 +544,74 @@ describe('Declarative server state, withQuery and withMutation', () => {
     expect(store.userQuery.status()).toBe('local');
     console.log('store.userQuery.value().email', store.userQuery.value().email);
     expect(store.userQuery.value().email).toBe('mutated@test.com');
+  });
+
+  it('5- Should handle withMutationById reactions effect', async () => {
+    vi.useFakeTimers();
+
+    const returnedUser = (id: string) => ({
+      id: `${id}`,
+      name: 'John Doe',
+      email: 'test@a.com',
+    });
+    const Store = signalStore(
+      withState({
+        usersFetched: [] as User[],
+        lastUserFetched: undefined as User | undefined,
+      }),
+      withMutationById('user', () =>
+        rxMutationById({
+          method(user: User) {
+            return user;
+          },
+          identifier: (params) => params.id,
+          stream: ({ params }) => of<User>(params).pipe(delay(1000)),
+        })
+      ),
+      withQuery(
+        'user',
+        () =>
+          query({
+            params: () => '5',
+            loader: async ({ params }) => {
+              await wait(10000);
+              return lastValueFrom(of<User>(returnedUser(params)));
+            },
+          }),
+        (store) => ({
+          on: {
+            userMutationById: {
+              filter: ({ mutationIdentifier, queryResource }) =>
+                queryResource.hasValue()
+                  ? queryResource.value().id === mutationIdentifier
+                  : false,
+              reload: {
+                onMutationLoading: true,
+                onMutationResolved: true,
+              },
+            },
+          },
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store, ApplicationRef],
+    });
+    const store = TestBed.inject(Store);
+    const userQuery = store.userQuery;
+    await vi.runAllTimersAsync();
+    expect(userQuery?.value()).toEqual(returnedUser('5'));
+    const userQuery5ReloadSpy = vi.spyOn(userQuery!, 'reload');
+    store.mutateUser({
+      id: '5',
+      name: 'Updated User',
+      email: 'updated.doe@example.com',
+    });
+
+    await vi.runAllTimersAsync();
+    expect(userQuery5ReloadSpy.mock.calls.length).toBe(2);
+    vi.restoreAllMocks();
   });
 });
 
