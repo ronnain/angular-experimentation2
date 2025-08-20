@@ -26,19 +26,10 @@ import { withMutationById } from '../../with-mutation-by-id';
 import { rxMutationById } from '../../rx-mutation-by-id';
 import { rxResource } from '@angular/core/rxjs-interop';
 
-type Pagination = {
-  page: number;
-  pageSize: number;
-};
 export type User = {
   id: string;
   name: string;
 };
-
-// todo enable to not pass a function but directly an object
-
-// pagnitaion si on revient sur la précédente afficher la liste d'utilisateur qui devrait être save
-// ajouter erreur -> recharge la liste ou les listes ?
 
 const UserListServerStateStore = signalStore(
   {
@@ -87,6 +78,10 @@ const UserListServerStateStore = signalStore(
                   ? { ...user, name: mutationParams.name }
                   : user
               ),
+          reload: {
+            onMutationError: true,
+            onMutationSuccess: true,
+          },
         },
       },
     })
