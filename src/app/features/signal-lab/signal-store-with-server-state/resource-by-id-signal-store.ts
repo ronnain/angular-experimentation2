@@ -1,6 +1,5 @@
 import {
   inject,
-  resource,
   signal,
   ResourceOptions,
   ResourceRef,
@@ -11,6 +10,7 @@ import {
   InjectionToken,
   linkedSignal,
 } from '@angular/core';
+import { preservedResource } from './preserved-resource';
 
 type Prettify<T> = {
   [K in keyof T]: T[K];
@@ -111,7 +111,7 @@ function createDynamicResource<T, R, GroupIdentifier extends string | number>(
     providers: [
       {
         provide: RESOURCE_INSTANCE_TOKEN,
-        useFactory: () => resource(resourceConfig.resourceOptions),
+        useFactory: () => preservedResource(resourceConfig.resourceOptions),
       },
     ],
     parent: parentInjector,

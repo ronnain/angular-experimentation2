@@ -1,5 +1,11 @@
 import { TestBed } from '@angular/core/testing';
-import { signalStore, signalStoreFeature, withState } from '@ngrx/signals';
+import {
+  patchState,
+  signalStore,
+  signalStoreFeature,
+  withMethods,
+  withState,
+} from '@ngrx/signals';
 import { delay, lastValueFrom, of } from 'rxjs';
 import { withQueryById } from './with-query-by-id';
 import { Equal, Expect } from '../../../../../test-type';
@@ -585,6 +591,66 @@ describe('withQueryById', () => {
       name: 'Updated User',
       email: 'test@a.com',
     });
+  });
+
+  it('9-  In pagination case, it should preserve the previous value when accessing back to a previous page', async () => {
+    vi.useFakeTimers();
+    const returnedUser = (id: string) => ({
+      id: `${id}`,
+      name: 'John Doe',
+      email: 'test@a.com',
+    });
+    const Store = signalStore(
+      withState({
+        selected: {
+          id: '1',
+        },
+      }),
+      withMethods((store) => ({
+        nextPage: () =>
+          patchState(store, (state) => ({
+            selected: { id: `${Number(state.selected.id) + 1}` },
+          })),
+        previousPage: () =>
+          patchState(store, (state) => ({
+            selected: { id: `${Number(state.selected.id) - 1}` },
+          })),
+      })),
+      withQueryById('user', (store) =>
+        queryById({
+          params: store.selected,
+          loader: ({ params: selected }) => {
+            console.log('selected', selected);
+            return lastValueFrom(
+              of<User>(returnedUser(selected.id)).pipe(delay(10000))
+            );
+          },
+          identifier: (params) => params.id,
+        })
+      )
+    );
+
+    TestBed.configureTestingModule({
+      providers: [Store, ApplicationRef],
+    });
+    const store = TestBed.inject(Store);
+
+    await vi.runAllTimersAsync();
+
+    const userSelected1 = store.userQueryById()['1'];
+    expect(userSelected1?.value()).toEqual(returnedUser('1'));
+    store.nextPage();
+    await vi.runAllTimersAsync();
+    store.previousPage();
+    expect(userSelected1?.value()).toEqual(returnedUser('1'));
+    expect(userSelected1?.status()).toEqual('loading');
+
+    await vi.runAllTimersAsync();
+
+    expect(userSelected1?.value()).toEqual(returnedUser('1'));
+    expect(userSelected1?.status()).toEqual('resolved');
+
+    vi.restoreAllMocks();
   });
 
   it('#1- Should expose private query type', async () => {

@@ -1,6 +1,5 @@
 import {
   inject,
-  resource,
   signal,
   ResourceOptions,
   ResourceRef,
@@ -11,7 +10,8 @@ import {
   InjectionToken,
   linkedSignal,
 } from '@angular/core';
-import { rxResource, RxResourceOptions } from '@angular/core/rxjs-interop';
+import { RxResourceOptions } from '@angular/core/rxjs-interop';
+import { preservedRxResource } from './signal-store-with-server-state/preserved-rx-resource';
 
 type Prettify<T> = {
   [K in keyof T]: T[K];
@@ -113,7 +113,7 @@ function createDynamicRxResource<T, R, GroupIdentifier extends string | number>(
     providers: [
       {
         provide: RESOURCE_INSTANCE_TOKEN,
-        useFactory: () => rxResource(resourceConfig.resourceOptions),
+        useFactory: () => preservedRxResource(resourceConfig.resourceOptions),
       },
     ],
     parent: parentInjector,
