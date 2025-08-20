@@ -773,7 +773,7 @@ describe('withQuery typing', () => {
               },
               reload: {
                 onMutationError: true,
-                onMutationSuccess: true,
+                onMutationResolved: true,
                 onMutationLoading: ({
                   mutationParams,
                   mutationResource,

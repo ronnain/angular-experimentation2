@@ -80,7 +80,7 @@ const UserListServerStateStore = signalStore(
               ),
           reload: {
             onMutationError: true,
-            onMutationSuccess: true,
+            onMutationResolved: true,
           },
         },
       },
