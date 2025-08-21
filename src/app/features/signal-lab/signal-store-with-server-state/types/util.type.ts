@@ -1,3 +1,4 @@
+import { Type } from '@angular/core';
 import { Prettify } from '@ngrx/signals';
 
 // It is not possible to get all the properties key of an optional object, so make the optional properties required
@@ -102,3 +103,7 @@ type Secret = typeof secret;
 export type IsNever<T> = [T] extends [never] ? true : false;
 
 export type IsAny<T> = [T] extends [Secret] ? Not<IsNever<T>> : false;
+
+export type InferInjectedType<T extends Type<unknown>> = T extends Type<infer U>
+  ? U
+  : never;

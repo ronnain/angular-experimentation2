@@ -16,7 +16,7 @@ import {
   withState,
   WritableStateSource,
 } from '@ngrx/signals';
-import { MergeObject } from './types/util.type';
+import { InferInjectedType, MergeObject } from './types/util.type';
 import {
   createSignalProxy,
   SignalProxy,
@@ -29,10 +29,6 @@ import { SignalStoreHooks } from './inner-signal-store';
 type PluggableConfig<IsPluggable extends boolean> = {
   isPluggable: IsPluggable;
 };
-
-type InferInjectedType<T extends Type<unknown>> = T extends Type<infer U>
-  ? U
-  : never;
 
 // todo add more tests with withUserServerState, is global or not, pluggable or not
 

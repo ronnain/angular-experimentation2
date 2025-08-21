@@ -1,3 +1,29 @@
+import { MergeObjects } from '../types/util.type';
+import { withQuery } from '../with-query';
+
+type QueryOutput<
+  QueryKeys extends keyof QueryRecord,
+  QueryRecord extends {
+    [key in QueryKeys]: QueryCacheCustomConfig;
+  },
+  CacheTime
+> = MergeObjects<
+  [
+    {
+      [k in keyof QueryRecord as `with${Capitalize<
+        string & k
+      >}Query`]: typeof withQuery; // todo voir pour plus tard pour ne plus avoir besoin de passer le name de la query
+    },
+    {
+      [k in keyof QueryRecord as `${k & string}QueryMutation`]: {
+        cacheTime: QueryRecord[k]['cacheTime'] extends number
+          ? QueryRecord[k]['cacheTime']
+          : CacheTime;
+      };
+    }
+  ]
+>;
+
 type QueryCacheCustomConfig = {
   cacheTime: number;
 };
@@ -14,19 +40,22 @@ type CachedQueryFactoryOutput<
       cacheTime: number;
     };
   }
-> = {
-  [k in keyof QueryRecord]: {
-    cacheTime: QueryRecord[k]['cacheTime'] extends number
-      ? QueryRecord[k]['cacheTime']
-      : CacheTime;
-  };
-} & {
-  [k in keyof QueryByIdRecord]: {
-    cacheTime: QueryByIdRecord[k]['cacheTime'] extends number
-      ? QueryByIdRecord[k]['cacheTime']
-      : CacheTime;
-  };
-};
+> = MergeObjects<
+  [
+    QueryKeys extends string
+      ? QueryOutput<QueryKeys, QueryRecord, CacheTime>
+      : {},
+    QueryByIdKeys extends string
+      ? {
+          [k in keyof QueryByIdRecord]: {
+            cacheTime: QueryByIdRecord[k]['cacheTime'] extends number
+              ? QueryByIdRecord[k]['cacheTime']
+              : CacheTime;
+          };
+        }
+      : {}
+  ]
+>;
 
 export function cachedQueryKeysFactory<
   const QueryKeys extends keyof QueryRecord,
