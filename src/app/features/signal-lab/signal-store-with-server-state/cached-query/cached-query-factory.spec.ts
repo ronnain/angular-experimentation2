@@ -3,7 +3,7 @@ import { cachedQueryKeysFactory } from './cached-query-factory';
 
 // par défault inmemory cache
 describe('Cached Query Factory', () => {
-  it('should create a cached query', () => {
+  it('should create a cached query and return an highly typed output', () => {
     const cachedQueryKeys = cachedQueryKeysFactory({
       query: {
         user: true,
@@ -11,10 +11,10 @@ describe('Cached Query Factory', () => {
       queryById: {
         users: true,
         customUsers: {
-          cacheTime: 20 as const, // Custom cache time for this query
+          cacheTime: 20, // Custom cache time for this query
         },
         customUsers2: {
-          cacheTime: 500 as const, // Custom cache time for this query
+          cacheTime: 500, // Custom cache time for this query
         },
       },
     });

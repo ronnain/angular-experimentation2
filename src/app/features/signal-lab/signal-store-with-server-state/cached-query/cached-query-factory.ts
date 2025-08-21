@@ -31,8 +31,10 @@ type CachedQueryFactoryOutput<
 export function cachedQueryKeysFactory<
   const QueryKeys extends keyof QueryRecord,
   const QueryByIdKeys extends keyof QueryByIdRecord,
-  QueryRecord extends { [key in QueryKeys]: QueryCacheCustomConfig },
-  QueryByIdRecord extends { [key in QueryByIdKeys]: { cacheTime: number } },
+  const QueryRecord extends { [key in QueryKeys]: QueryCacheCustomConfig },
+  const QueryByIdRecord extends {
+    [key in QueryByIdKeys]: QueryCacheCustomConfig;
+  },
   const CacheTime = 300000 // Default cache time in milliseconds (5 minutes)
 >(
   {
