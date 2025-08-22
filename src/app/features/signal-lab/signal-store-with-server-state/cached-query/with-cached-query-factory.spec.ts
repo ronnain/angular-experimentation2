@@ -1,6 +1,9 @@
 import { signalStore, withState } from '@ngrx/signals';
 import { query } from '../query';
-import { withCachedQueryFactory } from './with-cached-query-factory';
+import {
+  withCachedQueryFactory,
+  withCachedQueryToPlugFactory,
+} from './with-cached-query-factory';
 import { withMutation } from '../with-mutation';
 import { rxMutation } from '../rx-mutation';
 import { of } from 'rxjs';
@@ -62,13 +65,16 @@ describe('withCachedQueryFactory', () => {
 
   it('should create a typed withQuery for the signal store that can be plugged to the store', () => {
     TestBed.runInInjectionContext(() => {
-      const queryRef = (userSelected: Signal<{ id: number }>) =>
+      const queryRefToPlug = (userSelected: Signal<{ id: number }>) =>
         query({
           params: userSelected,
           loader: ({ params }) =>
             Promise.resolve({ id: params?.id, name: 'Romain' }),
         });
-      const withUserQuery = withCachedQueryFactory('user', queryRef);
+      const withUserQuery = withCachedQueryToPlugFactory(
+        'user',
+        queryRefToPlug
+      );
 
       expect(withUserQuery).toBeDefined();
 
@@ -76,18 +82,21 @@ describe('withCachedQueryFactory', () => {
         {
           providedIn: 'root',
         },
-        withState({ selected: '1' }),
+        withState({ selected: { id: 1 } }),
         withMutation('name', () =>
           rxMutation({
             method: (name: string) => name,
             stream: ({ params }) => of({ id: '4', name: params }),
           })
         ),
-        withUserQuery((store) => ({
-          on: {
-            nameMutation: {},
-          },
-        }))
+        withUserQuery(
+          (store) => store.selected,
+          (store) => ({
+            on: {
+              nameMutation: {},
+            },
+          })
+        )
       );
       const signalStoreInstance = TestBed.inject(store);
 
