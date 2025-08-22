@@ -3,9 +3,11 @@ import { Equal, Expect } from '../../../../../../test-type';
 import { cachedQueryKeysFactory } from './cached-query-factory';
 import { of } from 'rxjs';
 import { rxQuery } from '../rx-query';
-import { ResourceRef } from '@angular/core';
+import { ResourceRef, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { query } from '../query';
+import { withMutation } from '../with-mutation';
+import { rxMutation } from '../rx-mutation';
 
 // par défault inmemory cache
 describe('Cached Query Factory', () => {
@@ -69,46 +71,107 @@ describe('Cached Query Factory', () => {
   //   expect(data.customUsers2.cacheTime).toEqual(500);
   // });
 
-  it('should create a cached query and return a withFeatureQuery that can be used in signalStore and a queryMutation that can be used to mutate the query', async () => {
-    // should export the withUserQuery and userQueryMutation
-    const data = cachedQueryKeysFactory({
-      query: {
-        user: rxQuery({
-          // todo pluggeable query
-          params: () => ({
-            id: '1',
-          }),
-          stream: () => of({ id: '1', name: 'User 1' }),
-        }),
-      },
-      // queryById: {
-      //   users: true,
-      //   customUsers: {
-      //     cacheTime: 20, // Custom cache time for this query
-      //   },
-      //   customUsers2: {
-      //     cacheTime: 500, // Custom cache time for this query
-      //   },
-      // },
-    });
-    console.log('data', data);
-
-    type ExpectQueryKeysToBeLiterals = Expect<
-      Equal<keyof typeof data, 'withUserQuery' | 'userQueryMutation'>
-    >;
-
-    const { withUserQuery, userQueryMutation } = data;
-
-    expect(typeof withUserQuery).toEqual('function');
-
+  it('should create a cached query and return a withFeatureQuery that can be used in signalStore', async () => {
     await TestBed.runInInjectionContext(async () => {
+      // should export the withUserQuery and userQueryMutation
+
+      const data = cachedQueryKeysFactory({
+        queries: {
+          user: {
+            query: rxQuery({
+              // todo pluggeable query
+              // todo propose a way to inject service for the api call
+              params: () => ({
+                id: '1',
+              }),
+              stream: () => of({ id: '1', name: 'User 1' }),
+            }),
+          },
+        },
+      });
+      console.log('data', data);
+
+      type ExpectQueryKeysToBeLiterals = Expect<
+        Equal<'withUserQuery' extends keyof typeof data ? true : false, true>
+      >;
+
+      const { withUserQuery, testUserQuery } = data;
+
+      expect(typeof withUserQuery).toEqual('function');
+
       const testSignalStore = signalStore(
         { providedIn: 'root' },
         withState({ selected: '1' }),
-        withUserQuery('user', (store) =>
-          rxQuery({
-            params: store.selected,
-            stream: () => of({ id: '4', name: 'test' }),
+        withMutation('name', () =>
+          rxMutation({
+            method: (name: string) => name,
+            stream: ({ params }) => of({ id: '4', name: params }),
+          })
+        ),
+        withUserQuery(() => ({
+          on: {
+            nameMutation: {},
+          },
+        }))
+      );
+      const store = TestBed.inject(testSignalStore);
+
+      type ExpectQueryKeysToBeAssociatedWithTheCachedConfig = Expect<
+        Equal<
+          typeof store.userQuery,
+          ResourceRef<{
+            id: string;
+            name: string;
+          }>
+        >
+      >;
+
+      expect(store.userQuery).toBeDefined();
+    });
+  });
+
+  it('should create a cached query and return a withFeatureQuery that can be used plug within the signalStore', async () => {
+    await TestBed.runInInjectionContext(async () => {
+      // should export the withUserQuery and userQueryMutation
+
+      const data = cachedQueryKeysFactory({
+        queries: {
+          user: {
+            query: (source: Signal<{ id: string }>) =>
+              rxQuery({
+                // todo pluggeable query
+                // todo propose a way to inject service for the api call
+                params: source,
+                stream: () => of({ id: '1', name: 'User 1' }),
+              }),
+          },
+        },
+      });
+      console.log('data', data);
+
+      type ExpectQueryKeysToBeLiterals = Expect<
+        Equal<'withUserQuery' extends keyof typeof data ? true : false, true>
+      >;
+
+      const { withUserQuery, testUserQuery } = data;
+
+      expect(typeof withUserQuery).toEqual('function');
+
+      const testSignalStore = signalStore(
+        { providedIn: 'root' },
+        withState({ selected: '1' }),
+        withMutation('name', () =>
+          rxMutation({
+            method: (name: string) => name,
+            stream: ({ params }) => of({ id: '4', name: params }),
+          })
+        ),
+        withUserQuery(
+          (store) => store.selected,
+          () => ({
+            on: {
+              nameMutation: {},
+            },
           })
         )
       );
@@ -126,38 +189,5 @@ describe('Cached Query Factory', () => {
 
       expect(store.userQuery).toBeDefined();
     });
-
-    // type ExpectQueryKeysToBeAssociatedWithTheCachedConfig = Expect<
-    //   Equal<
-    //     (typeof data)['user'],
-    //     {
-    //       cacheTime: 300000; // 5 minutes
-    //     }
-    //   >
-    // >;
-
-    // type ExpectCustomUsersQueryToBeAssociatedWithHisCustomCachedConfig = Expect<
-    //   Equal<
-    //     (typeof data)['customUsers'],
-    //     {
-    //       cacheTime: 20; // 20ms
-    //     }
-    //   >
-    // >;
-    // type ExpectCustomUsers2QueryToBeAssociatedWithHisCustomCachedConfig =
-    //   Expect<
-    //     Equal<
-    //       (typeof data)['customUsers2'],
-    //       {
-    //         cacheTime: 500; // 500ms
-    //       }
-    //     >
-    //   >;
-
-    // expect(data.user).toBeDefined();
-    // expect(data.user.cacheTime).toEqual(300000);
-    // expect(data.users.cacheTime).toEqual(300000);
-    // expect(data.customUsers.cacheTime).toEqual(20);
-    // expect(data.customUsers2.cacheTime).toEqual(500);
   });
 });

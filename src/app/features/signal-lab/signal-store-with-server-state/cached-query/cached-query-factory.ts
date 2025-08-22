@@ -1,17 +1,12 @@
-import {
-  Prettify,
-  SignalStoreFeatureResult,
-  StateSignals,
-  WritableStateSource,
-} from '@ngrx/signals';
-import { rxQuery } from '../rx-query';
 import { InternalType, MergeObjects } from '../types/util.type';
-import { QueryOptions, QueryRef, withQuery } from '../with-query';
+import { QueryRef, withQuery } from '../with-query';
+import { withCachedQueryFactory } from './with-cached-query-factory';
 
 type QueryRefType = {
   queryRef: QueryRef<unknown, unknown>;
   __types: InternalType<unknown, unknown, unknown, false>;
 };
+
 type CachedQuery = {
   config?: QueryCacheCustomConfig;
   query: QueryRefType;
@@ -23,40 +18,44 @@ type WithQueryOutputMapper<
     [key in QueryKeys]: CachedQuery;
   }
 > = {
-  [k in keyof QueryRecord as `with${Capitalize<
-    string & k
-  >}Query`]: typeof withQuery;
+  [k in keyof QueryRecord as `with${Capitalize<string & k>}Query`]: ReturnType<
+    typeof withCachedQueryFactory<
+      k & string,
+      CachedQuery['query']['queryRef']['resource'],
+      string
+    >
+  >;
 };
-
-type QueryOutput<
-  QueryKeys extends keyof QueryRecord,
-  QueryRecord extends {
-    [key in QueryKeys]: CachedQuery;
-  },
-  CacheTime
-> = MergeObjects<
-  [
-    WithQueryOutputMapper<QueryKeys, QueryRecord>,
-    {
-      [k in keyof QueryRecord as `${k & string}QueryMutation`]: true;
-      // {
-      //   cacheTime: QueryRecord[k]['cacheTime'] extends number
-      //     ? QueryRecord[k]['cacheTime']
-      //     : CacheTime;
-      // };
-    }
-  ]
->;
 
 type QueryCacheCustomConfig = {
   cacheTime: number;
 };
 
+type WithQueryOutputMapperTyped<
+  QueryKeys extends keyof QueryRecord,
+  QueryRecord extends {
+    [key in QueryKeys]: { query: unknown };
+  },
+  k extends keyof QueryRecord
+> = ReturnType<
+  QueryRecord[k]['query'] extends (store: any, context: any) => infer R
+    ? R extends {
+        queryRef: QueryRef<infer State, infer Params>;
+      }
+      ? typeof withCachedQueryFactory<
+          k & string,
+          State extends object | undefined ? State : never,
+          Params
+        >
+      : never
+    : never
+>;
+
 type CachedQueryFactoryOutput<
   QueryKeys extends keyof QueryRecord,
   QueryByIdKeys extends keyof QueryByIdRecord,
   QueryRecord extends {
-    [key in QueryKeys]: CachedQuery;
+    [key in QueryKeys]: { query: unknown };
   },
   CacheTime, // Default cache time in milliseconds (5 minutes)
   QueryByIdRecord extends {
@@ -67,8 +66,21 @@ type CachedQueryFactoryOutput<
 > = MergeObjects<
   [
     QueryKeys extends string
-      ? QueryOutput<QueryKeys, QueryRecord, CacheTime>
+      ? {
+          [k in keyof QueryRecord as `with${Capitalize<
+            string & k
+          >}Query`]: WithQueryOutputMapperTyped<QueryKeys, QueryRecord, k>;
+        }
       : {},
+    {
+      [k in keyof QueryRecord as `test${Capitalize<
+        string & k
+      >}Query`]: QueryRecord[k] extends (store: any, context: any) => infer R
+        ? R extends { queryRef: QueryRef<infer State, infer Params> }
+          ? State
+          : never
+        : never;
+    },
     QueryByIdKeys extends string
       ? {
           [k in keyof QueryByIdRecord]: {
@@ -84,17 +96,22 @@ type CachedQueryFactoryOutput<
 export function cachedQueryKeysFactory<
   const QueryKeys extends keyof QueryRecord,
   const QueryByIdKeys extends keyof QueryByIdRecord,
-  const QueryRecord extends { [key in QueryKeys]: CachedQuery },
+  const QueryRecord extends {
+    [key in QueryKeys]: {
+      config?: QueryCacheCustomConfig;
+      query: QueryRefType;
+    };
+  },
   const QueryByIdRecord extends {
     [key in QueryByIdKeys]: QueryCacheCustomConfig;
   },
   const CacheTime = 300000 // Default cache time in milliseconds (5 minutes)
 >(
   {
-    query,
+    queries,
     queryById,
   }: {
-    query?: QueryRecord;
+    queries?: QueryRecord;
     queryById?: QueryByIdRecord;
   },
   cacheGlobalConfig?: {
@@ -114,18 +131,17 @@ export function cachedQueryKeysFactory<
 > {
   // J'ai besoin de récupérer la resource, la source params, la source stream
   return {
-    ...(query && {
-      ...Object.entries<QueryCacheCustomConfig>(query).reduce(
-        (acc, [key, value]) => {
-          const capitalizedKey = (key.charAt(0).toUpperCase() +
-            key.slice(1)) as Capitalize<QueryKeys & string>;
-          const withQueryName = `with${capitalizedKey}Query` as const;
-          // @ts-ignore
-          acc[withQueryName] = withQuery;
-          return acc;
-        },
-        {} as WithQueryOutputMapper<QueryKeys, QueryRecord>
-      ),
+    ...(queries && {
+      ...Object.entries<CachedQuery>(queries).reduce((acc, [key, value]) => {
+        const capitalizedKey = (key.charAt(0).toUpperCase() +
+          key.slice(1)) as Capitalize<QueryKeys & string>;
+        const withQueryName = `with${capitalizedKey}Query` as const;
+        console.log('value', value);
+        console.log(' value.query', value.query);
+        // @ts-ignore
+        acc[withQueryName] = withCachedQueryFactory(key, value.query);
+        return acc;
+      }, {} as WithQueryOutputMapper<QueryKeys, QueryRecord>),
     }),
     ...(queryById && {
       ...Object.entries<QueryCacheCustomConfig>(queryById).reduce(
