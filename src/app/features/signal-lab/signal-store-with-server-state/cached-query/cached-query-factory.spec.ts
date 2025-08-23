@@ -8,6 +8,7 @@ import { TestBed } from '@angular/core/testing';
 import { query } from '../query';
 import { withMutation } from '../with-mutation';
 import { rxMutation } from '../rx-mutation';
+import { SignalProxy } from '../signal-proxy';
 
 // par défault inmemory cache
 describe('Cached Query Factory', () => {
@@ -137,13 +138,18 @@ describe('Cached Query Factory', () => {
       const data = cachedQueryKeysFactory({
         queries: {
           user: {
-            query: (source: Signal<{ id: string }>) =>
+            // todo propose a way to inject service for the api call
+            // todo maybe a brand to the rxQuery to detect if it is a pluggable query or not
+            // todo creer un adaptateur pour ne pas avoir à utiliser le withUserQuery depuis un composant pour récupéer l'id dans l'url
+            // todo export injectSetUserQueryParams ? partial pour être dispo à plusieurs endroits ?
+            query: (source: SignalProxy<{ id: string }>) =>
               rxQuery({
-                // todo pluggeable query
+                // todo pluggable query, that are not mandatory to set
                 // todo propose a way to inject service for the api call
-                params: source,
-                stream: () => of({ id: '1', name: 'User 1' }),
+                params: source.id,
+                stream: ({ params: id }) => of({ id, name: 'User 1' }),
               }),
+            isPluggable: true,
           },
         },
       });
@@ -153,7 +159,10 @@ describe('Cached Query Factory', () => {
         Equal<'withUserQuery' extends keyof typeof data ? true : false, true>
       >;
 
-      const { withUserQuery, testUserQuery } = data;
+      const { withUserQuery } = data;
+
+      const t = withUserQuery;
+      //.   ^?
 
       expect(typeof withUserQuery).toEqual('function');
 
@@ -166,14 +175,9 @@ describe('Cached Query Factory', () => {
             stream: ({ params }) => of({ id: '4', name: params }),
           })
         ),
-        withUserQuery(
-          (store) => store.selected,
-          () => ({
-            on: {
-              nameMutation: {},
-            },
-          })
-        )
+        withUserQuery((store) => ({
+          id: store.selected,
+        }))
       );
       const store = TestBed.inject(testSignalStore);
 

@@ -2,6 +2,7 @@
 // Purpose: Signal proxy that exposes read signals per property + write helpers for the underlying source signal.
 
 import { Signal, signal, computed, isSignal } from '@angular/core';
+import { Merge } from '../../../util/types/merge';
 
 type AnyRecord = Record<PropertyKey, unknown>;
 
@@ -15,25 +16,33 @@ export type SignalWrapperParams<T extends object> = {
     : Signal<T[K]>;
 };
 
-export type SignalProxy<T extends object> = {
-  // For each property, you read it as a Signal of its final value (signals unwrapped).
-  readonly [K in keyof T]: T[K] extends Signal<infer U>
-    ? Signal<U>
-    : Signal<T[K]>;
-} & {
-  /** Readonly access to the whole object as a Signal<T> */
-  readonly $raw: Signal<T>;
+export type SignalProxy<
+  T extends object,
+  Public extends boolean = false
+> = Merge<
+  {
+    // For each property, you read it as a Signal of its final value (signals unwrapped).
+    readonly [K in keyof T]: T[K] extends Signal<infer U>
+      ? Signal<U>
+      : Signal<T[K]>;
+  },
+  Public extends true
+    ? {
+        /** Readonly access to the whole object as a Signal<T> */
+        readonly $raw: Signal<T>;
 
-  /** Replace the whole object */
-  $set(next: SignalWrapperParams<T>): void;
+        /** Replace the whole object */
+        $set(next: SignalWrapperParams<T>): void;
 
-  /** Get the raw property (Signal or plain value) from the current object */
-  $ref<K extends keyof T>(key: K): T[K];
-};
+        /** Get the raw property (Signal or plain value) from the current object */
+        $ref<K extends keyof T>(key: K): T[K];
+      }
+    : {}
+>;
 
 export function createSignalProxy<T extends AnyRecord>(
   src: T | Signal<T>
-): SignalProxy<T> {
+): SignalProxy<T, true> {
   const state: Signal<T> = isSignal(src) ? src : signal(src as T);
 
   // Cache property computed signals for referential stability
@@ -104,5 +113,5 @@ export function createSignalProxy<T extends AnyRecord>(
     },
   };
 
-  return new Proxy({}, handler) as SignalProxy<T>;
+  return new Proxy({}, handler) as SignalProxy<T, true>;
 }

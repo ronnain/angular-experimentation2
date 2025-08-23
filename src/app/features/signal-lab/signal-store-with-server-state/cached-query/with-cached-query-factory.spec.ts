@@ -10,6 +10,7 @@ import { of } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { Equal, Expect } from '../../../../../../test-type';
 import { ResourceRef, signal, Signal } from '@angular/core';
+import { SignalProxy } from '../signal-proxy';
 
 describe('withCachedQueryFactory', () => {
   it('should create a typed withQuery for the signal store', () => {
@@ -65,11 +66,11 @@ describe('withCachedQueryFactory', () => {
 
   it('should create a typed withQuery for the signal store that can be plugged to the store', () => {
     TestBed.runInInjectionContext(() => {
-      const queryRefToPlug = (userSelected: Signal<{ id: number }>) =>
+      const queryRefToPlug = (userSelected: SignalProxy<{ id: number }>) =>
         query({
-          params: userSelected,
+          params: userSelected.id,
           loader: ({ params }) =>
-            Promise.resolve({ id: params?.id, name: 'Romain' }),
+            Promise.resolve({ id: params, name: 'Romain' }),
         });
       const withUserQuery = withCachedQueryToPlugFactory(
         'user',
@@ -90,7 +91,9 @@ describe('withCachedQueryFactory', () => {
           })
         ),
         withUserQuery(
-          (store) => store.selected,
+          (store) => ({
+            id: store.selected.id,
+          }),
           (store) => ({
             on: {
               nameMutation: {},

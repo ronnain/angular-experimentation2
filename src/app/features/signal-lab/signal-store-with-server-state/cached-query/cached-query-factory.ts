@@ -1,6 +1,19 @@
+import {
+  Prettify,
+  SignalStoreFeature,
+  SignalStoreFeatureResult,
+  StateSignals,
+  WritableStateSource,
+} from '@ngrx/signals';
+import { SignalProxy, SignalWrapperParams } from '../signal-proxy';
 import { InternalType, MergeObjects } from '../types/util.type';
-import { QueryRef, withQuery } from '../with-query';
-import { withCachedQueryFactory } from './with-cached-query-factory';
+import { QueryOptions, QueryRef, withQuery } from '../with-query';
+import {
+  withCachedQueryFactory,
+  withCachedQueryToPlugFactory,
+} from './with-cached-query-factory';
+import { Merge } from '../../../../util/types/merge';
+import { ResourceRef } from '@angular/core';
 
 type QueryRefType = {
   queryRef: QueryRef<unknown, unknown>;
@@ -34,35 +47,60 @@ type QueryCacheCustomConfig = {
 type WithQueryOutputMapperTyped<
   QueryKeys extends keyof QueryRecord,
   QueryRecord extends {
-    [key in QueryKeys]: { query: unknown };
+    [key in QueryKeys]: { query: unknown; isPluggable?: true | false };
   },
   k extends keyof QueryRecord
-> = ReturnType<
-  QueryRecord[k]['query'] extends (store: any, context: any) => infer R
+> = QueryRecord[k]['isPluggable'] extends true
+  ? QueryRecord[k]['query'] extends (
+      data: SignalWrapperParams<infer PluggableParams>
+    ) => (store: any, context: any) => infer R
     ? R extends {
         queryRef: QueryRef<infer State, infer Params>;
       }
-      ? typeof withCachedQueryFactory<
-          k & string,
-          State extends object | undefined ? State : never,
-          Params
+      ? ReturnType<
+          typeof withCachedQueryToPlugFactory<
+            k & string,
+            State extends object | undefined ? State : never,
+            Params,
+            PluggableParams
+          >
         >
-      : never
-    : never
->;
+      : 'never2'
+    : 'never1'
+  : ReturnType<
+      QueryRecord[k]['query'] extends (store: any, context: any) => infer R
+        ? R extends {
+            queryRef: QueryRef<infer State, infer Params>;
+          }
+          ? ReturnType<
+              typeof withCachedQueryFactory<
+                k & string,
+                State extends object | undefined ? State : never,
+                Params
+              >
+            >
+          : never
+        : never
+    >;
 
 type CachedQueryFactoryOutput<
   QueryKeys extends keyof QueryRecord,
   QueryByIdKeys extends keyof QueryByIdRecord,
   QueryRecord extends {
-    [key in QueryKeys]: { query: unknown };
+    [key in QueryKeys]: {
+      isPluggable?: true | false;
+      query:
+        | QueryRefType
+        | ((data: SignalProxy<PluggableParams>) => QueryRefType);
+    };
   },
   CacheTime, // Default cache time in milliseconds (5 minutes)
   QueryByIdRecord extends {
     [key in QueryByIdKeys]: {
       cacheTime: number;
     };
-  }
+  },
+  PluggableParams extends object
 > = MergeObjects<
   [
     QueryKeys extends string
@@ -96,10 +134,13 @@ type CachedQueryFactoryOutput<
 export function cachedQueryKeysFactory<
   const QueryKeys extends keyof QueryRecord,
   const QueryByIdKeys extends keyof QueryByIdRecord,
+  PluggableParams extends object,
   const QueryRecord extends {
     [key in QueryKeys]: {
       config?: QueryCacheCustomConfig;
-      query: QueryRefType;
+      query:
+        | QueryRefType
+        | ((data: SignalProxy<PluggableParams>) => QueryRefType);
     };
   },
   const QueryByIdRecord extends {
@@ -127,7 +168,8 @@ export function cachedQueryKeysFactory<
   QueryByIdKeys,
   QueryRecord,
   CacheTime,
-  QueryByIdRecord
+  QueryByIdRecord,
+  PluggableParams
 > {
   // J'ai besoin de récupérer la resource, la source params, la source stream
   return {
@@ -160,6 +202,7 @@ export function cachedQueryKeysFactory<
     QueryByIdKeys,
     QueryRecord,
     CacheTime,
-    QueryByIdRecord
+    QueryByIdRecord,
+    PluggableParams
   >;
 }
