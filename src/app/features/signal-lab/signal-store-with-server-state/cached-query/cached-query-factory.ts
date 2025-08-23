@@ -18,10 +18,7 @@ type CachedQuery = {
 };
 
 type WithQueryOutputMapper<
-  QueryKeys extends keyof QueryRecord,
-  QueryRecord extends {
-    [key in QueryKeys]: QueryConfiguration<{}>;
-  }
+  QueryRecord extends Record<string, QueryConfiguration<{}>>
 > = {
   [k in keyof QueryRecord as `with${Capitalize<string & k>}Query`]: ReturnType<
     typeof withCachedQueryFactory<
@@ -171,16 +168,11 @@ export function cachedQueryKeysFactory<
           const capitalizedKey = (key.charAt(0).toUpperCase() +
             key.slice(1)) as Capitalize<QueryKeys & string>;
           const withQueryName = `with${capitalizedKey}Query` as const;
-          console.log('value', value);
-          console.log(' value.query', value.query);
           // @ts-ignore
           acc[withQueryName] = withCachedQueryFactory(key, value.query);
           return acc;
         },
-        {} as WithQueryOutputMapper<
-          keyof QueryConfiguration<{}>,
-          QueryConfiguration<{}>
-        >
+        {} as WithQueryOutputMapper<Record<string, QueryConfiguration<{}>>>
       ),
     }),
     ...(queryById && {

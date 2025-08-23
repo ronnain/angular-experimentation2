@@ -159,10 +159,6 @@ describe('Cached Query Factory', () => {
 
       const { withUserQuery, withUsersQuery } = data;
 
-      const t = withUserQuery;
-      //.   ^?
-      const t2 = withUsersQuery;
-      //.    ^?
       expect(typeof withUserQuery).toEqual('function');
 
       const testSignalStore = signalStore(
@@ -175,7 +171,7 @@ describe('Cached Query Factory', () => {
           })
         ),
         withUserQuery((store) => ({
-          querySource: { id: store.selected },
+          setQuerySource: (source) => ({ id: store.selected }),
         }))
       );
       const store = TestBed.inject(testSignalStore);

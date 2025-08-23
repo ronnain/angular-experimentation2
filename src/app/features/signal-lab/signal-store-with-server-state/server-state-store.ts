@@ -1,17 +1,12 @@
-import { inject, signal, Signal, Type, WritableSignal } from '@angular/core';
+import { inject, signal, Signal, Type } from '@angular/core';
 import {
-  DeepSignal,
   EmptyFeatureResult,
-  patchState,
   Prettify,
-  SignalState,
-  signalState,
   signalStore,
   signalStoreFeature,
   SignalStoreFeature,
   SignalStoreFeatureResult,
   StateSignals,
-  StateSource,
   withProps,
   withState,
   WritableStateSource,

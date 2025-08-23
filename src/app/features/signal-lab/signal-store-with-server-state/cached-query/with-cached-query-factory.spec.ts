@@ -9,8 +9,8 @@ import { rxMutation } from '../rx-mutation';
 import { of } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { Equal, Expect } from '../../../../../../test-type';
-import { ResourceRef, signal, Signal } from '@angular/core';
-import { SignalProxy } from '../signal-proxy';
+import { ResourceRef, signal } from '@angular/core';
+import { createSignalProxy, SignalProxy } from '../signal-proxy';
 
 describe('withCachedQueryFactory', () => {
   it('should create a typed withQuery for the signal store', () => {
@@ -66,13 +66,19 @@ describe('withCachedQueryFactory', () => {
 
   it('should create a typed withQuery for the signal store that can be plugged to the store', () => {
     TestBed.runInInjectionContext(() => {
-      const queryRefToPlug = (userSelected: SignalProxy<{ id: number }>) =>
+      const pluggableConfig = createSignalProxy({
+        id: undefined as number | undefined,
+      });
+      const queryRefToPlug = (
+        userSelected: SignalProxy<{ id: number | undefined }>
+      ) =>
         query({
           params: userSelected.id,
           loader: ({ params: id }) => Promise.resolve({ id, name: 'Romain' }),
         });
       const withUserQuery = withCachedQueryToPlugFactory(
         'user',
+        pluggableConfig,
         queryRefToPlug
       );
 
@@ -90,7 +96,7 @@ describe('withCachedQueryFactory', () => {
           })
         ),
         withUserQuery((store) => ({
-          dataToPlug: { id: store.selected.id },
+          setQuerySource: (source) => ({ id: store.selected.id }),
         }))
       );
       const signalStoreInstance = TestBed.inject(store);
