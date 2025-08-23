@@ -138,18 +138,16 @@ describe('Cached Query Factory', () => {
       const data = cachedQueryKeysFactory({
         queries: {
           user: {
-            // todo propose a way to inject service for the api call
-            // todo maybe a brand to the rxQuery to detect if it is a pluggable query or not
-            // todo creer un adaptateur pour ne pas avoir à utiliser le withUserQuery depuis un composant pour récupéer l'id dans l'url
-            // todo export injectSetUserQueryParams ? partial pour être dispo à plusieurs endroits ?
-            query: (source: SignalProxy<{ id: string }>) =>
+            query: (source: SignalProxy<{ id: string | undefined }>) =>
               rxQuery({
-                // todo pluggable query, that are not mandatory to set
-                // todo propose a way to inject service for the api call
                 params: source.id,
                 stream: ({ params: id }) => of({ id, name: 'User 1' }),
               }),
-            isPluggable: true,
+          },
+          users: {
+            query: rxQuery({
+              stream: () => of({ id: '1', name: 'User 1' }),
+            }),
           },
         },
       });
@@ -159,11 +157,12 @@ describe('Cached Query Factory', () => {
         Equal<'withUserQuery' extends keyof typeof data ? true : false, true>
       >;
 
-      const { withUserQuery } = data;
+      const { withUserQuery, withUsersQuery } = data;
 
       const t = withUserQuery;
       //.   ^?
-
+      const t2 = withUsersQuery;
+      //.    ^?
       expect(typeof withUserQuery).toEqual('function');
 
       const testSignalStore = signalStore(
@@ -176,7 +175,7 @@ describe('Cached Query Factory', () => {
           })
         ),
         withUserQuery((store) => ({
-          dataToPlug: { id: store.selected },
+          querySource: { id: store.selected },
         }))
       );
       const store = TestBed.inject(testSignalStore);

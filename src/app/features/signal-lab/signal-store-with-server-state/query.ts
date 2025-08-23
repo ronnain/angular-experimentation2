@@ -8,6 +8,7 @@ import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-pa
 import { InternalType } from './types/util.type';
 import { QueryRef } from './with-query';
 import { resource, ResourceOptions, Signal, signal } from '@angular/core';
+import { __INTERNAL_QueryBrand } from './types/brand';
 
 export function query<
   QueryState extends object | undefined,
@@ -39,6 +40,7 @@ export function query<
     NoInfer<QueryArgsParams>,
     false
   >;
+  [__INTERNAL_QueryBrand]: true;
 } {
   const queryResourceParamsFnSignal = signal<QueryParams | undefined>(
     undefined
@@ -62,5 +64,6 @@ export function query<
       NoInfer<QueryArgsParams>,
       false
     >,
+    [__INTERNAL_QueryBrand]: true,
   });
 }

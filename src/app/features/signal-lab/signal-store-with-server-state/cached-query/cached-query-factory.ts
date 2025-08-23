@@ -1,19 +1,11 @@
-import {
-  Prettify,
-  SignalStoreFeature,
-  SignalStoreFeatureResult,
-  StateSignals,
-  WritableStateSource,
-} from '@ngrx/signals';
 import { SignalProxy, SignalWrapperParams } from '../signal-proxy';
+import { __INTERNAL_QueryBrand, HasQueryBrand } from '../types/brand';
 import { InternalType, MergeObjects } from '../types/util.type';
-import { QueryOptions, QueryRef, withQuery } from '../with-query';
+import { QueryRef } from '../with-query';
 import {
   withCachedQueryFactory,
   withCachedQueryToPlugFactory,
 } from './with-cached-query-factory';
-import { Merge } from '../../../../util/types/merge';
-import { ResourceRef } from '@angular/core';
 
 type QueryRefType = {
   queryRef: QueryRef<unknown, unknown>;
@@ -28,7 +20,7 @@ type CachedQuery = {
 type WithQueryOutputMapper<
   QueryKeys extends keyof QueryRecord,
   QueryRecord extends {
-    [key in QueryKeys]: CachedQuery;
+    [key in QueryKeys]: QueryConfiguration<{}>;
   }
 > = {
   [k in keyof QueryRecord as `with${Capitalize<string & k>}Query`]: ReturnType<
@@ -47,11 +39,25 @@ type QueryCacheCustomConfig = {
 type WithQueryOutputMapperTyped<
   QueryKeys extends keyof QueryRecord,
   QueryRecord extends {
-    [key in QueryKeys]: { query: unknown; isPluggable?: true | false };
+    [key in QueryKeys]: { query: unknown };
   },
   k extends keyof QueryRecord
-> = QueryRecord[k]['isPluggable'] extends true
-  ? QueryRecord[k]['query'] extends (
+> = HasQueryBrand<QueryRecord[k]['query']> extends true
+  ? QueryRecord[k]['query'] extends (store: any, context: any) => infer R
+    ? R extends {
+        queryRef: QueryRef<infer State, infer Params>;
+      }
+      ? ReturnType<
+          typeof withCachedQueryFactory<
+            k & string,
+            State extends object | undefined ? State : never,
+            Params
+          >
+        >
+      : QueryRecord[k]['query']
+    : 'never4'
+  : QueryRecord[k]['query'] extends infer All
+  ? All extends (
       data: SignalWrapperParams<infer PluggableParams>
     ) => (store: any, context: any) => infer R
     ? R extends {
@@ -66,20 +72,8 @@ type WithQueryOutputMapperTyped<
           >
         >
       : 'never2'
-    : 'never1'
-  : QueryRecord[k]['query'] extends (store: any, context: any) => infer R
-  ? R extends {
-      queryRef: QueryRef<infer State, infer Params>;
-    }
-    ? ReturnType<
-        typeof withCachedQueryFactory<
-          k & string,
-          State extends object | undefined ? State : never,
-          Params
-        >
-      >
-    : never
-  : never;
+    : 'never2'
+  : 'never1';
 
 type CachedQueryFactoryOutput<
   QueryKeys extends keyof QueryRecord,
@@ -129,17 +123,17 @@ type CachedQueryFactoryOutput<
   ]
 >;
 
+type QueryConfiguration<PluggableParams extends object> = {
+  config?: QueryCacheCustomConfig;
+  query: QueryRefType | ((data: SignalProxy<PluggableParams>) => QueryRefType);
+};
+
 export function cachedQueryKeysFactory<
   const QueryKeys extends keyof QueryRecord,
   const QueryByIdKeys extends keyof QueryByIdRecord,
   PluggableParams extends object,
   const QueryRecord extends {
-    [key in QueryKeys]: {
-      config?: QueryCacheCustomConfig;
-      query:
-        | QueryRefType
-        | ((data: SignalProxy<PluggableParams>) => QueryRefType);
-    };
+    [key in QueryKeys]: QueryConfiguration<PluggableParams>;
   },
   const QueryByIdRecord extends {
     [key in QueryByIdKeys]: QueryCacheCustomConfig;
@@ -172,16 +166,22 @@ export function cachedQueryKeysFactory<
   // J'ai besoin de récupérer la resource, la source params, la source stream
   return {
     ...(queries && {
-      ...Object.entries<CachedQuery>(queries).reduce((acc, [key, value]) => {
-        const capitalizedKey = (key.charAt(0).toUpperCase() +
-          key.slice(1)) as Capitalize<QueryKeys & string>;
-        const withQueryName = `with${capitalizedKey}Query` as const;
-        console.log('value', value);
-        console.log(' value.query', value.query);
-        // @ts-ignore
-        acc[withQueryName] = withCachedQueryFactory(key, value.query);
-        return acc;
-      }, {} as WithQueryOutputMapper<QueryKeys, QueryRecord>),
+      ...Object.entries<QueryConfiguration<PluggableParams>>(queries).reduce(
+        (acc, [key, value]) => {
+          const capitalizedKey = (key.charAt(0).toUpperCase() +
+            key.slice(1)) as Capitalize<QueryKeys & string>;
+          const withQueryName = `with${capitalizedKey}Query` as const;
+          console.log('value', value);
+          console.log(' value.query', value.query);
+          // @ts-ignore
+          acc[withQueryName] = withCachedQueryFactory(key, value.query);
+          return acc;
+        },
+        {} as WithQueryOutputMapper<
+          keyof QueryConfiguration<{}>,
+          QueryConfiguration<{}>
+        >
+      ),
     }),
     ...(queryById && {
       ...Object.entries<QueryCacheCustomConfig>(queryById).reduce(

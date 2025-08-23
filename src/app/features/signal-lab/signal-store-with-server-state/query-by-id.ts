@@ -9,6 +9,7 @@ import { InternalType } from './types/util.type';
 import { QueryByIdRef } from './with-query-by-id';
 import { Signal, signal } from '@angular/core';
 import { resourceById } from './resource-by-id-signal-store';
+import { __INTERNAL_QueryBrand } from './types/brand';
 
 export function queryById<
   QueryState extends object | undefined,
@@ -51,6 +52,7 @@ export function queryById<
     false,
     NoInfer<QueryGroupIdentifier>
   >;
+  [__INTERNAL_QueryBrand]: true;
 } {
   const queryResourceParamsFnSignal = signal<QueryParams | undefined>(
     undefined
@@ -78,5 +80,6 @@ export function queryById<
       false,
       NoInfer<QueryGroupIdentifier>
     >,
+    [__INTERNAL_QueryBrand]: true,
   });
 }

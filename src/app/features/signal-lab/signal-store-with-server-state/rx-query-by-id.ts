@@ -9,6 +9,7 @@ import { QueryByIdRef } from './with-query-by-id';
 import { Signal, signal } from '@angular/core';
 import { rxResourceById } from '../rx-resource-by-id';
 import { RxResourceByIdConfig } from './types/rx-resource-by-id-config.type';
+import { __INTERNAL_QueryBrand } from './types/brand';
 
 export function rxQueryById<
   QueryState extends object | undefined,
@@ -51,6 +52,7 @@ export function rxQueryById<
     false,
     NoInfer<QueryGroupIdentifier>
   >;
+  [__INTERNAL_QueryBrand]: true;
 } {
   const queryResourceParamsFnSignal = signal<QueryParams | undefined>(
     undefined
@@ -78,5 +80,6 @@ export function rxQueryById<
       false,
       NoInfer<QueryGroupIdentifier>
     >,
+    [__INTERNAL_QueryBrand]: true,
   });
 }

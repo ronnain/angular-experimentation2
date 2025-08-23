@@ -52,7 +52,7 @@ export function withCachedQueryToPlugFactory<
         WritableStateSource<Prettify<Input['state']>>
     >
   >(
-    data: PlugData
+    data: SignalWrapperParams<PlugData>
   ) => (
     store: QueryStoreInput,
     context: Input
@@ -77,13 +77,14 @@ export function withCachedQueryToPlugFactory<
       QueryParams,
       unknown,
       {
-        dataToPlug: SignalWrapperParams<PlugData>;
+        querySource?: SignalWrapperParams<PlugData>;
       }
     >
   ) => {
     return withQuery(
       name,
-      (store) => query(options?.dataToPlug(store)),
+      (store) =>
+        query(options?.(store)?.querySource as SignalWrapperParams<PlugData>),
       options
     );
   };

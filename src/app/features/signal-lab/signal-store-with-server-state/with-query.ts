@@ -85,64 +85,59 @@ export type QueryOptions<
   ResourceParams,
   ResourceArgsParams,
   OtherProperties extends Record<string, unknown> = {}
-> = (store: NoInfer<StoreInput>) => Merge<
-  keyof OtherProperties extends string
+> = (store: NoInfer<StoreInput>) => {
+  /**
+   * Will update the state at the given path with the resource data.
+   * If the type of targeted state does not match the type of the resource,
+   * a function is required.
+   * - If the function is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
+   */
+  associatedClientState?: BooleanOrMapperFnByPath<
+    NoInfer<Input>['state'],
+    NoInfer<ResourceState>,
+    NoInfer<ResourceParams>
+  > extends infer BooleanOrMapperFnByPath
     ? {
-        [key in keyof OtherProperties]: OtherProperties[key];
+        [Path in keyof BooleanOrMapperFnByPath]?: BooleanOrMapperFnByPath[Path];
       }
-    : {},
-  {
-    /**
-     * Will update the state at the given path with the resource data.
-     * If the type of targeted state does not match the type of the resource,
-     * a function is required.
-     * - If the function is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
-     */
-    associatedClientState?: BooleanOrMapperFnByPath<
-      NoInfer<Input>['state'],
-      NoInfer<ResourceState>,
-      NoInfer<ResourceParams>
-    > extends infer BooleanOrMapperFnByPath
-      ? {
-          [Path in keyof BooleanOrMapperFnByPath]?: BooleanOrMapperFnByPath[Path];
-        }
-      : never;
-    on?: Input['props'] extends {
-      __mutation: infer Mutations;
-    }
-      ? {
-          [key in keyof Mutations as `${key &
-            string}${'isGroupedResource' extends keyof Mutations[key]
-            ? Mutations[key]['isGroupedResource'] extends true
-              ? 'MutationById'
-              : ''
-            : never}`]?: Mutations[key] extends InternalType<
-            infer MutationState,
-            infer MutationParams,
-            infer MutationArgsParams,
-            infer MutationIsByGroup,
-            infer MutationGroupIdentifier
-          >
-            ? QueryDeclarativeEffect<{
-                query: InternalType<
-                  ResourceState,
-                  ResourceParams,
-                  ResourceArgsParams,
-                  false
-                >;
-                mutation: InternalType<
-                  MutationState,
-                  MutationParams,
-                  MutationArgsParams,
-                  MutationIsByGroup,
-                  MutationGroupIdentifier
-                >;
-              }>
-            : never;
-        }
-      : never;
+    : never;
+  on?: Input['props'] extends {
+    __mutation: infer Mutations;
   }
->;
+    ? {
+        [key in keyof Mutations as `${key &
+          string}${'isGroupedResource' extends keyof Mutations[key]
+          ? Mutations[key]['isGroupedResource'] extends true
+            ? 'MutationById'
+            : ''
+          : never}`]?: Mutations[key] extends InternalType<
+          infer MutationState,
+          infer MutationParams,
+          infer MutationArgsParams,
+          infer MutationIsByGroup,
+          infer MutationGroupIdentifier
+        >
+          ? QueryDeclarativeEffect<{
+              query: InternalType<
+                ResourceState,
+                ResourceParams,
+                ResourceArgsParams,
+                false
+              >;
+              mutation: InternalType<
+                MutationState,
+                MutationParams,
+                MutationArgsParams,
+                MutationIsByGroup,
+                MutationGroupIdentifier
+              >;
+            }>
+          : never;
+      }
+    : never;
+} & {
+  [key in keyof OtherProperties]: OtherProperties[key];
+};
 
 /**
  *

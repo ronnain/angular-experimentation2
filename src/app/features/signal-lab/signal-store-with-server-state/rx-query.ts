@@ -9,6 +9,7 @@ import { InternalType } from './types/util.type';
 import { QueryRef } from './with-query';
 import { Signal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
+import { __INTERNAL_QueryBrand } from './types/brand';
 
 export function rxQuery<
   QueryState extends object | undefined,
@@ -26,7 +27,7 @@ export function rxQuery<
     RxResourceWithParamsOrParamsFn<QueryState, QueryParams, QueryArgsParams>,
     'method'
   >
-): (
+): ((
   store: StoreInput,
   context: Input
 ) => {
@@ -40,7 +41,7 @@ export function rxQuery<
     NoInfer<QueryArgsParams>,
     false
   >;
-} {
+}) & { [__INTERNAL_QueryBrand]: true } {
   const queryResourceParamsFnSignal = signal<QueryParams | undefined>(
     undefined
   );
@@ -63,5 +64,6 @@ export function rxQuery<
       NoInfer<QueryArgsParams>,
       false
     >,
+    [__INTERNAL_QueryBrand]: true,
   });
 }
