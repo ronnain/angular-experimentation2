@@ -90,16 +90,9 @@ describe('withCachedQueryFactory', () => {
             stream: ({ params }) => of({ id: '4', name: params }),
           })
         ),
-        withUserQuery(
-          (store) => ({
-            id: store.selected.id,
-          }),
-          (store) => ({
-            on: {
-              nameMutation: {},
-            },
-          })
-        )
+        withUserQuery((store) => ({
+          dataToPlug: { id: store.selected.id },
+        }))
       );
       const signalStoreInstance = TestBed.inject(store);
 

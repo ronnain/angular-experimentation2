@@ -109,7 +109,7 @@ describe('Cached Query Factory', () => {
             stream: ({ params }) => of({ id: '4', name: params }),
           })
         ),
-        withUserQuery(() => ({
+        withUserQuery((store) => ({
           on: {
             nameMutation: {},
           },
@@ -176,7 +176,7 @@ describe('Cached Query Factory', () => {
           })
         ),
         withUserQuery((store) => ({
-          id: store.selected,
+          dataToPlug: { id: store.selected },
         }))
       );
       const store = TestBed.inject(testSignalStore);

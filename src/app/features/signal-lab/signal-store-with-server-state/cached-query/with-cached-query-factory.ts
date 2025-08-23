@@ -6,7 +6,8 @@ import {
 } from '@ngrx/signals';
 import { InternalType } from '../types/util.type';
 import { QueryRef, QueryOptions, withQuery } from '../with-query';
-import { SignalProxy, SignalWrapperParams } from '../signal-proxy';
+import { Merge } from '../../../../util/types/merge';
+import { SignalWrapperParams } from '../signal-proxy';
 
 export function withCachedQueryFactory<
   const QueryName extends string,
@@ -51,7 +52,7 @@ export function withCachedQueryToPlugFactory<
         WritableStateSource<Prettify<Input['state']>>
     >
   >(
-    data: SignalProxy<PlugData>
+    data: PlugData
   ) => (
     store: QueryStoreInput,
     context: Input
@@ -69,9 +70,21 @@ export function withCachedQueryToPlugFactory<
         WritableStateSource<Prettify<Input['state']>>
     >
   >(
-    dataToPlug: (store: StoreInput) => SignalWrapperParams<PlugData>,
-    options?: QueryOptions<StoreInput, Input, QueryState, QueryParams, unknown>
+    options?: QueryOptions<
+      StoreInput,
+      Input,
+      QueryState,
+      QueryParams,
+      unknown,
+      {
+        dataToPlug: SignalWrapperParams<PlugData>;
+      }
+    >
   ) => {
-    return withQuery(name, (store) => query(dataToPlug(store)), options);
+    return withQuery(
+      name,
+      (store) => query(options?.dataToPlug(store)),
+      options
+    );
   };
 }
