@@ -67,21 +67,19 @@ type WithQueryOutputMapperTyped<
         >
       : 'never2'
     : 'never1'
-  : ReturnType<
-      QueryRecord[k]['query'] extends (store: any, context: any) => infer R
-        ? R extends {
-            queryRef: QueryRef<infer State, infer Params>;
-          }
-          ? ReturnType<
-              typeof withCachedQueryFactory<
-                k & string,
-                State extends object | undefined ? State : never,
-                Params
-              >
-            >
-          : never
-        : never
-    >;
+  : QueryRecord[k]['query'] extends (store: any, context: any) => infer R
+  ? R extends {
+      queryRef: QueryRef<infer State, infer Params>;
+    }
+    ? ReturnType<
+        typeof withCachedQueryFactory<
+          k & string,
+          State extends object | undefined ? State : never,
+          Params
+        >
+      >
+    : never
+  : never;
 
 type CachedQueryFactoryOutput<
   QueryKeys extends keyof QueryRecord,
