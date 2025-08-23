@@ -69,8 +69,7 @@ describe('withCachedQueryFactory', () => {
       const queryRefToPlug = (userSelected: SignalProxy<{ id: number }>) =>
         query({
           params: userSelected.id,
-          loader: ({ params }) =>
-            Promise.resolve({ id: params, name: 'Romain' }),
+          loader: ({ params: id }) => Promise.resolve({ id, name: 'Romain' }),
         });
       const withUserQuery = withCachedQueryToPlugFactory(
         'user',
