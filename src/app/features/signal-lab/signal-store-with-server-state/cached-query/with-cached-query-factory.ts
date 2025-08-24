@@ -40,20 +40,7 @@ export function withCachedQueryToPlugFactory<
 >(
   name: QueryName,
   querySourceProxy: SignalProxy<PlugData, true>,
-  query: <
-    Input extends SignalStoreFeatureResult,
-    QueryStoreInput extends Prettify<
-      StateSignals<Input['state']> &
-        Input['props'] &
-        Input['methods'] &
-        WritableStateSource<Prettify<Input['state']>>
-    >
-  >(
-    querySource: SignalWrapperParams<PlugData>
-  ) => (
-    store: QueryStoreInput,
-    context: Input
-  ) => {
+  queryRef: {
     queryRef: QueryRef<QueryState, QueryParams>;
     __types: InternalType<QueryState, QueryParams, unknown, false>;
   }
@@ -82,12 +69,12 @@ export function withCachedQueryToPlugFactory<
   ) => {
     return withQuery(
       name,
-      (store) =>
-        query(
-          options?.(store)?.setQuerySource?.(
-            querySourceProxy as unknown as SignalProxy<PlugData>
-          ) as SignalWrapperParams<PlugData>
-        ),
+      (store) => {
+        options?.(store)?.setQuerySource?.(
+          querySourceProxy as unknown as SignalProxy<PlugData>
+        ) as SignalWrapperParams<PlugData>;
+        return () => queryRef;
+      },
       options
     );
   };

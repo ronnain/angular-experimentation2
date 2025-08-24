@@ -366,20 +366,20 @@ export default class ViewComponent {
   constructor() {
     const result = cachedQueryKeysFactory({
       queries: {
-        // user: {
-        //   query: (data: SignalProxy<{ id: string | undefined }>) =>
-        //     rxQuery({
-        //       params: data.id,
-        //       stream: ({ params: id }) => of({ id, name: 'User 1' }),
-        //     }),
-        // },
+        user: {
+          query: (data: SignalProxy<{ id: string | undefined }>) =>
+            rxQuery({
+              params: data.id,
+              stream: ({ params: id }) => of({ id, name: 'User 1' }),
+            }),
+        },
         users: {
           query: rxQuery({
             params: signal(undefined) as Signal<undefined | string>,
             stream: (data) => {
               console.log('c stream call', data);
               return of([{ id: '1', name: 'User 1' }]).pipe(
-                delay(5000),
+                delay(10000),
                 tap((data) => console.log('c tap data emit', data))
               );
             },

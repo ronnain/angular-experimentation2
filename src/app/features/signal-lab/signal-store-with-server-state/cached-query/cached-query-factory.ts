@@ -182,9 +182,17 @@ export function cachedQueryKeysFactory<
           const capitalizedKey = (key.charAt(0).toUpperCase() +
             key.slice(1)) as Capitalize<QueryKeys & string>;
           const withQueryName = `with${capitalizedKey}Query` as const;
-          console.log('value', isBrandQueryFn(value.query));
+          console.log('value', isBrandQueryFn(value.query), key);
 
-          const queryData = (value.query as any)({}, {}) as QueryRefType;
+          const isPluggableQuery = !isBrandQueryFn(value.query);
+
+          const signalProxy = createSignalProxy(signal({})) as any;
+          const queryData = (
+            isPluggableQuery
+              ? ((value.query as any)(signalProxy) as any)({}, {})
+              : (value.query as any)?.({}, {})
+          ) as QueryRefType;
+          console.log('queryData', isPluggableQuery, queryData, key);
           const queryResource = queryData.queryRef.resource;
           const queryResourceParamsSrc = queryData.queryRef.resourceParamsSrc;
 
@@ -195,17 +203,12 @@ export function cachedQueryKeysFactory<
             waitForParamsSrcToBeEqualToPreviousValue: false,
           });
 
-          const queryEntity = isBrandQueryFn(value.query)
+          const queryEntity = isBrandQueryFn(queryData)
             ? withCachedQueryFactory(key, queryData as any)
-            : withCachedQueryToPlugFactory(
-                key,
-                createSignalProxy(signal({})) as any,
-                value.query as any
-              );
+            : withCachedQueryToPlugFactory(key, signalProxy, queryData as any);
           // @ts-ignore
           acc[withQueryName] = queryEntity;
 
-          effect(() => {});
           return acc;
         },
         {} as WithQueryOutputMapper<Record<string, QueryConfiguration<{}>>>

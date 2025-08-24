@@ -69,17 +69,22 @@ describe('withCachedQueryFactory', () => {
       const pluggableConfig = createSignalProxy({
         id: undefined as number | undefined,
       });
-      const queryRefToPlug = (
-        userSelected: SignalProxy<{ id: number | undefined }>
-      ) =>
-        query({
-          params: userSelected.id,
-          loader: ({ params: id }) => Promise.resolve({ id, name: 'Romain' }),
-        });
+      const resourceParamsSrc = signal<{ id: number } | undefined>(undefined);
+      const resourceRef = resource({
+        params: resourceParamsSrc,
+        loader: ({ params }) =>
+          Promise.resolve({ id: params?.id, name: 'Romain' }),
+      });
       const withUserQuery = withCachedQueryToPlugFactory(
         'user',
         pluggableConfig,
-        queryRefToPlug
+        {
+          queryRef: {
+            resource: resourceRef,
+            resourceParamsSrc: resourceParamsSrc,
+          },
+          __types: {} as any,
+        }
       );
 
       expect(withUserQuery).toBeDefined();
