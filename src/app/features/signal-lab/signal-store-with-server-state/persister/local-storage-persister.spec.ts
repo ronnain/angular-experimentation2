@@ -40,7 +40,7 @@ describe('localStoragePersister', () => {
         },
       });
 
-      const persister = localStoragePersister();
+      const persister = localStoragePersister('query-');
 
       persister.addQueryToPersist({
         key: 'user',
@@ -83,7 +83,7 @@ describe('localStoragePersister', () => {
         },
       });
 
-      const persister = localStoragePersister();
+      const persister = localStoragePersister('query-');
 
       persister.addQueryToPersist({
         key: 'user',
@@ -95,6 +95,93 @@ describe('localStoragePersister', () => {
       expect(queryResource.status()).toBe('local');
       expect(queryResource.value()).toEqual({ id: 1, name: 'Romain' });
       expect(localStorage.getItem).toHaveBeenCalledWith('query-user');
+    });
+  });
+
+  it('3 Should clear the persisted query from localStorage', async () => {
+    await TestBed.runInInjectionContext(async () => {
+      localStorage.setItem(
+        'query-user',
+        JSON.stringify({
+          queryParams: { id: 1 },
+          queryValue: { id: 1, name: 'Romain' },
+        })
+      );
+      const queryParamsFnSignal = signal<{ id: number } | undefined>(undefined);
+      const queryResource = rxResource({
+        params: queryParamsFnSignal,
+        stream: ({ params }) => {
+          return of({ id: params?.id, name: 'Romain' }).pipe(delay(10000));
+        },
+      });
+
+      const persister = localStoragePersister('query-');
+
+      persister.addQueryToPersist({
+        key: 'user',
+        queryResource,
+        queryResourceParamsSrc: queryParamsFnSignal,
+      });
+      expect(persister).toBeDefined();
+
+      expect(queryResource.status()).toBe('local');
+      expect(queryResource.value()).toEqual({ id: 1, name: 'Romain' });
+      expect(localStorage.getItem).toHaveBeenCalledWith('query-user');
+      persister.clearQuery('user');
+      expect(localStorage.removeItem).toHaveBeenCalledWith('query-user');
+    });
+  });
+
+  it('4 Should clear all the persisted queries from localStorage', async () => {
+    await TestBed.runInInjectionContext(async () => {
+      localStorage.setItem(
+        'query-user',
+        JSON.stringify({
+          queryParams: { id: 1 },
+          queryValue: { id: 1, name: 'Romain' },
+        })
+      );
+      localStorage.setItem(
+        'query-users',
+        JSON.stringify({
+          queryParams: { id: 1 },
+          queryValue: [{ id: 1, name: 'Romain' }],
+        })
+      );
+      const queryParamsFnSignal = signal<{ id: number } | undefined>(undefined);
+      const queryResource = rxResource({
+        params: queryParamsFnSignal,
+        stream: ({ params }) => {
+          return of({ id: params?.id, name: 'Romain' }).pipe(delay(10000));
+        },
+      });
+
+      const queryUSersParamsFnSignal = signal<{ id: number } | undefined>(
+        undefined
+      );
+      const queryUsersResource = rxResource({
+        params: queryParamsFnSignal,
+        stream: ({ params }) => {
+          return of({ id: params?.id, name: 'Romain' }).pipe(delay(10000));
+        },
+      });
+
+      const persister = localStoragePersister('query-');
+
+      persister.addQueryToPersist({
+        key: 'user',
+        queryResource,
+        queryResourceParamsSrc: queryParamsFnSignal,
+      });
+      persister.addQueryToPersist({
+        key: 'users',
+        queryResource: queryUsersResource,
+        queryResourceParamsSrc: queryUSersParamsFnSignal,
+      });
+      expect(persister).toBeDefined();
+      persister.clearAllQueries();
+      expect(localStorage.removeItem).toHaveBeenCalledWith('query-user');
+      expect(localStorage.removeItem).toHaveBeenCalledWith('query-users');
     });
   });
 });

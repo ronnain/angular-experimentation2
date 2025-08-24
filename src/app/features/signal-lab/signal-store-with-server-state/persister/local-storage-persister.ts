@@ -11,9 +11,7 @@ import {
 import { QueriesPersister } from './persister.type';
 import { nestedEffect } from '../types/util';
 
-export function localStoragePersister(
-  prefix: string = 'query-'
-): QueriesPersister {
+export function localStoragePersister(prefix: string): QueriesPersister {
   const _injector = inject(Injector);
   const queriesMap = signal(
     new Map<
@@ -103,11 +101,15 @@ export function localStoragePersister(
     clearQuery(queryKey: string): void {
       queriesMap.update((map) => {
         map.delete(queryKey);
+        localStorage.removeItem(`${prefix}${queryKey}`);
         return map;
       });
     },
 
     clearAllQueries(): void {
+      queriesMap().forEach((_, key) => {
+        localStorage.removeItem(`${prefix}${key}`);
+      });
       queriesMap.update((map) => {
         map.clear();
         return map;
