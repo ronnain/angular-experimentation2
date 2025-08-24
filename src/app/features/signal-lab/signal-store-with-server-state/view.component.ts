@@ -23,7 +23,7 @@ import {
 } from '@ngrx/signals';
 import { withQueryById } from './with-query-by-id';
 import { User } from '../resource-by-group/api.service';
-import { delay, lastValueFrom, map, of } from 'rxjs';
+import { delay, lastValueFrom, map, of, tap } from 'rxjs';
 import { queryById } from './query-by-id';
 import { withMutation } from './with-mutation';
 import { mutation } from './mutation';
@@ -32,6 +32,8 @@ import { rxQuery } from './rx-query';
 import { rxMutation } from './rx-mutation';
 import { ServerStateStore } from './server-state-store';
 import { SignalProxy } from './signal-proxy';
+import { cachedQueryKeysFactory } from './cached-query/cached-query-factory';
+import { query } from './query';
 
 const { injectPluggableUserServerState, PluggableUserServerStateStore } =
   ServerStateStore(
@@ -147,8 +149,6 @@ const testQueryById = signalStore(
           queryResources,
           queryIdentifier,
         }) => {
-          console.log('store.users()', store.users());
-          console.log('queryResource.value()', queryResource.value());
           return [
             ...store
               .users()
@@ -288,6 +288,8 @@ const testQueryById = signalStore(
     {{ user2ServerStateStore.userQuery.status() }} : user2ServerStateStore
     {{ !!user2ServerStateStore }}
     <button (click)="changeUserSelected()">change user selected</button>
+
+    <hr />
   `,
   providers: [StoreTest],
 })
@@ -362,23 +364,47 @@ export default class ViewComponent {
   });
 
   constructor() {
-    effect(() => {
-      const s = signalStore(withState({ count: 0 }));
-      console.log('signalStore', s);
-      const sf = signalStoreFeature(withState({ count: 0 }));
-      console.log('signalStoreFeature', sf);
-      if (!this.newKeysForNestedEffect().newKeys) {
-        return;
-      }
-      this.newKeysForNestedEffect().newKeys.forEach((key: string) => {
-        nestedEffect(this.injector, () =>
-          console.log(
-            `this.testNestedEffect()[${key}]`,
-            untracked(() => this.testNestedEffect())[key]()
-          )
-        );
-      });
+    const result = cachedQueryKeysFactory({
+      queries: {
+        // user: {
+        //   query: (data: SignalProxy<{ id: string | undefined }>) =>
+        //     rxQuery({
+        //       params: data.id,
+        //       stream: ({ params: id }) => of({ id, name: 'User 1' }),
+        //     }),
+        // },
+        users: {
+          query: rxQuery({
+            params: signal(undefined) as Signal<undefined | string>,
+            stream: (data) => {
+              console.log('c stream call', data);
+              return of([{ id: '1', name: 'User 1' }]).pipe(
+                delay(5000),
+                tap((data) => console.log('c tap data emit', data))
+              );
+            },
+          }),
+        },
+      },
     });
+    console.log('c result', result);
+    // effect(() => {
+    //   const s = signalStore(withState({ count: 0 }));
+    //   console.log('signalStore', s);
+    //   const sf = signalStoreFeature(withState({ count: 0 }));
+    //   console.log('signalStoreFeature', sf);
+    //   if (!this.newKeysForNestedEffect().newKeys) {
+    //     return;
+    //   }
+    //   this.newKeysForNestedEffect().newKeys.forEach((key: string) => {
+    //     nestedEffect(this.injector, () =>
+    //       console.log(
+    //         `this.testNestedEffect()[${key}]`,
+    //         untracked(() => this.testNestedEffect())[key]()
+    //       )
+    //     );
+    //   });
+    // });
   }
 
   addCategory() {

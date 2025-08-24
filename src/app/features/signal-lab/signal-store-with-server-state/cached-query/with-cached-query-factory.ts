@@ -14,10 +14,7 @@ export function withCachedQueryFactory<
   QueryParams
 >(
   name: QueryName,
-  query: (
-    store: any,
-    context: any
-  ) => {
+  queryRef: {
     queryRef: QueryRef<QueryState, QueryParams>;
     __types: InternalType<QueryState, QueryParams, unknown, false>;
   }
@@ -32,7 +29,7 @@ export function withCachedQueryFactory<
     >
   >(
     options?: QueryOptions<StoreInput, Input, QueryState, QueryParams, unknown>
-  ) => withQuery(name, (store) => query, options);
+  ) => withQuery(name, (store) => () => queryRef, options);
 }
 
 export function withCachedQueryToPlugFactory<

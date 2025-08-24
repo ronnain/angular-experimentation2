@@ -1,11 +1,23 @@
-import { SignalProxy, SignalWrapperParams } from '../signal-proxy';
-import { __INTERNAL_QueryBrand, HasQueryBrand } from '../types/brand';
+import { effect, signal, WritableSignal } from '@angular/core';
+import {
+  createSignalProxy,
+  SignalProxy,
+  SignalWrapperParams,
+} from '../signal-proxy';
+import {
+  __INTERNAL_QueryBrand,
+  HasQueryBrand,
+  isBrandQueryFn,
+} from '../types/brand';
 import { InternalType, MergeObjects } from '../types/util.type';
 import { QueryRef } from '../with-query';
 import {
   withCachedQueryFactory,
   withCachedQueryToPlugFactory,
 } from './with-cached-query-factory';
+import { QueriesPersister } from '../persister/persister.type';
+
+// todo expose enable to cache inmemory by default or use a persister or a persister to a specific query
 
 type QueryRefType = {
   queryRef: QueryRef<unknown, unknown>;
@@ -125,6 +137,8 @@ type QueryConfiguration<PluggableParams extends object> = {
   query: QueryRefType | ((data: SignalProxy<PluggableParams>) => QueryRefType);
 };
 
+// todo expose a function to clear the cache of a specific query or all queries
+
 export function cachedQueryKeysFactory<
   const QueryKeys extends keyof QueryRecord,
   const QueryByIdKeys extends keyof QueryByIdRecord,
@@ -151,6 +165,7 @@ export function cachedQueryKeysFactory<
      * If not specified, the default is 5 minutes (300000 ms).
      */
     cacheTime?: CacheTime;
+    persister?: QueriesPersister;
   }
 ): CachedQueryFactoryOutput<
   QueryKeys,
@@ -160,7 +175,6 @@ export function cachedQueryKeysFactory<
   QueryByIdRecord,
   PluggableParams
 > {
-  // J'ai besoin de récupérer la resource, la source params, la source stream
   return {
     ...(queries && {
       ...Object.entries<QueryConfiguration<PluggableParams>>(queries).reduce(
@@ -168,8 +182,30 @@ export function cachedQueryKeysFactory<
           const capitalizedKey = (key.charAt(0).toUpperCase() +
             key.slice(1)) as Capitalize<QueryKeys & string>;
           const withQueryName = `with${capitalizedKey}Query` as const;
+          console.log('value', isBrandQueryFn(value.query));
+
+          const queryData = (value.query as any)({}, {}) as QueryRefType;
+          debugger;
+          const queryResource = queryData.queryRef.resource;
+          const queryResourceParamsSrc = queryData.queryRef.resourceParamsSrc;
+
+          cacheGlobalConfig?.persister?.addQueryToPersist({
+            key,
+            queryResource,
+            queryResourceParamsSrc,
+          });
+
+          const queryEntity = isBrandQueryFn(value.query)
+            ? withCachedQueryFactory(key, queryData as any)
+            : withCachedQueryToPlugFactory(
+                key,
+                createSignalProxy(signal({})) as any,
+                value.query as any
+              );
           // @ts-ignore
-          acc[withQueryName] = withCachedQueryFactory(key, value.query);
+          acc[withQueryName] = queryEntity;
+
+          effect(() => {});
           return acc;
         },
         {} as WithQueryOutputMapper<Record<string, QueryConfiguration<{}>>>
