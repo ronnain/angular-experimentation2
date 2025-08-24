@@ -8,23 +8,17 @@ import {
   Signal,
   untracked,
 } from '@angular/core';
-import { QueriesPersister } from './persister.type';
+import { PersistedQuery, QueriesPersister } from './persister.type';
 import { nestedEffect } from '../types/util';
 import { isEqual } from '../cached-query/util';
 
 export function localStoragePersister(prefix: string): QueriesPersister {
   const _injector = inject(Injector);
   const queriesMap = signal(
-    new Map<
-      string,
-      {
-        queryResource: ResourceRef<any>;
-        queryResourceParamsSrc: Signal<unknown>;
-        storageKey: string;
-        waitForParamsSrcToBeEqualToPreviousValue: boolean;
-      }
-    >(),
-    { equal: () => false }
+    new Map<string, PersistedQuery & { storageKey: string }>(),
+    {
+      equal: () => false,
+    }
   );
 
   const newQueryKeysForNestedEffect = linkedSignal<
@@ -67,7 +61,11 @@ export function localStoragePersister(prefix: string): QueriesPersister {
           const queryParams = queryResourceParamsSrc();
           localStorage.setItem(
             storageKey,
-            JSON.stringify({ queryParams, queryValue: queryResource.value() })
+            JSON.stringify({
+              queryParams,
+              queryValue: queryResource.value(),
+              timestamp: Date.now(),
+            })
           );
         });
       });
@@ -87,7 +85,20 @@ export function localStoragePersister(prefix: string): QueriesPersister {
               return;
             }
             try {
-              const { queryValue, queryParams } = JSON.parse(storedValue);
+              const { queryValue, queryParams, timestamp } =
+                JSON.parse(storedValue);
+
+              // Check if cache is expired
+              if (
+                timestamp &&
+                data.cacheTime > 0 &&
+                isValueExpired(timestamp, data.cacheTime)
+              ) {
+                localStorage.removeItem(storageKey);
+                waitForParamsSrcToBeEqualToPreviousValueEffect.destroy();
+                return;
+              }
+
               const isEqualParams = isEqual(params, queryParams);
               if (!isEqualParams) {
                 localStorage.removeItem(storageKey);
@@ -109,24 +120,38 @@ export function localStoragePersister(prefix: string): QueriesPersister {
     });
   });
 
+  function isValueExpired(timestamp: number, cacheTime: number): boolean {
+    return Date.now() - timestamp > cacheTime;
+  }
+
   return {
-    addQueryToPersist(data: {
-      key: string;
-      queryResource: ResourceRef<any>;
-      queryResourceParamsSrc: Signal<unknown>;
-      waitForParamsSrcToBeEqualToPreviousValue: boolean;
-    }): void {
+    addQueryToPersist(data: PersistedQuery): void {
       const {
         key,
         queryResource,
         queryResourceParamsSrc,
         waitForParamsSrcToBeEqualToPreviousValue,
+        cacheTime,
       } = data;
+
       const storageKey = `${prefix}${key}`;
       const storedValue = localStorage.getItem(storageKey);
       if (storedValue && !waitForParamsSrcToBeEqualToPreviousValue) {
-        const { queryValue } = JSON.parse(storedValue);
-        queryResource.set(queryValue);
+        try {
+          const { queryValue, timestamp } = JSON.parse(storedValue);
+          if (
+            timestamp &&
+            cacheTime > 0 &&
+            isValueExpired(timestamp, cacheTime)
+          ) {
+            localStorage.removeItem(storageKey);
+          } else {
+            queryResource.set(queryValue);
+          }
+        } catch (e) {
+          console.error('Error parsing stored value from localStorage', e);
+          localStorage.removeItem(storageKey);
+        }
       }
       queriesMap.update((map) => {
         map.set(key, {
@@ -134,6 +159,8 @@ export function localStoragePersister(prefix: string): QueriesPersister {
           queryResourceParamsSrc,
           storageKey,
           waitForParamsSrcToBeEqualToPreviousValue,
+          cacheTime,
+          key,
         });
         return map;
       });

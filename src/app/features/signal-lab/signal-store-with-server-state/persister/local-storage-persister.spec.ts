@@ -47,6 +47,7 @@ describe('localStoragePersister', () => {
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
         waitForParamsSrcToBeEqualToPreviousValue: false,
+        cacheTime: 50000,
       });
       expect(persister).toBeDefined();
       expect(localStorage.setItem).not.toHaveBeenCalled();
@@ -57,13 +58,20 @@ describe('localStoragePersister', () => {
 
       expect(queryResource.status()).toBe('resolved');
       expect(queryResource.value()).toEqual({ id: 1, name: 'Romain' });
-      expect(localStorage.setItem).toHaveBeenCalledWith(
-        'query-user',
-        JSON.stringify({
-          queryParams: { id: 1 },
-          queryValue: { id: 1, name: 'Romain' },
-        })
-      );
+
+      // Check that setItem was called
+      expect(localStorage.setItem).toHaveBeenCalled();
+
+      // Verify the stored value structure by checking the mock calls
+      const setItemCalls = vi.mocked(localStorage.setItem).mock.calls;
+      const userCall = setItemCalls.find((call) => call[0] === 'query-user');
+      expect(userCall).toBeDefined();
+
+      const storedData = JSON.parse(userCall![1]);
+      expect(storedData.queryParams).toEqual({ id: 1 });
+      expect(storedData.queryValue).toEqual({ id: 1, name: 'Romain' });
+      expect(typeof storedData.timestamp).toBe('number');
+      expect(storedData.timestamp).toBeGreaterThan(0);
     });
   });
 
@@ -91,6 +99,7 @@ describe('localStoragePersister', () => {
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
         waitForParamsSrcToBeEqualToPreviousValue: false,
+        cacheTime: 50000,
       });
       expect(persister).toBeDefined();
 
@@ -124,6 +133,7 @@ describe('localStoragePersister', () => {
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
         waitForParamsSrcToBeEqualToPreviousValue: false,
+        cacheTime: 50000,
       });
       expect(persister).toBeDefined();
 
@@ -176,12 +186,14 @@ describe('localStoragePersister', () => {
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
         waitForParamsSrcToBeEqualToPreviousValue: false,
+        cacheTime: 50000,
       });
       persister.addQueryToPersist({
         key: 'users',
         queryResource: queryUsersResource,
         queryResourceParamsSrc: queryUSersParamsFnSignal,
         waitForParamsSrcToBeEqualToPreviousValue: false,
+        cacheTime: 50000,
       });
       expect(persister).toBeDefined();
       persister.clearAllQueries();
@@ -215,6 +227,7 @@ describe('localStoragePersister', () => {
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
         waitForParamsSrcToBeEqualToPreviousValue: true,
+        cacheTime: 50000,
       });
 
       expect(queryResource.value()).toEqual(undefined);
@@ -251,6 +264,7 @@ describe('localStoragePersister', () => {
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
         waitForParamsSrcToBeEqualToPreviousValue: true,
+        cacheTime: 0,
       });
 
       expect(queryResource.value()).toEqual(undefined);
@@ -264,6 +278,171 @@ describe('localStoragePersister', () => {
       await vi.runAllTimersAsync();
       expect(queryResource.status()).toBe('resolved');
       expect(queryResource.value()).toEqual({ id: 2, name: 'Romain' });
+    });
+  });
+
+  it('7 Should not retrieve expired cached value and remove it from localStorage', async () => {
+    await TestBed.runInInjectionContext(async () => {
+      // Set a cached value with timestamp that is older than cacheTime
+      const expiredTimestamp = Date.now() - 6000; // 6 seconds ago
+      localStorage.setItem(
+        'query-user',
+        JSON.stringify({
+          queryParams: { id: 1 },
+          queryValue: { id: 1, name: 'Romain' },
+          timestamp: expiredTimestamp,
+        })
+      );
+
+      const queryParamsFnSignal = signal<{ id: number } | undefined>(undefined);
+      const queryResource = rxResource({
+        params: queryParamsFnSignal,
+        stream: ({ params }) => {
+          return of({ id: params?.id, name: 'Romain' }).pipe(delay(10000));
+        },
+      });
+
+      const persister = localStoragePersister('query-');
+
+      persister.addQueryToPersist({
+        key: 'user',
+        queryResource,
+        queryResourceParamsSrc: queryParamsFnSignal,
+        waitForParamsSrcToBeEqualToPreviousValue: false,
+        cacheTime: 5000, // 5 seconds cache time
+      });
+
+      // Should not have set the cached value since it's expired
+      expect(queryResource.status()).toBe('idle');
+      expect(queryResource.value()).toEqual(undefined);
+      // Should have removed the expired value
+      expect(localStorage.removeItem).toHaveBeenCalledWith('query-user');
+    });
+  });
+
+  it('8 Should retrieve valid cached value when cache time has not expired', async () => {
+    await TestBed.runInInjectionContext(async () => {
+      // Set a cached value with timestamp that is still valid
+      const validTimestamp = Date.now() - 2000; // 2 seconds ago
+      localStorage.setItem(
+        'query-user',
+        JSON.stringify({
+          queryParams: { id: 1 },
+          queryValue: { id: 1, name: 'Romain' },
+          timestamp: validTimestamp,
+        })
+      );
+
+      const queryParamsFnSignal = signal<{ id: number } | undefined>(undefined);
+      const queryResource = rxResource({
+        params: queryParamsFnSignal,
+        stream: ({ params }) => {
+          return of({ id: params?.id, name: 'Romain' }).pipe(delay(10000));
+        },
+      });
+
+      const persister = localStoragePersister('query-');
+
+      persister.addQueryToPersist({
+        key: 'user',
+        queryResource,
+        queryResourceParamsSrc: queryParamsFnSignal,
+        waitForParamsSrcToBeEqualToPreviousValue: false,
+        cacheTime: 5000, // 5 seconds cache time
+      });
+
+      // Should have set the cached value since it's still valid
+      expect(queryResource.status()).toBe('local');
+      expect(queryResource.value()).toEqual({ id: 1, name: 'Romain' });
+      expect(localStorage.getItem).toHaveBeenCalledWith('query-user');
+      expect(localStorage.removeItem).not.toHaveBeenCalledWith('query-user');
+    });
+  });
+
+  it('9 Should check cache expiration when waitForParamsSrcToBeEqualToPreviousValue is true', async () => {
+    await TestBed.runInInjectionContext(async () => {
+      // Set a cached value with timestamp that is expired
+      const expiredTimestamp = Date.now() - 6000; // 6 seconds ago
+      localStorage.setItem(
+        'query-user',
+        JSON.stringify({
+          queryParams: { id: 1 },
+          queryValue: { id: 1, name: 'Romain' },
+          timestamp: expiredTimestamp,
+        })
+      );
+
+      const queryParamsFnSignal = signal<{ id: number } | undefined>(undefined);
+      const queryResource = rxResource({
+        params: queryParamsFnSignal,
+        stream: ({ params }) => {
+          return of({ id: params?.id, name: 'Romain' }).pipe(delay(10000));
+        },
+      });
+
+      const persister = localStoragePersister('query-');
+
+      persister.addQueryToPersist({
+        key: 'user',
+        queryResource,
+        queryResourceParamsSrc: queryParamsFnSignal,
+        waitForParamsSrcToBeEqualToPreviousValue: true,
+        cacheTime: 5000, // 5 seconds cache time
+      });
+
+      expect(queryResource.value()).toEqual(undefined);
+      queryParamsFnSignal.set({ id: 1 });
+      expect(queryResource.status()).toBe('loading');
+      TestBed.tick();
+
+      // Should not have set the cached value since it's expired
+      expect(queryResource.status()).toBe('loading');
+      expect(queryResource.value()).toEqual(undefined);
+      expect(localStorage.removeItem).toHaveBeenCalledWith('query-user');
+      expect(localStorage.getItem).toHaveBeenCalledWith('query-user');
+
+      await vi.runAllTimersAsync();
+      expect(queryResource.status()).toBe('resolved');
+      expect(queryResource.value()).toEqual({ id: 1, name: 'Romain' });
+    });
+  });
+
+  it('10 Should ignore cache time validation when cacheTime is 0 or negative', async () => {
+    await TestBed.runInInjectionContext(async () => {
+      // Set a cached value with very old timestamp
+      const veryOldTimestamp = Date.now() - 60000; // 1 minute ago
+      localStorage.setItem(
+        'query-user',
+        JSON.stringify({
+          queryParams: { id: 1 },
+          queryValue: { id: 1, name: 'Romain' },
+          timestamp: veryOldTimestamp,
+        })
+      );
+
+      const queryParamsFnSignal = signal<{ id: number } | undefined>(undefined);
+      const queryResource = rxResource({
+        params: queryParamsFnSignal,
+        stream: ({ params }) => {
+          return of({ id: params?.id, name: 'Romain' }).pipe(delay(10000));
+        },
+      });
+
+      const persister = localStoragePersister('query-');
+
+      persister.addQueryToPersist({
+        key: 'user',
+        queryResource,
+        queryResourceParamsSrc: queryParamsFnSignal,
+        waitForParamsSrcToBeEqualToPreviousValue: false,
+        cacheTime: 0, // No cache time validation
+      });
+
+      // Should still retrieve the cached value even though timestamp is old
+      expect(queryResource.status()).toBe('local');
+      expect(queryResource.value()).toEqual({ id: 1, name: 'Romain' });
+      expect(localStorage.getItem).toHaveBeenCalledWith('query-user');
+      expect(localStorage.removeItem).not.toHaveBeenCalledWith('query-user');
     });
   });
 });

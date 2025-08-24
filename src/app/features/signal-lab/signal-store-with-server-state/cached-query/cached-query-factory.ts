@@ -192,7 +192,7 @@ export function cachedQueryKeysFactory<
               ? ((value.query as any)(signalProxy) as any)({}, {})
               : (value.query as any)?.({}, {})
           ) as QueryRefType;
-          console.log('queryData', isPluggableQuery, queryData, key);
+
           const queryResource = queryData.queryRef.resource;
           const queryResourceParamsSrc = queryData.queryRef.resourceParamsSrc;
 
@@ -201,6 +201,10 @@ export function cachedQueryKeysFactory<
             queryResource,
             queryResourceParamsSrc,
             waitForParamsSrcToBeEqualToPreviousValue: false,
+            cacheTime:
+              value?.config?.cacheTime ??
+              (cacheGlobalConfig?.cacheTime as number | undefined) ??
+              300000,
           });
 
           const queryEntity = isBrandQueryFn(queryData)
