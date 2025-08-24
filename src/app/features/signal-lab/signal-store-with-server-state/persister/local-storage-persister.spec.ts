@@ -46,6 +46,7 @@ describe('localStoragePersister', () => {
         key: 'user',
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
+        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: false,
       });
       expect(persister).toBeDefined();
       expect(localStorage.setItem).not.toHaveBeenCalled();
@@ -89,6 +90,7 @@ describe('localStoragePersister', () => {
         key: 'user',
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
+        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: false,
       });
       expect(persister).toBeDefined();
 
@@ -121,6 +123,7 @@ describe('localStoragePersister', () => {
         key: 'user',
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
+        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: false,
       });
       expect(persister).toBeDefined();
 
@@ -172,16 +175,95 @@ describe('localStoragePersister', () => {
         key: 'user',
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
+        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: false,
       });
       persister.addQueryToPersist({
         key: 'users',
         queryResource: queryUsersResource,
         queryResourceParamsSrc: queryUSersParamsFnSignal,
+        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: false,
       });
       expect(persister).toBeDefined();
       persister.clearAllQueries();
       expect(localStorage.removeItem).toHaveBeenCalledWith('query-user');
       expect(localStorage.removeItem).toHaveBeenCalledWith('query-users');
+    });
+  });
+
+  it('5 Should wait for the params source to be defined and equal to previous value before retrieve the value', async () => {
+    await TestBed.runInInjectionContext(async () => {
+      localStorage.setItem(
+        'query-user',
+        JSON.stringify({
+          queryParams: { id: 1 },
+          queryValue: { id: 1, name: 'Romain' },
+        })
+      );
+
+      const queryParamsFnSignal = signal<{ id: number } | undefined>(undefined);
+      const queryResource = rxResource({
+        params: queryParamsFnSignal,
+        stream: ({ params }) => {
+          return of({ id: params?.id, name: 'Romain' }).pipe(delay(10000));
+        },
+      });
+
+      const persister = localStoragePersister('query-');
+
+      persister.addQueryToPersist({
+        key: 'user',
+        queryResource,
+        queryResourceParamsSrc: queryParamsFnSignal,
+        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: true,
+      });
+
+      expect(queryResource.value()).toEqual(undefined);
+      queryParamsFnSignal.set({ id: 1 });
+      expect(queryResource.status()).toBe('loading');
+      TestBed.tick();
+      expect(queryResource.status()).toBe('local');
+      expect(queryResource.value()).toEqual({ id: 1, name: 'Romain' });
+      expect(localStorage.getItem).toHaveBeenCalledWith('query-user');
+    });
+  });
+  it('6 Should wait for the params source to be defined and not equal to previous value, so the value is not retrieved and the cache deleted', async () => {
+    await TestBed.runInInjectionContext(async () => {
+      localStorage.setItem(
+        'query-user',
+        JSON.stringify({
+          queryParams: { id: 1 },
+          queryValue: { id: 1, name: 'Romain' },
+        })
+      );
+
+      const queryParamsFnSignal = signal<{ id: number } | undefined>(undefined);
+      const queryResource = rxResource({
+        params: queryParamsFnSignal,
+        stream: ({ params }) => {
+          return of({ id: params?.id, name: 'Romain' }).pipe(delay(10000));
+        },
+      });
+
+      const persister = localStoragePersister('query-');
+
+      persister.addQueryToPersist({
+        key: 'user',
+        queryResource,
+        queryResourceParamsSrc: queryParamsFnSignal,
+        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: true,
+      });
+
+      expect(queryResource.value()).toEqual(undefined);
+      queryParamsFnSignal.set({ id: 2 });
+      expect(queryResource.status()).toBe('loading');
+      TestBed.tick();
+      expect(queryResource.status()).toBe('loading');
+      expect(queryResource.value()).toEqual(undefined);
+      expect(localStorage.removeItem).toHaveBeenCalledWith('query-user');
+      expect(localStorage.getItem).toHaveBeenCalledWith('query-user');
+      await vi.runAllTimersAsync();
+      expect(queryResource.status()).toBe('resolved');
+      expect(queryResource.value()).toEqual({ id: 2, name: 'Romain' });
     });
   });
 });

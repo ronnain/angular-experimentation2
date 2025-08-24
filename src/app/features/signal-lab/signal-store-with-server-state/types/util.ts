@@ -12,9 +12,8 @@ export function nestedEffect<T, R, GroupIdentifier extends string | number>(
     providers: [
       {
         provide: DYNAMIC_EFFECT_REF_INSTANCE_TOKEN,
-        // todo return the effect and
         useFactory: () => {
-          effect(effectCallBack, {
+          return effect(effectCallBack, {
             injector: parentInjector,
           });
         },
@@ -23,4 +22,5 @@ export function nestedEffect<T, R, GroupIdentifier extends string | number>(
     parent: parentInjector,
   });
   const effectRef = injector.get(DYNAMIC_EFFECT_REF_INSTANCE_TOKEN);
+  return effectRef;
 }

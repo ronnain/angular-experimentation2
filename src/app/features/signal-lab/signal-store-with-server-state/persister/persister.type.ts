@@ -5,6 +5,7 @@ export interface QueriesPersister {
     key: string;
     queryResource: ResourceRef<any>;
     queryResourceParamsSrc: Signal<unknown>;
+    waitForParamsSrcToBeDefinedAndEqualToPreviousValue: boolean;
   }): void;
 
   clearQuery(queryKey: string): void;

@@ -133,8 +133,6 @@ describe('Cached Query Factory', () => {
 
   it('should create a cached query and return a withFeatureQuery that can be used plug within the signalStore', async () => {
     await TestBed.runInInjectionContext(async () => {
-      // should export the withUserQuery and userQueryMutation
-
       const data = cachedQueryKeysFactory({
         queries: {
           user: {
@@ -153,6 +151,7 @@ describe('Cached Query Factory', () => {
       });
       console.log('data', data);
 
+      // 👇 Check du typage
       type ExpectQueryKeysToBeLiterals = Expect<
         Equal<'withUserQuery' extends keyof typeof data ? true : false, true>
       >;
@@ -176,6 +175,7 @@ describe('Cached Query Factory', () => {
       );
       const store = TestBed.inject(testSignalStore);
 
+      // 👇 Check du typage
       type ExpectQueryKeysToBeAssociatedWithTheCachedConfig = Expect<
         Equal<
           typeof store.userQuery,

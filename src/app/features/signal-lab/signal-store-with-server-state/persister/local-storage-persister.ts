@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { QueriesPersister } from './persister.type';
 import { nestedEffect } from '../types/util';
+import { isEqual } from '../cached-query/util';
 
 export function localStoragePersister(prefix: string): QueriesPersister {
   const _injector = inject(Injector);
@@ -20,10 +21,11 @@ export function localStoragePersister(prefix: string): QueriesPersister {
         queryResource: ResourceRef<any>;
         queryResourceParamsSrc: Signal<unknown>;
         storageKey: string;
+        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: boolean;
       }
     >(),
     { equal: () => false }
-  ); // todo check if equal is needed here
+  );
 
   const newQueryKeysForNestedEffect = linkedSignal<
     any,
@@ -51,15 +53,13 @@ export function localStoragePersister(prefix: string): QueriesPersister {
     }
 
     newQueryKeysForNestedEffect()?.newKeys.forEach((newKey) => {
+      const data = untracked(() => queriesMap().get(newKey));
       nestedEffect(_injector, () => {
-        const data = untracked(() => queriesMap().get(newKey));
-
         if (!data) {
           return;
         }
         const { queryResource, queryResourceParamsSrc, storageKey } = data;
         const queryStatus = queryResource.status();
-        console.log('queryStatus', queryStatus);
         if (queryStatus !== 'resolved') {
           return;
         }
@@ -71,6 +71,39 @@ export function localStoragePersister(prefix: string): QueriesPersister {
           );
         });
       });
+
+      if (data?.waitForParamsSrcToBeDefinedAndEqualToPreviousValue) {
+        const waitForParamsSrcToBeDefinedAndEqualToPreviousValueEffect =
+          nestedEffect(_injector, () => {
+            const { queryResourceParamsSrc, storageKey, queryResource } = data;
+            const params = queryResourceParamsSrc();
+            if (params === undefined) {
+              return;
+            }
+            const storedValue = localStorage.getItem(storageKey);
+            if (!storedValue) {
+              waitForParamsSrcToBeDefinedAndEqualToPreviousValueEffect.destroy();
+              return;
+            }
+            try {
+              const { queryValue, queryParams } = JSON.parse(storedValue);
+              const isEqualParams = isEqual(params, queryParams);
+              if (!isEqualParams) {
+                localStorage.removeItem(storageKey);
+                waitForParamsSrcToBeDefinedAndEqualToPreviousValueEffect.destroy();
+                return;
+              }
+              if (isEqualParams) {
+                queryResource.set(queryValue);
+              }
+              waitForParamsSrcToBeDefinedAndEqualToPreviousValueEffect.destroy();
+            } catch (e) {
+              console.error('Error parsing stored value from localStorage', e);
+              waitForParamsSrcToBeDefinedAndEqualToPreviousValueEffect.destroy();
+              return;
+            }
+          });
+      }
     });
   });
 
@@ -79,12 +112,17 @@ export function localStoragePersister(prefix: string): QueriesPersister {
       key: string;
       queryResource: ResourceRef<any>;
       queryResourceParamsSrc: Signal<unknown>;
+      waitForParamsSrcToBeDefinedAndEqualToPreviousValue: boolean;
     }): void {
-      const { key, queryResource, queryResourceParamsSrc } = data;
-      // todo place in dedicated function
+      const {
+        key,
+        queryResource,
+        queryResourceParamsSrc,
+        waitForParamsSrcToBeDefinedAndEqualToPreviousValue,
+      } = data;
       const storageKey = `${prefix}${key}`;
       const storedValue = localStorage.getItem(storageKey);
-      if (storedValue) {
+      if (storedValue && !waitForParamsSrcToBeDefinedAndEqualToPreviousValue) {
         const { queryValue } = JSON.parse(storedValue);
         queryResource.set(queryValue);
       }
@@ -93,6 +131,7 @@ export function localStoragePersister(prefix: string): QueriesPersister {
           queryResource,
           queryResourceParamsSrc,
           storageKey,
+          waitForParamsSrcToBeDefinedAndEqualToPreviousValue,
         });
         return map;
       });
