@@ -9,25 +9,25 @@ import { rxMutation } from '../rx-mutation';
 import { of } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { Equal, Expect } from '../../../../../../test-type';
-import { ResourceRef, signal } from '@angular/core';
+import { resource, ResourceRef, signal } from '@angular/core';
 import { createSignalProxy, SignalProxy } from '../signal-proxy';
 
 describe('withCachedQueryFactory', () => {
   it('should create a typed withQuery for the signal store', () => {
     TestBed.runInInjectionContext(() => {
-      const queryRef = query({
-        params: () => ({ id: 1 }),
+      const resourceParamsSrc = signal<{ id: number } | undefined>(undefined);
+      const resourceRef = resource({
+        params: resourceParamsSrc,
         loader: ({ params }) =>
           Promise.resolve({ id: params?.id, name: 'Romain' }),
       });
-      const withUserQuery = withCachedQueryFactory(
-        'user',
-        query({
-          params: () => ({ id: 1 }),
-          loader: ({ params }) =>
-            Promise.resolve({ id: params?.id, name: 'Romain' }),
-        })
-      );
+      const withUserQuery = withCachedQueryFactory('user', {
+        queryRef: {
+          resource: resourceRef,
+          resourceParamsSrc: resourceParamsSrc,
+        },
+        __types: {} as any,
+      });
 
       expect(withUserQuery).toBeDefined();
 

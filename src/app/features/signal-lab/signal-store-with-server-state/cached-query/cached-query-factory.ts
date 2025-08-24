@@ -185,7 +185,6 @@ export function cachedQueryKeysFactory<
           console.log('value', isBrandQueryFn(value.query));
 
           const queryData = (value.query as any)({}, {}) as QueryRefType;
-          debugger;
           const queryResource = queryData.queryRef.resource;
           const queryResourceParamsSrc = queryData.queryRef.resourceParamsSrc;
 
@@ -193,6 +192,7 @@ export function cachedQueryKeysFactory<
             key,
             queryResource,
             queryResourceParamsSrc,
+            waitForParamsSrcToBeEqualToPreviousValue: false,
           });
 
           const queryEntity = isBrandQueryFn(value.query)

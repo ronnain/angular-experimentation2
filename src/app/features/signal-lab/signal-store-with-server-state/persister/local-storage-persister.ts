@@ -21,7 +21,7 @@ export function localStoragePersister(prefix: string): QueriesPersister {
         queryResource: ResourceRef<any>;
         queryResourceParamsSrc: Signal<unknown>;
         storageKey: string;
-        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: boolean;
+        waitForParamsSrcToBeEqualToPreviousValue: boolean;
       }
     >(),
     { equal: () => false }
@@ -72,9 +72,10 @@ export function localStoragePersister(prefix: string): QueriesPersister {
         });
       });
 
-      if (data?.waitForParamsSrcToBeDefinedAndEqualToPreviousValue) {
-        const waitForParamsSrcToBeDefinedAndEqualToPreviousValueEffect =
-          nestedEffect(_injector, () => {
+      if (data?.waitForParamsSrcToBeEqualToPreviousValue) {
+        const waitForParamsSrcToBeEqualToPreviousValueEffect = nestedEffect(
+          _injector,
+          () => {
             const { queryResourceParamsSrc, storageKey, queryResource } = data;
             const params = queryResourceParamsSrc();
             if (params === undefined) {
@@ -82,7 +83,7 @@ export function localStoragePersister(prefix: string): QueriesPersister {
             }
             const storedValue = localStorage.getItem(storageKey);
             if (!storedValue) {
-              waitForParamsSrcToBeDefinedAndEqualToPreviousValueEffect.destroy();
+              waitForParamsSrcToBeEqualToPreviousValueEffect.destroy();
               return;
             }
             try {
@@ -90,19 +91,20 @@ export function localStoragePersister(prefix: string): QueriesPersister {
               const isEqualParams = isEqual(params, queryParams);
               if (!isEqualParams) {
                 localStorage.removeItem(storageKey);
-                waitForParamsSrcToBeDefinedAndEqualToPreviousValueEffect.destroy();
+                waitForParamsSrcToBeEqualToPreviousValueEffect.destroy();
                 return;
               }
               if (isEqualParams) {
                 queryResource.set(queryValue);
               }
-              waitForParamsSrcToBeDefinedAndEqualToPreviousValueEffect.destroy();
+              waitForParamsSrcToBeEqualToPreviousValueEffect.destroy();
             } catch (e) {
               console.error('Error parsing stored value from localStorage', e);
-              waitForParamsSrcToBeDefinedAndEqualToPreviousValueEffect.destroy();
+              waitForParamsSrcToBeEqualToPreviousValueEffect.destroy();
               return;
             }
-          });
+          }
+        );
       }
     });
   });
@@ -112,17 +114,17 @@ export function localStoragePersister(prefix: string): QueriesPersister {
       key: string;
       queryResource: ResourceRef<any>;
       queryResourceParamsSrc: Signal<unknown>;
-      waitForParamsSrcToBeDefinedAndEqualToPreviousValue: boolean;
+      waitForParamsSrcToBeEqualToPreviousValue: boolean;
     }): void {
       const {
         key,
         queryResource,
         queryResourceParamsSrc,
-        waitForParamsSrcToBeDefinedAndEqualToPreviousValue,
+        waitForParamsSrcToBeEqualToPreviousValue,
       } = data;
       const storageKey = `${prefix}${key}`;
       const storedValue = localStorage.getItem(storageKey);
-      if (storedValue && !waitForParamsSrcToBeDefinedAndEqualToPreviousValue) {
+      if (storedValue && !waitForParamsSrcToBeEqualToPreviousValue) {
         const { queryValue } = JSON.parse(storedValue);
         queryResource.set(queryValue);
       }
@@ -131,7 +133,7 @@ export function localStoragePersister(prefix: string): QueriesPersister {
           queryResource,
           queryResourceParamsSrc,
           storageKey,
-          waitForParamsSrcToBeDefinedAndEqualToPreviousValue,
+          waitForParamsSrcToBeEqualToPreviousValue,
         });
         return map;
       });

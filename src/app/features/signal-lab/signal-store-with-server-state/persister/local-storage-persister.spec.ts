@@ -46,7 +46,7 @@ describe('localStoragePersister', () => {
         key: 'user',
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
-        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: false,
+        waitForParamsSrcToBeEqualToPreviousValue: false,
       });
       expect(persister).toBeDefined();
       expect(localStorage.setItem).not.toHaveBeenCalled();
@@ -90,7 +90,7 @@ describe('localStoragePersister', () => {
         key: 'user',
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
-        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: false,
+        waitForParamsSrcToBeEqualToPreviousValue: false,
       });
       expect(persister).toBeDefined();
 
@@ -123,7 +123,7 @@ describe('localStoragePersister', () => {
         key: 'user',
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
-        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: false,
+        waitForParamsSrcToBeEqualToPreviousValue: false,
       });
       expect(persister).toBeDefined();
 
@@ -175,13 +175,13 @@ describe('localStoragePersister', () => {
         key: 'user',
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
-        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: false,
+        waitForParamsSrcToBeEqualToPreviousValue: false,
       });
       persister.addQueryToPersist({
         key: 'users',
         queryResource: queryUsersResource,
         queryResourceParamsSrc: queryUSersParamsFnSignal,
-        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: false,
+        waitForParamsSrcToBeEqualToPreviousValue: false,
       });
       expect(persister).toBeDefined();
       persister.clearAllQueries();
@@ -214,7 +214,7 @@ describe('localStoragePersister', () => {
         key: 'user',
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
-        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: true,
+        waitForParamsSrcToBeEqualToPreviousValue: true,
       });
 
       expect(queryResource.value()).toEqual(undefined);
@@ -250,7 +250,7 @@ describe('localStoragePersister', () => {
         key: 'user',
         queryResource,
         queryResourceParamsSrc: queryParamsFnSignal,
-        waitForParamsSrcToBeDefinedAndEqualToPreviousValue: true,
+        waitForParamsSrcToBeEqualToPreviousValue: true,
       });
 
       expect(queryResource.value()).toEqual(undefined);
