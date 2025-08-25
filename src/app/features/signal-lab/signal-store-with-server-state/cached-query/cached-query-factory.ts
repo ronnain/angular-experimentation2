@@ -1,4 +1,4 @@
-import { effect, signal, WritableSignal } from '@angular/core';
+import { effect, InjectionToken, signal, WritableSignal } from '@angular/core';
 import {
   createSignalProxy,
   SignalProxy,
@@ -16,6 +16,8 @@ import {
   withCachedQueryToPlugFactory,
 } from './with-cached-query-factory';
 import { QueriesPersister } from '../persister/persister.type';
+import { rxQuery } from '../rx-query';
+import { of } from 'rxjs';
 
 // todo expose enable to cache inmemory by default or use a persister or a persister to a specific query
 
@@ -137,8 +139,6 @@ type QueryConfiguration<PluggableParams extends object> = {
   query: QueryRefType | ((data: SignalProxy<PluggableParams>) => QueryRefType);
 };
 
-// todo expose a function to clear the cache of a specific query or all queries
-
 export function cachedQueryKeysFactory<
   const QueryKeys extends keyof QueryRecord,
   const QueryByIdKeys extends keyof QueryByIdRecord,
@@ -175,6 +175,10 @@ export function cachedQueryKeysFactory<
   QueryByIdRecord,
   PluggableParams
 > {
+  // l'idée retourner un objet avec les withXQuery, mais ce sont des fonctions vides
+  // qui seront utilisées pour typer les signalStore
+  // rtourner aussi un provideCachedQuery
+  // Qui quand il est run va assigner les fonction withXQuery avec les vrais withXQuery
   return {
     ...(queries && {
       ...Object.entries<QueryConfiguration<PluggableParams>>(queries).reduce(
@@ -239,3 +243,21 @@ export function cachedQueryKeysFactory<
     PluggableParams
   >;
 }
+
+export const cacheToken = new InjectionToken('cache queries', {
+  providedIn: 'root',
+  factory: () => {
+    console.log('cacheToken', cacheToken);
+    return cachedQueryKeysFactory({
+      queries: {
+        user: {
+          query: (source: SignalProxy<{ id: string | undefined }>) =>
+            rxQuery({
+              params: source.id,
+              stream: ({ params: id }) => of({ id, name: 'User 1' }),
+            }),
+        },
+      },
+    });
+  },
+});
