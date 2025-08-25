@@ -1,6 +1,6 @@
 import { signalStore, withState } from '@ngrx/signals';
 import { Equal, Expect } from '../../../../../../test-type';
-import { cachedQueryKeysFactory } from './cached-query-factory';
+import { cachedQueryFactory } from './cached-query-factory';
 import { of } from 'rxjs';
 import { rxQuery } from '../rx-query';
 import { ResourceRef, Signal } from '@angular/core';
@@ -76,7 +76,7 @@ describe('Cached Query Factory', () => {
     await TestBed.runInInjectionContext(async () => {
       // should export the withUserQuery and userQueryMutation
 
-      const data = cachedQueryKeysFactory({
+      const data = cachedQueryFactory({
         queries: {
           user: {
             query: rxQuery({
@@ -133,7 +133,7 @@ describe('Cached Query Factory', () => {
 
   it('should create a cached query and return a withFeatureQuery that can be used plug within the signalStore', async () => {
     await TestBed.runInInjectionContext(async () => {
-      const data = cachedQueryKeysFactory({
+      const data = cachedQueryFactory({
         queries: {
           user: {
             query: (source: SignalProxy<{ id: string | undefined }>) =>
@@ -190,7 +190,7 @@ describe('Cached Query Factory', () => {
     });
   });
   it('withUserQuery can be inserted  within a signalStore', async () => {
-    const { withUserQuery } = cachedQueryKeysFactory({
+    const { withUserQuery } = cachedQueryFactory({
       queries: {
         user: {
           query: (source: SignalProxy<{ id: string | undefined }>) =>
