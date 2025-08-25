@@ -1,6 +1,6 @@
 import { signalStore, withState } from '@ngrx/signals';
 import { Equal, Expect } from '../../../../../../test-type';
-import { cachedQueryKeysFactory, cacheToken } from './cached-query-factory';
+import { cachedQueryKeysFactory } from './cached-query-factory';
 import { of } from 'rxjs';
 import { rxQuery } from '../rx-query';
 import { ResourceRef, Signal } from '@angular/core';
@@ -190,25 +190,39 @@ describe('Cached Query Factory', () => {
     });
   });
   it('withUserQuery can be inserted  within a signalStore', async () => {
-    console.log('cacheToken', cacheToken);
-    const myCacheToken = TestBed.inject(cacheToken);
-    console.log('myCacheToken', myCacheToken);
-    // const { withUserQuery } = cachedQueryKeysFactory({
-    //   queries: {
-    //     user: {
-    //       query: (source: SignalProxy<{ id: string | undefined }>) =>
-    //         rxQuery({
-    //           params: source.id,
-    //           stream: ({ params: id }) => of({ id, name: 'User 1' }),
-    //         }),
-    //     },
-    //     users: {
-    //       query: rxQuery({
-    //         stream: () => of({ id: '1', name: 'User 1' }),
-    //       }),
-    //     },
-    //   },
-    // });
+    const { withUserQuery } = cachedQueryKeysFactory({
+      queries: {
+        user: {
+          query: (source: SignalProxy<{ id: string | undefined }>) =>
+            rxQuery({
+              params: source.id,
+              stream: ({ params: id }) => of({ id, name: 'User 1' }),
+            }),
+        },
+        // users: () => ({
+        //   query: rxQuery({
+        //     stream: () => of({ id: '1', name: 'User 1' }),
+        //   }),
+        // }),
+      },
+    });
+
+    const Store = signalStore(
+      { providedIn: 'root' },
+      withState({ selected: '1' }),
+      withMutation('name', () =>
+        rxMutation({
+          method: (name: string) => name,
+          stream: ({ params }) => of({ id: '4', name: params }),
+        })
+      ),
+      withUserQuery((store) => ({
+        setQuerySource: (source) => ({ id: store.selected }),
+      }))
+    );
+
+    const store = TestBed.inject(Store);
+    expect(store.userQuery).toBeDefined();
 
     // const Store = signalStore(
     //   { providedIn: 'root' },

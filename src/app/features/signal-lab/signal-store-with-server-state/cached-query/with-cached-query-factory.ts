@@ -7,6 +7,7 @@ import {
 import { InternalType } from '../types/util.type';
 import { QueryRef, QueryOptions, withQuery } from '../with-query';
 import { SignalProxy, SignalWrapperParams } from '../signal-proxy';
+import { Injector } from '@angular/core';
 
 export function withCachedQueryFactory<
   const QueryName extends string,
@@ -40,7 +41,7 @@ export function withCachedQueryToPlugFactory<
 >(
   name: QueryName,
   querySourceProxy: SignalProxy<PlugData, true>,
-  queryRef: {
+  queryRef: (injector: Injector) => {
     queryRef: QueryRef<QueryState, QueryParams>;
     __types: InternalType<QueryState, QueryParams, unknown, false>;
   }
@@ -69,11 +70,15 @@ export function withCachedQueryToPlugFactory<
   ) => {
     return withQuery(
       name,
-      (store) => {
-        options?.(store)?.setQuerySource?.(
-          querySourceProxy as unknown as SignalProxy<PlugData>
-        ) as SignalWrapperParams<PlugData>;
-        return () => queryRef;
+      (store, injector) => {
+        const setQuerySource = options?.(store)?.setQuerySource;
+        if (setQuerySource) {
+          const source = options?.(store)?.setQuerySource?.(
+            querySourceProxy as unknown as SignalProxy<PlugData>
+          ) as SignalWrapperParams<PlugData>;
+          querySourceProxy.$set(source);
+        }
+        return () => queryRef(injector);
       },
       options
     );

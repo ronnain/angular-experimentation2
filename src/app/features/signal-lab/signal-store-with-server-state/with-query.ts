@@ -159,7 +159,10 @@ export function withQuery<
   >
 >(
   resourceName: ResourceName,
-  queryFactory: (store: NoInfer<StoreInput>) => (
+  queryFactory: (
+    store: NoInfer<StoreInput>,
+    injector: Injector
+  ) => (
     store: NoInfer<StoreInput>,
     context: Input
   ) => {
@@ -194,11 +197,10 @@ export function withQuery<
     return signalStoreFeature(
       withProps((store) => {
         const _injector = inject(Injector);
-
-        const queryConfigData = queryFactory(store as unknown as StoreInput)(
+        const queryConfigData = queryFactory(
           store as unknown as StoreInput,
-          context as unknown as Input
-        );
+          _injector
+        )(store as unknown as StoreInput, context as unknown as Input);
 
         const queryResourceParamsSrc =
           queryConfigData.queryRef.resourceParamsSrc;

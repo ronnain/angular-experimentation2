@@ -170,6 +170,29 @@ const testQueryById = signalStore(
     })
   )
 );
+const { withUserQuery } = cachedQueryKeysFactory({
+  queries: {
+    user: {
+      query: ({ id }: SignalProxy<{ id: string | undefined }>) =>
+        rxQuery({
+          params: id,
+          stream: ({ params: id }) => of({ id, name: 'User 1' }),
+        }),
+    },
+  },
+});
+
+const MiniServerStateStore = signalStore(
+  { providedIn: 'root' },
+  withState({
+    id: '1',
+  }),
+  withUserQuery((store) => ({
+    setQuerySource: () => ({
+      id: store.id,
+    }),
+  }))
+);
 
 @Component({
   selector: 'app-view',
@@ -276,7 +299,7 @@ const testQueryById = signalStore(
     <div>testQueryById:users: {{ testQueryById.users() | json }}</div>
     <hr />
     <button (click)="mutationUserQueryById()">Trigger Mutation</button>
-    <hr />
+    <!-- <hr />
     storeTest userEmailMutation status{{ storeTest.userEmailMutation.status() }}
     <hr />
     userServerStateStore:
@@ -287,26 +310,30 @@ const testQueryById = signalStore(
     IICICICII user2ServerStateStore:
     {{ user2ServerStateStore.userQuery.status() }} : user2ServerStateStore
     {{ !!user2ServerStateStore }}
-    <button (click)="changeUserSelected()">change user selected</button>
+    <button (click)="changeUserSelected()">change user selected</button> -->
 
     <hr />
+    <br /><br />
+    MiniStore : {{ miniStore.userQuery.status() }} =>
+    {{ miniStore.userQuery.value() | json }}
   `,
   providers: [StoreTest],
 })
 export default class ViewComponent {
-  protected readonly store = inject(TestStore);
-  protected readonly declarativeStore = inject(DeclarativeStore);
+  // protected readonly store = inject(TestStore);
+  // protected readonly declarativeStore = inject(DeclarativeStore);
   private readonly injector = inject(Injector);
   testUsersParam = testUsersParam;
-  protected readonly storeTest = inject(StoreTest);
+  // protected readonly storeTest = inject(StoreTest);
   protected readonly userSelectedId = signal('1');
-  protected readonly pluggableUserServerStateStore = inject(
-    PluggableUserServerStateStore
-  );
+  // protected readonly pluggableUserServerStateStore = inject(
+  //   PluggableUserServerStateStore
+  // );
+  protected readonly miniStore = inject(MiniServerStateStore);
 
-  protected readonly user2ServerStateStore = injectPluggableUserServerState({
-    selectedId: this.userSelectedId,
-  });
+  // protected readonly user2ServerStateStore = injectPluggableUserServerState({
+  //   selectedId: this.userSelectedId,
+  // });
   // protected readonly user2ServerStateStore =
   //   injectPluggablePluggableUserServerState({
   //     selectedId: this.userSelectedId,
@@ -364,30 +391,6 @@ export default class ViewComponent {
   });
 
   constructor() {
-    const result = cachedQueryKeysFactory({
-      queries: {
-        user: {
-          query: (data: SignalProxy<{ id: string | undefined }>) =>
-            rxQuery({
-              params: data.id,
-              stream: ({ params: id }) => of({ id, name: 'User 1' }),
-            }),
-        },
-        users: {
-          query: rxQuery({
-            params: signal(undefined) as Signal<undefined | string>,
-            stream: (data) => {
-              console.log('c stream call', data);
-              return of([{ id: '1', name: 'User 1' }]).pipe(
-                delay(10000),
-                tap((data) => console.log('c tap data emit', data))
-              );
-            },
-          }),
-        },
-      },
-    });
-    console.log('c result', result);
     // effect(() => {
     //   const s = signalStore(withState({ count: 0 }));
     //   console.log('signalStore', s);
@@ -407,16 +410,16 @@ export default class ViewComponent {
     // });
   }
 
-  addCategory() {
-    this.store.mutateAddCategory({
-      id: 'new-category',
-      name: 'New Category',
-    });
-  }
-  addCategory2() {
-    this.store.mutateAddCategory({
-      id: 'new-category2',
-      name: 'New Category2',
-    });
-  }
+  // addCategory() {
+  //   this.store.mutateAddCategory({
+  //     id: 'new-category',
+  //     name: 'New Category',
+  //   });
+  // }
+  // addCategory2() {
+  //   this.store.mutateAddCategory({
+  //     id: 'new-category2',
+  //     name: 'New Category2',
+  //   });
+  // }
 }

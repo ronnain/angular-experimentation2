@@ -1,4 +1,4 @@
-import { effect, InjectionToken, signal, WritableSignal } from '@angular/core';
+import { inject, Injector, runInInjectionContext, signal } from '@angular/core';
 import {
   createSignalProxy,
   SignalProxy,
@@ -16,8 +16,6 @@ import {
   withCachedQueryToPlugFactory,
 } from './with-cached-query-factory';
 import { QueriesPersister } from '../persister/persister.type';
-import { rxQuery } from '../rx-query';
-import { of } from 'rxjs';
 
 // todo expose enable to cache inmemory by default or use a persister or a persister to a specific query
 
@@ -136,7 +134,9 @@ type CachedQueryFactoryOutput<
 
 type QueryConfiguration<PluggableParams extends object> = {
   config?: QueryCacheCustomConfig;
-  query: QueryRefType | ((data: SignalProxy<PluggableParams>) => QueryRefType);
+  query: () =>
+    | QueryRefType
+    | ((data: SignalProxy<PluggableParams>) => QueryRefType);
 };
 
 export function cachedQueryKeysFactory<
@@ -166,10 +166,12 @@ export function cachedQueryKeysFactory<
      */
     cacheTime?: CacheTime;
     persister?: QueriesPersister;
+    featureName?: string;
   }
 ): CachedQueryFactoryOutput<
   QueryKeys,
   QueryByIdKeys,
+  //@ts-ignore
   QueryRecord,
   CacheTime,
   QueryByIdRecord,
@@ -179,43 +181,63 @@ export function cachedQueryKeysFactory<
   // qui seront utilisées pour typer les signalStore
   // rtourner aussi un provideCachedQuery
   // Qui quand il est run va assigner les fonction withXQuery avec les vrais withXQuery
+  const queriesMap = Object.entries(queries ?? {}).reduce((acc, [key]) => {
+    const capitalizedKey = (key.charAt(0).toUpperCase() +
+      key.slice(1)) as Capitalize<QueryKeys & string>;
+    const withQueryName = `with${capitalizedKey}Query` as const;
+    acc[withQueryName] = () => {};
+    return acc;
+  }, {} as Record<string, () => void>);
   return {
     ...(queries && {
       ...Object.entries<QueryConfiguration<PluggableParams>>(queries).reduce(
         (acc, [key, value]) => {
-          const capitalizedKey = (key.charAt(0).toUpperCase() +
-            key.slice(1)) as Capitalize<QueryKeys & string>;
-          const withQueryName = `with${capitalizedKey}Query` as const;
-          console.log('value', isBrandQueryFn(value.query), key);
-
-          const isPluggableQuery = !isBrandQueryFn(value.query);
-
+          const queryData = (injector: Injector) => {
+            return runInInjectionContext(injector, () => {
+              const capitalizedKey = (key.charAt(0).toUpperCase() +
+                key.slice(1)) as Capitalize<QueryKeys & string>;
+              const withQueryName = `with${capitalizedKey}Query` as const;
+              console.log('value', isBrandQueryFn(value.query), key);
+              const isPluggableQuery = !isBrandQueryFn(value.query);
+              const queryData = (
+                isPluggableQuery
+                  ? ((value.query as any)(signalProxy) as any)({}, {})
+                  : (value.query as any)?.({}, {})
+              ) as QueryRefType;
+              //@ts-ignore
+              const queryRef = queryData.queryRef;
+              const queryResource = queryRef.resource;
+              const queryResourceParamsSrc = queryRef.resourceParamsSrc;
+              cacheGlobalConfig?.persister?.addQueryToPersist({
+                key,
+                queryResource,
+                queryResourceParamsSrc,
+                waitForParamsSrcToBeEqualToPreviousValue: false,
+                cacheTime:
+                  value?.config?.cacheTime ??
+                  (cacheGlobalConfig?.cacheTime as number | undefined) ??
+                  300000,
+              });
+              return queryData;
+            });
+          };
           const signalProxy = createSignalProxy(signal({})) as any;
-          const queryData = (
-            isPluggableQuery
-              ? ((value.query as any)(signalProxy) as any)({}, {})
-              : (value.query as any)?.({}, {})
-          ) as QueryRefType;
 
-          const queryResource = queryData.queryRef.resource;
-          const queryResourceParamsSrc = queryData.queryRef.resourceParamsSrc;
-
-          cacheGlobalConfig?.persister?.addQueryToPersist({
+          const queryEntity = withCachedQueryToPlugFactory(
             key,
-            queryResource,
-            queryResourceParamsSrc,
-            waitForParamsSrcToBeEqualToPreviousValue: false,
-            cacheTime:
-              value?.config?.cacheTime ??
-              (cacheGlobalConfig?.cacheTime as number | undefined) ??
-              300000,
-          });
-
-          const queryEntity = isBrandQueryFn(queryData)
-            ? withCachedQueryFactory(key, queryData as any)
-            : withCachedQueryToPlugFactory(key, signalProxy, queryData as any);
-          // @ts-ignore
-          acc[withQueryName] = queryEntity;
+            signalProxy,
+            queryData as any
+          );
+          // const queryEntity = isBrandQueryFn(queryData)
+          //   ? withCachedQueryFactory(key, queryData as any)
+          //   : withCachedQueryToPlugFactory(
+          //       key,
+          //       signalProxy,
+          //       queryData as any
+          //     );
+          //@ts-ignore
+          // todo get withQueryName
+          acc['withUserQuery'] = queryEntity;
 
           return acc;
         },
@@ -237,6 +259,7 @@ export function cachedQueryKeysFactory<
   } as CachedQueryFactoryOutput<
     QueryKeys,
     QueryByIdKeys,
+    //@ts-ignore
     QueryRecord,
     CacheTime,
     QueryByIdRecord,
@@ -244,20 +267,6 @@ export function cachedQueryKeysFactory<
   >;
 }
 
-export const cacheToken = new InjectionToken('cache queries', {
-  providedIn: 'root',
-  factory: () => {
-    console.log('cacheToken', cacheToken);
-    return cachedQueryKeysFactory({
-      queries: {
-        user: {
-          query: (source: SignalProxy<{ id: string | undefined }>) =>
-            rxQuery({
-              params: source.id,
-              stream: ({ params: id }) => of({ id, name: 'User 1' }),
-            }),
-        },
-      },
-    });
-  },
-});
+export function assignRealQuery(fn: () => {}, realQuery: any): () => {} {
+  return Object.assign(fn, realQuery);
+}
