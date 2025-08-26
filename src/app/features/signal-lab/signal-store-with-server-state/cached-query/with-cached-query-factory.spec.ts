@@ -9,7 +9,7 @@ import { rxMutation } from '../rx-mutation';
 import { of } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { Equal, Expect } from '../../../../../../test-type';
-import { resource, ResourceRef, signal } from '@angular/core';
+import { Injector, resource, ResourceRef, signal } from '@angular/core';
 import { createSignalProxy, SignalProxy } from '../signal-proxy';
 
 describe('withCachedQueryFactory', () => {
@@ -78,13 +78,13 @@ describe('withCachedQueryFactory', () => {
       const withUserQuery = withCachedQueryToPlugFactory(
         'user',
         pluggableConfig,
-        {
+        () => ({
           queryRef: {
             resource: resourceRef,
             resourceParamsSrc: resourceParamsSrc,
           },
           __types: {} as any,
-        }
+        })
       );
 
       expect(withUserQuery).toBeDefined();

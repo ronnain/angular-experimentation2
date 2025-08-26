@@ -8,7 +8,11 @@ import { InternalType } from '../types/util.type';
 import { QueryRef, QueryOptions, withQuery } from '../with-query';
 import { SignalProxy, SignalWrapperParams } from '../signal-proxy';
 import { Injector } from '@angular/core';
+import { Merge } from '../../../../util/types/merge';
 
+/**
+ * It is mainly used to help typing
+ */
 export function withCachedQueryFactory<
   const QueryName extends string,
   QueryState extends object | undefined,
@@ -61,11 +65,16 @@ export function withCachedQueryToPlugFactory<
       QueryState,
       QueryParams,
       unknown,
-      {
-        setQuerySource?: (
-          source: SignalProxy<PlugData>
-        ) => SignalWrapperParams<PlugData>;
-      }
+      Merge<
+        {
+          setQuerySource?: (
+            source: SignalProxy<NoInfer<PlugData>>
+          ) => SignalWrapperParams<NoInfer<PlugData>>;
+        },
+        {
+          test1?: NoInfer<PlugData>;
+        }
+      >
     >
   ) => {
     return withQuery(

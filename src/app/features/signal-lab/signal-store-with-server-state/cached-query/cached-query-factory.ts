@@ -51,38 +51,45 @@ type WithQueryOutputMapperTyped<
     [key in QueryKeys]: { query: unknown };
   },
   k extends keyof QueryRecord
-> = HasQueryBrand<QueryRecord[k]['query']> extends true
-  ? QueryRecord[k]['query'] extends (store: any, context: any) => infer R
+> = QueryRecord[k]['query'] extends infer All
+  ? All extends (data: infer Data) => (store: any, context: any) => infer R
     ? R extends {
         queryRef: QueryRef<infer State, infer Params>;
       }
-      ? ReturnType<
-          typeof withCachedQueryFactory<
-            k & string,
-            State extends object | undefined ? State : never,
-            Params
+      ? Data extends SignalWrapperParams<infer PluggableParams>
+        ? ReturnType<
+            typeof withCachedQueryToPlugFactory<
+              k & string,
+              State extends object | undefined ? State : never,
+              Params,
+              PluggableParams
+            >
           >
-        >
-      : QueryRecord[k]['query']
-    : 'never4'
-  : QueryRecord[k]['query'] extends infer All
-  ? All extends (
-      data: SignalWrapperParams<infer PluggableParams>
-    ) => (store: any, context: any) => infer R
-    ? R extends {
-        queryRef: QueryRef<infer State, infer Params>;
-      }
-      ? ReturnType<
-          typeof withCachedQueryToPlugFactory<
-            k & string,
-            State extends object | undefined ? State : never,
-            Params,
-            PluggableParams
+        : ReturnType<
+            typeof withCachedQueryFactory<
+              k & string,
+              State extends object | undefined ? State : never,
+              Params
+            >
           >
-        >
       : 'never2'
     : 'never2'
   : 'never1';
+// HasQueryBrand<QueryRecord[k]['query']> extends true
+//   ? QueryRecord[k]['query'] extends (store: any, context: any) => infer R
+//     ? R extends {
+//         queryRef: QueryRef<infer State, infer Params>;
+//       }
+//       ? ReturnType<
+//           typeof withCachedQueryFactory<
+//             k & string,
+//             State extends object | undefined ? State : never,
+//             Params
+//           >
+//         >
+//       : QueryRecord[k]['query']
+//     : 'never4'
+//   : ;
 
 type CachedQueryFactoryOutput<
   QueryKeys extends keyof QueryRecord,
@@ -135,7 +142,7 @@ type CachedQueryFactoryOutput<
 type QueryConfiguration<PluggableParams extends object> = {
   config?: QueryCacheCustomConfig;
   query: () =>
-    | QueryRefType
+    | (() => QueryRefType)
     | ((data: SignalProxy<PluggableParams>) => QueryRefType);
 };
 
@@ -177,10 +184,6 @@ export function cachedQueryFactory<
   QueryByIdRecord,
   PluggableParams
 > {
-  // l'idée retourner un objet avec les withXQuery, mais ce sont des fonctions vides
-  // qui seront utilisées pour typer les signalStore
-  // rtourner aussi un provideCachedQuery
-  // Qui quand il est run va assigner les fonction withXQuery avec les vrais withXQuery
   const queriesMap = Object.entries(queries ?? {}).reduce((acc, [key]) => {
     const capitalizedKey = (key.charAt(0).toUpperCase() +
       key.slice(1)) as Capitalize<QueryKeys & string>;
@@ -192,19 +195,19 @@ export function cachedQueryFactory<
     ...(queries && {
       ...Object.entries<QueryConfiguration<PluggableParams>>(queries).reduce(
         (acc, [key, value]) => {
+          const capitalizedKey = (key.charAt(0).toUpperCase() +
+            key.slice(1)) as Capitalize<QueryKeys & string>;
+          const withQueryName = `with${capitalizedKey}Query` as const;
+
           const queryData = (injector: Injector) => {
             return runInInjectionContext(injector, () => {
-              const capitalizedKey = (key.charAt(0).toUpperCase() +
-                key.slice(1)) as Capitalize<QueryKeys & string>;
-              const withQueryName = `with${capitalizedKey}Query` as const;
-              console.log('value', isBrandQueryFn(value.query), key);
-              const isPluggableQuery = !isBrandQueryFn(value.query);
+              const isPluggableQuery = value.query.length > 0;
+              console.log('isPluggableQuery', key, isPluggableQuery);
               const queryData = (
                 isPluggableQuery
                   ? ((value.query as any)(signalProxy) as any)({}, {})
-                  : (value.query as any)?.({}, {})
+                  : (value.query as any)()?.({}, {})
               ) as QueryRefType;
-              //@ts-ignore
               const queryRef = queryData.queryRef;
               const queryResource = queryRef.resource;
               const queryResourceParamsSrc = queryRef.resourceParamsSrc;
@@ -228,16 +231,8 @@ export function cachedQueryFactory<
             signalProxy,
             queryData as any
           );
-          // const queryEntity = isBrandQueryFn(queryData)
-          //   ? withCachedQueryFactory(key, queryData as any)
-          //   : withCachedQueryToPlugFactory(
-          //       key,
-          //       signalProxy,
-          //       queryData as any
-          //     );
           //@ts-ignore
-          // todo get withQueryName
-          acc['withUserQuery'] = queryEntity;
+          acc[withQueryName] = queryEntity;
 
           return acc;
         },

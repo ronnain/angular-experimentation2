@@ -3,83 +3,22 @@ import { Equal, Expect } from '../../../../../../test-type';
 import { cachedQueryFactory } from './cached-query-factory';
 import { of } from 'rxjs';
 import { rxQuery } from '../rx-query';
-import { ResourceRef, Signal } from '@angular/core';
+import { ResourceRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { query } from '../query';
 import { withMutation } from '../with-mutation';
 import { rxMutation } from '../rx-mutation';
 import { SignalProxy } from '../signal-proxy';
 
 // par défault inmemory cache
 describe('Cached Query Factory', () => {
-  // xit('should create a cached query and return an highly typed output', () => {
-  //   // should export the withUserQuery and userQueryMutation
-  //   const data = cachedQueryKeysFactory({
-  //     query: {
-  //       user: true,
-  //     },
-  //     queryById: {
-  //       users: true,
-  //       customUsers: {
-  //         cacheTime: 20, // Custom cache time for this query
-  //       },
-  //       customUsers2: {
-  //         cacheTime: 500, // Custom cache time for this query
-  //       },
-  //     },
-  //   });
-
-  //   type ExpectQueryKeysToBeLiterals = Expect<
-  //     Equal<
-  //       keyof typeof data,
-  //       'user' | 'users' | 'customUsers' | 'customUsers2'
-  //     >
-  //   >;
-
-  //   const t = data['user'].cacheTime;
-
-  //   type ExpectQueryKeysToBeAssociatedWithTheCachedConfig = Expect<
-  //     Equal<
-  //       (typeof data)['user'],
-  //       {
-  //         cacheTime: 300000; // 5 minutes
-  //       }
-  //     >
-  //   >;
-
-  //   type ExpectCustomUsersQueryToBeAssociatedWithHisCustomCachedConfig = Expect<
-  //     Equal<
-  //       (typeof data)['customUsers'],
-  //       {
-  //         cacheTime: 20; // 20ms
-  //       }
-  //     >
-  //   >;
-  //   type ExpectCustomUsers2QueryToBeAssociatedWithHisCustomCachedConfig =
-  //     Expect<
-  //       Equal<
-  //         (typeof data)['customUsers2'],
-  //         {
-  //           cacheTime: 500; // 500ms
-  //         }
-  //       >
-  //     >;
-
-  //   expect(data.user).toBeDefined();
-  //   expect(data.user.cacheTime).toEqual(300000);
-  //   expect(data.users.cacheTime).toEqual(300000);
-  //   expect(data.customUsers.cacheTime).toEqual(20);
-  //   expect(data.customUsers2.cacheTime).toEqual(500);
-  // });
-
   it('should create a cached query and return a withFeatureQuery that can be used in signalStore', async () => {
-    await TestBed.runInInjectionContext(async () => {
-      // should export the withUserQuery and userQueryMutation
+    // should export the withUserQuery and userQueryMutation
 
-      const data = cachedQueryFactory({
-        queries: {
-          user: {
-            query: rxQuery({
+    const data = cachedQueryFactory({
+      queries: {
+        user: {
+          query: () =>
+            rxQuery({
               // todo pluggeable query
               // todo propose a way to inject service for the api call
               params: () => ({
@@ -87,107 +26,107 @@ describe('Cached Query Factory', () => {
               }),
               stream: () => of({ id: '1', name: 'User 1' }),
             }),
-          },
         },
-      });
-      console.log('data', data);
-
-      type ExpectQueryKeysToBeLiterals = Expect<
-        Equal<'withUserQuery' extends keyof typeof data ? true : false, true>
-      >;
-
-      const { withUserQuery, testUserQuery } = data;
-
-      expect(typeof withUserQuery).toEqual('function');
-
-      const testSignalStore = signalStore(
-        { providedIn: 'root' },
-        withState({ selected: '1' }),
-        withMutation('name', () =>
-          rxMutation({
-            method: (name: string) => name,
-            stream: ({ params }) => of({ id: '4', name: params }),
-          })
-        ),
-        withUserQuery((store) => ({
-          on: {
-            nameMutation: {},
-          },
-        }))
-      );
-      const store = TestBed.inject(testSignalStore);
-
-      type ExpectQueryKeysToBeAssociatedWithTheCachedConfig = Expect<
-        Equal<
-          typeof store.userQuery,
-          ResourceRef<{
-            id: string;
-            name: string;
-          }>
-        >
-      >;
-
-      expect(store.userQuery).toBeDefined();
+      },
     });
+    console.log('data', data);
+
+    type ExpectQueryKeysToBeLiterals = Expect<
+      Equal<'withUserQuery' extends keyof typeof data ? true : false, true>
+    >;
+
+    const { withUserQuery, testUserQuery } = data;
+
+    expect(typeof withUserQuery).toEqual('function');
+
+    const testSignalStore = signalStore(
+      { providedIn: 'root' },
+      withState({ selected: '1' }),
+      withMutation('name', () =>
+        rxMutation({
+          method: (name: string) => name,
+          stream: ({ params }) => of({ id: '4', name: params }),
+        })
+      ),
+      withUserQuery((store) => ({
+        on: {
+          nameMutation: {},
+        },
+      }))
+    );
+    const store = TestBed.inject(testSignalStore);
+
+    type ExpectQueryKeysToBeAssociatedWithTheCachedConfig = Expect<
+      Equal<
+        typeof store.userQuery,
+        ResourceRef<{
+          id: string;
+          name: string;
+        }>
+      >
+    >;
+
+    expect(store.userQuery).toBeDefined();
   });
 
   it('should create a cached query and return a withFeatureQuery that can be used plug within the signalStore', async () => {
-    await TestBed.runInInjectionContext(async () => {
-      const data = cachedQueryFactory({
-        queries: {
-          user: {
-            query: (source: SignalProxy<{ id: string | undefined }>) =>
-              rxQuery({
-                params: source.id,
-                stream: ({ params: id }) => of({ id, name: 'User 1' }),
-              }),
-          },
-          users: {
-            query: rxQuery({
+    const data = cachedQueryFactory({
+      queries: {
+        user: {
+          query: (source: SignalProxy<{ id: string | undefined }>) =>
+            rxQuery({
+              params: source.id,
+              stream: ({ params: id }) => of({ id, name: 'User 1' }),
+            }),
+        },
+        users: {
+          query: () =>
+            rxQuery({
               stream: () => of({ id: '1', name: 'User 1' }),
             }),
-          },
         },
-      });
-      console.log('data', data);
-
-      // 👇 Check du typage
-      type ExpectQueryKeysToBeLiterals = Expect<
-        Equal<'withUserQuery' extends keyof typeof data ? true : false, true>
-      >;
-
-      const { withUserQuery, withUsersQuery } = data;
-
-      expect(typeof withUserQuery).toEqual('function');
-
-      const testSignalStore = signalStore(
-        { providedIn: 'root' },
-        withState({ selected: '1' }),
-        withMutation('name', () =>
-          rxMutation({
-            method: (name: string) => name,
-            stream: ({ params }) => of({ id: '4', name: params }),
-          })
-        ),
-        withUserQuery((store) => ({
-          setQuerySource: (source) => ({ id: store.selected }),
-        }))
-      );
-      const store = TestBed.inject(testSignalStore);
-
-      // 👇 Check du typage
-      type ExpectQueryKeysToBeAssociatedWithTheCachedConfig = Expect<
-        Equal<
-          typeof store.userQuery,
-          ResourceRef<{
-            id: string;
-            name: string;
-          }>
-        >
-      >;
-
-      expect(store.userQuery).toBeDefined();
+      },
     });
+    console.log('data', data);
+
+    // 👇 Check du typage
+    type ExpectQueryKeysToBeLiterals = Expect<
+      Equal<'withUserQuery' extends keyof typeof data ? true : false, true>
+    >;
+
+    const { withUserQuery, withUsersQuery } = data;
+
+    expect(typeof withUserQuery).toEqual('function');
+
+    const testSignalStore = signalStore(
+      { providedIn: 'root' },
+      withState({ selected: '1' }),
+      withMutation('name', () =>
+        rxMutation({
+          method: (name: string) => name,
+          stream: ({ params }) => of({ id: '4', name: params }),
+        })
+      ),
+      withUserQuery((store) => ({
+        setQuerySource: (source) => ({ id: store.selected }),
+      })),
+      withUsersQuery(() => ({}))
+    );
+    const store = TestBed.inject(testSignalStore);
+
+    // 👇 Check du typage
+    type ExpectQueryKeysToBeAssociatedWithTheCachedConfig = Expect<
+      Equal<
+        typeof store.userQuery,
+        ResourceRef<{
+          id: string;
+          name: string;
+        }>
+      >
+    >;
+
+    expect(store.userQuery).toBeDefined();
+    expect(store.usersQuery).toBeDefined();
   });
   it('withUserQuery can be inserted  within a signalStore', async () => {
     const { withUserQuery } = cachedQueryFactory({
@@ -199,11 +138,6 @@ describe('Cached Query Factory', () => {
               stream: ({ params: id }) => of({ id, name: 'User 1' }),
             }),
         },
-        // users: () => ({
-        //   query: rxQuery({
-        //     stream: () => of({ id: '1', name: 'User 1' }),
-        //   }),
-        // }),
       },
     });
 
