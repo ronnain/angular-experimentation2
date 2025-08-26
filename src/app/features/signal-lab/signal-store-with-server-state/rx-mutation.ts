@@ -7,7 +7,7 @@ import {
 import { RxResourceWithParamsOrParamsFn } from './types/rx-resource-with-params-or-params-fn.type';
 import { InternalType } from './types/util.type';
 import { signal, WritableSignal } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { rxResource, toSignal } from '@angular/core/rxjs-interop';
 import { MutationRef } from './with-mutation';
 
 export function rxMutation<
@@ -46,12 +46,14 @@ export function rxMutation<
     false
   >;
 } {
+  const src$ = mutationConfig.params$;
+  const src$ToSignal = src$ ? toSignal(src$) : undefined;
   const mutationResourceParamsFnSignal = signal<MutationParams | undefined>(
     undefined
   );
 
   const resourceParamsSrc =
-    mutationConfig.params ?? mutationResourceParamsFnSignal;
+    src$ToSignal ?? mutationConfig.params ?? mutationResourceParamsFnSignal;
 
   const mutationResource = rxResource<MutationState, MutationParams>({
     ...mutationConfig,
