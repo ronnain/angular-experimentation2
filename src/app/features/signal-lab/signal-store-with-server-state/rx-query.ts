@@ -8,7 +8,7 @@ import { RxResourceWithParamsOrParamsFn } from './types/rx-resource-with-params-
 import { InternalType } from './types/util.type';
 import { QueryRef } from './with-query';
 import { Signal, signal } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
+import { rxResource, toSignal } from '@angular/core/rxjs-interop';
 import { __INTERNAL_QueryBrand, brandQueryFunction } from './types/brand';
 
 export function rxQuery<
@@ -42,11 +42,14 @@ export function rxQuery<
     false
   >;
 }) & { [__INTERNAL_QueryBrand]: true } {
+  const src$ = queryConfig.params$;
+  const src$ToSignal = src$ ? toSignal(src$) : undefined;
   const queryResourceParamsFnSignal = signal<QueryParams | undefined>(
     undefined
   );
 
-  const resourceParamsSrc = queryConfig.params ?? queryResourceParamsFnSignal;
+  const resourceParamsSrc =
+    src$ToSignal ?? queryConfig.params ?? queryResourceParamsFnSignal;
 
   const queryResource = rxResource<QueryState, QueryParams>({
     ...queryConfig,

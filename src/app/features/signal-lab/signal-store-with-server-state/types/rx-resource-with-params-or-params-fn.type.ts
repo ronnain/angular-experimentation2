@@ -12,6 +12,7 @@ export type RxResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
         | {
             method?: never;
             loader?: never;
+            params$?: never;
             params?: () => Params;
             stream: (
               params: ResourceLoaderParams<NoInfer<Params>>
@@ -21,6 +22,19 @@ export type RxResourceWithParamsOrParamsFn<ResourceState, Params, ParamsArgs> =
             method: ResourceMethod<ParamsArgs, Params>;
             loader?: never;
             params?: never;
+            params$?: never;
+            stream: (
+              params: ResourceLoaderParams<NoInfer<Params>>
+            ) => Observable<ResourceState>;
+          }
+        | {
+            method?: never;
+            loader?: never;
+            params?: never;
+            /**
+             * Will operate as a switchMap to cancel previous in-flight requests.
+             */
+            params$: Observable<Params>;
             stream: (
               params: ResourceLoaderParams<NoInfer<Params>>
             ) => Observable<ResourceState>;

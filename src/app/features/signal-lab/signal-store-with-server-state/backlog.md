@@ -12,6 +12,8 @@ Ajout des tests manquants en même temps
 
 ## Feature
 
+- RxQuery ne pas mettre d'opérateurs, par contre, on peut metre un truc genre disable pour RxQuery pour ne pas accepter les nouveux params pendant qu'on
+- gérer les queryById quand le cache
 - resourceById cache pour ne pas relancer l'appel ? Si on revient sur une même "page"
 - rxQuery pour ajouter la gestion des observables en tant que source et switchMpa..., voir gérer les events
 - Ajout uxLoader / rxLoader

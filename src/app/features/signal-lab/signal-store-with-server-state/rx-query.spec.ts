@@ -19,6 +19,51 @@ type User = {
   email: string;
 };
 
+describe('rxQuery', () => {
+  it('1- should accept signal param as source', () => {
+    TestBed.runInInjectionContext(() => {
+      const queryRef = rxQuery({
+        params: () => '5',
+        stream: ({ params }) => {
+          return of({
+            id: params,
+            name: 'John Doe',
+            email: 'test@a.com',
+          });
+        },
+      });
+      expect(queryRef).toBeDefined();
+      const queryResult = queryRef({} as any, {} as any);
+      expect(queryResult.queryRef).toBeDefined();
+      expect(queryResult.queryRef.resource).toBeDefined();
+      expect(queryResult.queryRef.resourceParamsSrc).toBeDefined();
+      expect(queryResult.queryRef.resourceParamsSrc()).toEqual('5');
+      expect(queryResult.__types).toBeDefined();
+    });
+  });
+  it('2- should accept observable param as source', () => {
+    TestBed.runInInjectionContext(() => {
+      const queryRef = rxQuery({
+        params$: of('5'),
+        stream: ({ params }) => {
+          return of({
+            id: params,
+            name: 'John Doe',
+            email: 'test@a.com',
+          });
+        },
+      });
+      expect(queryRef).toBeDefined();
+      const queryResult = queryRef({} as any, {} as any);
+      expect(queryResult.queryRef).toBeDefined();
+      expect(queryResult.queryRef.resource).toBeDefined();
+      expect(queryResult.queryRef.resourceParamsSrc).toBeDefined();
+      expect(queryResult.queryRef.resourceParamsSrc()).toEqual('5');
+      expect(queryResult.__types).toBeDefined();
+    });
+  });
+});
+
 describe('withQuery using rxQuery', () => {
   it('1- Should expose a query resource', () => {
     const Store = signalStore(
