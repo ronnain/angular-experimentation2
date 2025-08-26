@@ -9,7 +9,8 @@ import { withMutation } from '../with-mutation';
 import { rxMutation } from '../rx-mutation';
 import { SignalProxy } from '../signal-proxy';
 
-// par défault inmemory cache
+// todo par défault inmemory cache
+// todo queryById
 describe('Cached Query Factory', () => {
   it('should create a cached query and return a withFeatureQuery that can be used in signalStore', async () => {
     // should export the withUserQuery and userQueryMutation
@@ -19,7 +20,6 @@ describe('Cached Query Factory', () => {
         user: {
           query: () =>
             rxQuery({
-              // todo pluggeable query
               // todo propose a way to inject service for the api call
               params: () => ({
                 id: '1',

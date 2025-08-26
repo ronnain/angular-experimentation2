@@ -12,17 +12,17 @@ Ajout des tests manquants en même temps
 
 ## Feature
 
-- RxQuery ne pas mettre d'opérateurs, par contre, on peut metre un truc genre disable pour RxQuery pour ne pas accepter les nouveux params pendant qu'on
 - gérer les queryById quand le cache
+- query pagination & cache
+- query infinit pagination & cache
 - resourceById cache pour ne pas relancer l'appel ? Si on revient sur une même "page"
-- rxQuery pour ajouter la gestion des observables en tant que source et switchMpa..., voir gérer les events
+- Plus tard quand les events du signalStore seront OP, ajouter un opérateur on$ ou un helper pour récupérer l'observable
 - Ajout uxLoader / rxLoader
 - un système où on créé une mutation global, que l'on peut facilement hériter depuis différente query dans des store globale ou non (faire un cache avec les mutations comme clés, comme ça si une mutation change on invalide le cache même si la query n'est pas en train d'écouter) => voir si on utilise preservedResource ou un outil de deepCompare avec le params ?
 - dans les reload, forcer à n'utiliser que les clé définis
 - associatedState, prévoir un cas où ça vient du store ?
 - pour les withQuery/MutationById créer un proxy
 - gérer les streams via les resourcesById?
-- withMutationById
 - withServerState
 - toGlobalServerState
 - localServer state: https://stackblitz.com/edit/stackblitz-starters-31qrd2nq?file=withFeature%2F1-simple-only-one-helper-to-use.ts
