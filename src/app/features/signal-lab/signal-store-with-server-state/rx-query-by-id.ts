@@ -10,6 +10,7 @@ import { Signal, signal } from '@angular/core';
 import { rxResourceById } from '../rx-resource-by-id';
 import { RxResourceByIdConfig } from './types/rx-resource-by-id-config.type';
 import { __INTERNAL_QueryBrand } from './types/brand';
+import { toSignal } from '@angular/core/rxjs-interop';
 
 export function rxQueryById<
   QueryState extends object | undefined,
@@ -54,11 +55,15 @@ export function rxQueryById<
   >;
   [__INTERNAL_QueryBrand]: true;
 } {
+  const src$ = queryConfig.params$;
+  const src$ToSignal = src$ ? toSignal(src$) : undefined;
+
   const queryResourceParamsFnSignal = signal<QueryParams | undefined>(
     undefined
   );
 
-  const resourceParamsSrc = queryConfig.params ?? queryResourceParamsFnSignal;
+  const resourceParamsSrc =
+    src$ToSignal ?? queryConfig.params ?? queryResourceParamsFnSignal;
 
   const queryResourcesById = rxResourceById<
     QueryState,

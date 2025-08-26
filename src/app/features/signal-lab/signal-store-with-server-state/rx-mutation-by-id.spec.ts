@@ -4,7 +4,7 @@ import {
   runInInjectionContext,
   ApplicationRef,
 } from '@angular/core';
-import { of, Subject } from 'rxjs';
+import { BehaviorSubject, of, Subject } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { rxMutationById } from './rx-mutation-by-id';
 import { InternalType } from './types/util.type';
@@ -54,7 +54,7 @@ describe('rxResourceById', () => {
 
   it('should create a rxResource by id that accept params$ that is an observable', async () => {
     await TestBed.runInInjectionContext(async () => {
-      const sourceParams = new Subject<{ id: string }>();
+      const sourceParams = new BehaviorSubject<{ id: string }>({ id: '1' });
       const mutationConfig = rxMutationById({
         identifier: (request) => request.id,
         params$: sourceParams,
@@ -66,6 +66,9 @@ describe('rxResourceById', () => {
       expect(mutationConfig).toBeDefined();
       expect(mutationConfig.mutationByIdRef.resourceById()).toEqual({});
       expect(mutationConfig.mutationByIdRef.resourceParamsSrc).toBeDefined();
+      expect(mutationConfig.mutationByIdRef.resourceParamsSrc()).toEqual({
+        id: '1',
+      });
 
       type ExpectTypeTObeGroupedMutation = Expect<
         Equal<

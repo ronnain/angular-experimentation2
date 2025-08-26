@@ -33,7 +33,7 @@ describe('rxMutation', () => {
       expect(mutationResult.__types).toBeDefined();
     });
   });
-  it('2- should accept observable param as source', () => {
+  it('2- should accept observable param$ as source', () => {
     TestBed.runInInjectionContext(() => {
       const mutationRef = rxMutation({
         params$: of('5'),

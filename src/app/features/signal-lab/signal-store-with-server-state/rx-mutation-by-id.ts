@@ -9,6 +9,7 @@ import { MutationByIdRef } from './with-mutation-by-id';
 import { signal, WritableSignal } from '@angular/core';
 import { rxResourceById } from '../rx-resource-by-id';
 import { RxResourceByIdConfig } from './types/rx-resource-by-id-config.type';
+import { toSignal } from '@angular/core/rxjs-interop';
 
 export function rxMutationById<
   MutationState extends object | undefined,
@@ -50,12 +51,14 @@ export function rxMutationById<
     NoInfer<MutationGroupIdentifier>
   >;
 } {
+  const src$ = mutationConfig.params$;
+  const src$ToSignal = src$ ? toSignal(src$) : undefined;
   const mutationResourceParamsFnSignal = signal<MutationParams | undefined>(
     undefined
   );
 
   const resourceParamsSrc =
-    mutationConfig.params ?? mutationResourceParamsFnSignal;
+    src$ToSignal ?? mutationConfig.params ?? mutationResourceParamsFnSignal;
 
   const mutationResourcesById = rxResourceById<
     MutationState,

@@ -4,7 +4,7 @@ import {
   runInInjectionContext,
   ApplicationRef,
 } from '@angular/core';
-import { of } from 'rxjs';
+import { BehaviorSubject, of, Subject } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { rxQueryById } from './rx-query-by-id';
 import { InternalType } from './types/util.type';
@@ -14,19 +14,46 @@ import { withQueryById } from './with-query-by-id';
 import { User } from '../resource-by-group/api.service';
 
 describe('rxResourceById', () => {
-  it('should create a rxResource by id', async (done) => {
-    TestBed.configureTestingModule({
-      providers: [Injector, ApplicationRef],
-    });
-    const injector = TestBed.inject(Injector);
-
-    await runInInjectionContext(injector, async () => {
-      const sourceParams = signal<{ id: string } | undefined>(undefined);
+  it('should create a rxResource by id that accepts param$ observable', async () => {
+    await TestBed.runInInjectionContext(async () => {
+      const sourceParams = new BehaviorSubject<{ id: string }>({ id: '1' });
       const queryConfig = rxQueryById({
-        identifier: (request) => request.id,
-        params: sourceParams,
+        identifier: (params) => params.id,
+        params$: sourceParams,
         stream: ({ params }) => {
-          // Simulate a stream
+          return of(params);
+        },
+      })({} as any, {} as any);
+      expect(queryConfig).toBeDefined();
+      expect(queryConfig.queryByIdRef.resourceById()).toEqual({});
+      expect(queryConfig.queryByIdRef.resourceParamsSrc).toBeDefined();
+      expect(queryConfig.queryByIdRef.resourceParamsSrc()).toEqual({ id: '1' });
+
+      type ExpectTypeTObeGroupedQuery = Expect<
+        Equal<
+          typeof queryConfig.__types,
+          InternalType<
+            {
+              id: string;
+            },
+            {
+              id: string;
+            },
+            unknown,
+            false,
+            string
+          >
+        >
+      >;
+    });
+  });
+  it('should create a rxResource by id that accepts param$ observable', async () => {
+    await TestBed.runInInjectionContext(async () => {
+      const sourceParams = new Subject<{ id: string }>();
+      const queryConfig = rxQueryById({
+        identifier: (params) => params.id,
+        params$: sourceParams,
+        stream: ({ params }) => {
           return of(params);
         },
       })({} as any, {} as any);
@@ -38,14 +65,12 @@ describe('rxResourceById', () => {
         Equal<
           typeof queryConfig.__types,
           InternalType<
-            | {
-                id: string;
-              }
-            | undefined,
-            | {
-                id: string;
-              }
-            | undefined,
+            {
+              id: string;
+            },
+            {
+              id: string;
+            },
             unknown,
             false,
             string
