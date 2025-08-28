@@ -16,6 +16,7 @@ import {
   withCachedQueryToPlugFactory,
 } from './with-cached-query-factory';
 import { QueriesPersister } from '../persister/persister.type';
+import { QueryByIdRef } from '../with-query-by-id';
 
 // todo expose enable to cache inmemory by default or use a persister or a persister to a specific query
 
@@ -24,9 +25,19 @@ type QueryRefType = {
   __types: InternalType<unknown, unknown, unknown, false>;
 };
 
+type QueryByIdRefType = {
+  queryByIdRef: QueryByIdRef<string | number, unknown, unknown>;
+  __types: InternalType<unknown, unknown, unknown, true, string | number>;
+};
+
 type CachedQuery = {
   config?: QueryCacheCustomConfig;
   query: QueryRefType;
+};
+
+type CachedQueryById = {
+  config?: QueryCacheCustomConfig;
+  query: QueryByIdRefType;
 };
 
 type WithQueryOutputMapper<
@@ -75,38 +86,47 @@ type WithQueryOutputMapperTyped<
       : 'never2'
     : 'never2'
   : 'never1';
-// HasQueryBrand<QueryRecord[k]['query']> extends true
-//   ? QueryRecord[k]['query'] extends (store: any, context: any) => infer R
-//     ? R extends {
-//         queryRef: QueryRef<infer State, infer Params>;
-//       }
-//       ? ReturnType<
-//           typeof withCachedQueryFactory<
-//             k & string,
-//             State extends object | undefined ? State : never,
-//             Params
-//           >
-//         >
-//       : QueryRecord[k]['query']
-//     : 'never4'
-//   : ;
+
+type WithQueryByIdOutputMapperTyped<
+  QueryKeys extends keyof QueryRecord,
+  QueryRecord extends {
+    [key in QueryKeys]: { query: unknown };
+  },
+  k extends keyof QueryRecord
+> = QueryRecord[k]['query'] extends infer All
+  ? All extends (data: infer Data) => (store: any, context: any) => infer R
+    ? R extends {
+        queryRef: QueryRef<infer State, infer Params>;
+      }
+      ? Data extends SignalWrapperParams<infer PluggableParams>
+        ? ReturnType<
+            typeof withCachedQueryToPlugFactory<
+              k & string,
+              State extends object | undefined ? State : never,
+              Params,
+              PluggableParams
+            >
+          >
+        : ReturnType<
+            typeof withCachedQueryFactory<
+              k & string,
+              State extends object | undefined ? State : never,
+              Params
+            >
+          >
+      : 'never2'
+    : 'never2'
+  : 'never1';
 
 type CachedQueryFactoryOutput<
   QueryKeys extends keyof QueryRecord,
   QueryByIdKeys extends keyof QueryByIdRecord,
   QueryRecord extends {
-    [key in QueryKeys]: {
-      isPluggable?: true | false;
-      query:
-        | QueryRefType
-        | ((data: SignalProxy<PluggableParams>) => QueryRefType);
-    };
+    [key in QueryKeys]: QueryConfiguration<PluggableParams>;
   },
   CacheTime, // Default cache time in milliseconds (5 minutes)
   QueryByIdRecord extends {
-    [key in QueryByIdKeys]: {
-      cacheTime: number;
-    };
+    [key in QueryByIdKeys]: QueryByIdConfiguration<PluggableParams>;
   },
   PluggableParams extends object
 > = MergeObjects<
@@ -146,6 +166,13 @@ type QueryConfiguration<PluggableParams extends object> = {
     | ((data: SignalProxy<PluggableParams>) => QueryRefType);
 };
 
+type QueryByIdConfiguration<PluggableParams extends object> = {
+  config?: QueryCacheCustomConfig;
+  queryById: () =>
+    | (() => QueryByIdRefType)
+    | ((data: SignalProxy<PluggableParams>) => QueryByIdRefType);
+};
+
 export function cachedQueryFactory<
   const QueryKeys extends keyof QueryRecord,
   const QueryByIdKeys extends keyof QueryByIdRecord,
@@ -154,7 +181,7 @@ export function cachedQueryFactory<
     [key in QueryKeys]: QueryConfiguration<PluggableParams>;
   },
   const QueryByIdRecord extends {
-    [key in QueryByIdKeys]: QueryCacheCustomConfig;
+    [key in QueryByIdKeys]: QueryByIdConfiguration<PluggableParams>;
   },
   const CacheTime = 300000 // Default cache time in milliseconds (5 minutes)
 >(
@@ -178,7 +205,6 @@ export function cachedQueryFactory<
 ): CachedQueryFactoryOutput<
   QueryKeys,
   QueryByIdKeys,
-  //@ts-ignore
   QueryRecord,
   CacheTime,
   QueryByIdRecord,
