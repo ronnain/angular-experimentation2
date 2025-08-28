@@ -13,6 +13,10 @@ Ajout des tests manquants en même temps
 ## Feature
 
 - gérer les queryById quand le cache
+- Faire un withRxMutation basé sur les observables
+- Dans les cachesPersister rajouter une map clé/date d'expiration, comme ça à l'initialisation ça peut clean tout ce qui est outdated
+- Penser au cas où une mutation vient modifier une query qui n'est pas encore récupérée du cache (pas possible je crois, via ce que j'ai mis en place)
+- Cache auto refetch si /WindowsFocus / interval...
 - query pagination & cache
 - query infinit pagination & cache
 - resourceById cache pour ne pas relancer l'appel ? Si on revient sur une même "page"

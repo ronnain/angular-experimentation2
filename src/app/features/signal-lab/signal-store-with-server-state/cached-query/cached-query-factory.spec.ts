@@ -3,7 +3,7 @@ import { Equal, Expect } from '../../../../../../test-type';
 import { cachedQueryFactory } from './cached-query-factory';
 import { of } from 'rxjs';
 import { rxQuery } from '../rx-query';
-import { inject, Inject, Injectable, ResourceRef, signal } from '@angular/core';
+import { inject, Injectable, ResourceRef, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { withMutation } from '../with-mutation';
 import { rxMutation } from '../rx-mutation';
