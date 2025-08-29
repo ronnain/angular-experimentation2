@@ -74,14 +74,17 @@ type WithQueryOutputMapperTyped<
               k & string,
               State extends object | undefined ? State : never,
               Params,
-              PluggableParams
+              PluggableParams,
+              true
             >
           >
         : ReturnType<
-            typeof withCachedQueryFactory<
+            typeof withCachedQueryToPlugFactory<
               k & string,
               State extends object | undefined ? State : never,
-              Params
+              Params,
+              {},
+              false
             >
           >
       : 'never2Test'

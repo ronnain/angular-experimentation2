@@ -8,45 +8,18 @@ import { InternalType } from '../types/util.type';
 import { QueryRef, QueryOptions, withQuery } from '../with-query';
 import { SignalProxy, SignalWrapperParams } from '../signal-proxy';
 import { Injector } from '@angular/core';
-import { Merge } from '../../../../util/types/merge';
 import {
   QueryByIdOptions,
   QueryByIdRef,
   withQueryById,
 } from '../with-query-by-id';
 
-/**
- * It is mainly used to help typing
- */
-export function withCachedQueryFactory<
-  const QueryName extends string,
-  QueryState extends object | undefined,
-  QueryParams
->(
-  name: QueryName,
-  queryRef: {
-    queryRef: QueryRef<QueryState, QueryParams>;
-    __types: InternalType<QueryState, QueryParams, unknown, false>;
-  }
-) {
-  return <
-    Input extends SignalStoreFeatureResult,
-    const StoreInput extends Prettify<
-      StateSignals<Input['state']> &
-        Input['props'] &
-        Input['methods'] &
-        WritableStateSource<Prettify<Input['state']>>
-    >
-  >(
-    options?: QueryOptions<StoreInput, Input, QueryState, QueryParams, unknown>
-  ) => withQuery(name, (store) => () => queryRef, options);
-}
-
 export function withCachedQueryToPlugFactory<
   const QueryName extends string,
   QueryState extends object | undefined,
   QueryParams,
-  PlugData extends object
+  PlugData extends object,
+  IsPluggableQuery
 >(
   name: QueryName,
   querySourceProxy: SignalProxy<PlugData, true>,
@@ -70,16 +43,13 @@ export function withCachedQueryToPlugFactory<
       QueryState,
       QueryParams,
       unknown,
-      Merge<
-        {
-          setQuerySource?: (
-            source: SignalProxy<NoInfer<PlugData>>
-          ) => SignalWrapperParams<NoInfer<PlugData>>;
-        },
-        {
-          test1?: NoInfer<PlugData>;
-        }
-      >
+      {
+        setQuerySource?: IsPluggableQuery extends true
+          ? (
+              source: SignalProxy<NoInfer<PlugData>>
+            ) => SignalWrapperParams<NoInfer<PlugData>>
+          : never;
+      }
     >
   ) => {
     return withQuery(
@@ -105,7 +75,7 @@ export function withCachedQueryByIdToPlugFactory<
   QueryParams,
   PlugData extends object,
   GroupIdentifier extends string | number,
-  isPluggableQuery
+  IsPluggableQuery
 >(
   name: QueryName,
   querySourceProxy: SignalProxy<PlugData, true>,
@@ -137,7 +107,7 @@ export function withCachedQueryByIdToPlugFactory<
       GroupIdentifier,
       unknown,
       {
-        setQuerySource?: isPluggableQuery extends true
+        setQuerySource?: IsPluggableQuery extends true
           ? (
               source: SignalProxy<NoInfer<PlugData>>
             ) => SignalWrapperParams<NoInfer<PlugData>>

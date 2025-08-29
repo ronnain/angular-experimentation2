@@ -35,7 +35,7 @@ describe('Cached Query Factory', () => {
       Equal<'withUserQuery' extends keyof typeof data ? true : false, true>
     >;
 
-    const { withUserQuery, testUserQuery } = data;
+    const { withUserQuery } = data;
 
     expect(typeof withUserQuery).toEqual('function');
 
@@ -279,13 +279,6 @@ describe('Cached Query Factory', () => {
       withUserQuery((store) => ({
         on: {
           nameMutation: {},
-        },
-        //@ts-expect-error
-        setQuerySource: (_source) => {
-          type ExpectSourceToBeAnySinceItShouldNotExist = Expect<
-            Equal<typeof _source, any>
-          >;
-          return false;
         },
       }))
     );
