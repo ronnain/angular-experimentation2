@@ -302,7 +302,7 @@ describe('Cached Query Factory', () => {
 
   it('should create a cached queryById that can be plug and return a withFeatureQueryById that can be used in signalStore', async () => {
     const data = cachedQueryFactory({
-      queryById: {
+      queriesById: {
         user: {
           queryById: (source: SignalProxy<{ id: string | undefined }>) =>
             rxQueryById({
@@ -360,7 +360,7 @@ describe('Cached Query Factory', () => {
 
   it('should create a cached queryById that is not pluggable and return a withFeatureQuery that can be used in signalStore', async () => {
     const data = cachedQueryFactory({
-      queryById: {
+      queriesById: {
         user: {
           queryById: () =>
             rxQueryById({

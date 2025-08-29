@@ -13,7 +13,6 @@ import { InternalType, MergeObjects } from '../types/util.type';
 import { QueryRef } from '../with-query';
 import {
   withCachedQueryByIdToPlugFactory,
-  withCachedQueryFactory,
   withCachedQueryToPlugFactory,
 } from './with-cached-query-factory';
 import { QueriesPersister } from '../persister/persister.type';
@@ -45,10 +44,29 @@ type WithQueryOutputMapper<
   QueryRecord extends Record<string, QueryConfiguration<{}>>
 > = {
   [k in keyof QueryRecord as `with${Capitalize<string & k>}Query`]: ReturnType<
-    typeof withCachedQueryFactory<
+    typeof withCachedQueryToPlugFactory<
       k & string,
       CachedQuery['query']['queryRef']['resource'],
-      string
+      string,
+      {},
+      true
+    >
+  >;
+};
+
+type WithQueryByIdOutputMapper<
+  QueryRecord extends Record<string, QueryByIdConfiguration<{}>>
+> = {
+  [k in keyof QueryRecord as `with${Capitalize<
+    string & k
+  >}QueryById`]: ReturnType<
+    typeof withCachedQueryByIdToPlugFactory<
+      k & string,
+      CachedQuery['query']['queryRef']['resource'],
+      string,
+      {},
+      string | number,
+      boolean
     >
   >;
 };
@@ -195,10 +213,10 @@ export function cachedQueryFactory<
 >(
   {
     queries,
-    queryById,
+    queriesById,
   }: {
     queries?: QueryRecord;
-    queryById?: QueryByIdRecord;
+    queriesById?: QueryByIdRecord;
   },
   cacheGlobalConfig?: {
     /**
@@ -218,13 +236,6 @@ export function cachedQueryFactory<
   QueryByIdRecord,
   PluggableParams
 > {
-  const queriesMap = Object.entries(queries ?? {}).reduce((acc, [key]) => {
-    const capitalizedKey = (key.charAt(0).toUpperCase() +
-      key.slice(1)) as Capitalize<QueryKeys & string>;
-    const withQueryName = `with${capitalizedKey}Query` as const;
-    acc[withQueryName] = () => {};
-    return acc;
-  }, {} as Record<string, () => void>);
   return {
     ...(queries && {
       ...Object.entries<QueryConfiguration<PluggableParams>>(queries).reduce(
@@ -273,17 +284,52 @@ export function cachedQueryFactory<
         {} as WithQueryOutputMapper<Record<string, QueryConfiguration<{}>>>
       ),
     }),
-    ...(queryById && {
-      ...Object.entries<QueryCacheCustomConfig>(queryById).reduce(
-        (acc, [key, value]) => {
-          acc[key as keyof QueryByIdRecord] = {
-            cacheTime:
-              value.cacheTime ?? cacheGlobalConfig?.cacheTime ?? 300000,
-          };
-          return acc;
-        },
-        {} as { [k in keyof QueryByIdRecord]: { cacheTime: number } }
-      ),
+    ...(queriesById && {
+      ...Object.entries<QueryByIdConfiguration<PluggableParams>>(
+        queriesById
+      ).reduce((acc, [key, value]) => {
+        const capitalizedKey = (key.charAt(0).toUpperCase() +
+          key.slice(1)) as Capitalize<QueryKeys & string>;
+        const withQueryName = `with${capitalizedKey}QueryById` as const;
+
+        const queryData = (injector: Injector) => {
+          return runInInjectionContext(injector, () => {
+            // todo check if the first arg is a service injected
+            const isPluggableQuery = value.queryById.length > 0;
+            console.log('isPluggableQuery', key, isPluggableQuery);
+            const queryData = (
+              isPluggableQuery
+                ? ((value.queryById as any)(signalProxy) as any)({}, {})
+                : (value.queryById as any)()?.({}, {})
+            ) as QueryByIdRefType;
+            const queryByRef = queryData.queryByIdRef;
+            const queryByIdResource = queryByRef.resourceById;
+            const queryResourceParamsSrc = queryByRef.resourceParamsSrc;
+            cacheGlobalConfig?.persister?.addQueryByIdToPersist({
+              key,
+              queryByIdResource,
+              queryResourceParamsSrc,
+              waitForParamsSrcToBeEqualToPreviousValue: false,
+              cacheTime:
+                value?.config?.cacheTime ??
+                (cacheGlobalConfig?.cacheTime as number | undefined) ??
+                300000,
+            });
+            return queryData;
+          });
+        };
+        const signalProxy = createSignalProxy(signal({})) as any;
+
+        const queryEntity = withCachedQueryByIdToPlugFactory(
+          key,
+          signalProxy,
+          queryData as any
+        );
+        //@ts-ignore
+        acc[withQueryName] = queryEntity;
+
+        return acc;
+      }, {} as WithQueryByIdOutputMapper<Record<string, QueryByIdConfiguration<{}>>>),
     }),
   } as CachedQueryFactoryOutput<
     QueryKeys,

@@ -1,4 +1,5 @@
 import { ResourceRef, Signal } from '@angular/core';
+import { ResourceByIdRef } from '../resource-by-id-signal-store';
 
 export interface PersistedQuery {
   key: string;
@@ -8,8 +9,17 @@ export interface PersistedQuery {
   cacheTime: number;
 }
 
+export interface PersistedQueryById {
+  key: string;
+  queryByIdResource: ResourceByIdRef<string | number, unknown>;
+  queryResourceParamsSrc: Signal<unknown>;
+  waitForParamsSrcToBeEqualToPreviousValue: boolean;
+  cacheTime: number;
+}
+
 export interface QueriesPersister {
   addQueryToPersist(data: PersistedQuery): void;
+  addQueryByIdToPersist(data: PersistedQueryById): void;
 
   clearQuery(queryKey: string): void;
   clearAllQueries(): void;
