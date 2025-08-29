@@ -14,8 +14,8 @@ Ajout des tests manquants en même temps
 
 - ajouter test queryById localstorage
 - checker de voir si on a encore besoin du runOnInjectionContext & injector
-- gérer les queryById quand le cache
 - Faire un withRxMutation basé sur les observables
+- cache persister, auto reload si observé ?
 - Dans les cachesPersister rajouter une map clé/date d'expiration, comme ça à l'initialisation ça peut clean tout ce qui est outdated
 - Penser au cas où une mutation vient modifier une query qui n'est pas encore récupérée du cache (pas possible je crois, via ce que j'ai mis en place)
 - Cache auto refetch si /WindowsFocus / interval...
