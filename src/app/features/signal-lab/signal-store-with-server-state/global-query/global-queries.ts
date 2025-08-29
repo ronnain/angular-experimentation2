@@ -199,7 +199,7 @@ type QueryByIdConfiguration<PluggableParams extends object> = {
     | ((data: SignalProxy<PluggableParams>) => QueryByIdRefType);
 };
 
-export function cachedQueryFactory<
+export function globalQueries<
   const QueryKeys extends keyof QueryRecord,
   const QueryByIdKeys extends keyof QueryByIdRecord,
   PluggableParams extends object,

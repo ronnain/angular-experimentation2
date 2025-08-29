@@ -1,6 +1,6 @@
 import { signalStore, withState } from '@ngrx/signals';
 import { Equal, Expect } from '../../../../../../test-type';
-import { cachedQueryFactory } from './cached-query-factory';
+import { globalQueries } from './global-queries';
 import { of } from 'rxjs';
 import { rxQuery } from '../rx-query';
 import { inject, Injectable, ResourceRef, signal } from '@angular/core';
@@ -13,11 +13,10 @@ import { rxQueryById } from '../rx-query-by-id';
 import { ResourceByIdRef } from '../resource-by-id-signal-store';
 
 // todo queryById
-describe('Cached Query Factory', () => {
+// todo expose inject funtion
+describe('Global Queries', () => {
   it('should create a cached query and return a withFeatureQuery that can be used in signalStore', async () => {
-    // should export the withUserQuery and userQueryMutation
-
-    const data = cachedQueryFactory({
+    const data = globalQueries({
       queries: {
         user: {
           query: () =>
@@ -70,7 +69,7 @@ describe('Cached Query Factory', () => {
   });
 
   it('should create a cached query and return a withFeatureQuery that can be used plug within the signalStore', async () => {
-    const data = cachedQueryFactory({
+    const data = globalQueries({
       queries: {
         user: {
           query: (source: SignalProxy<{ id: string | undefined }>) =>
@@ -129,7 +128,7 @@ describe('Cached Query Factory', () => {
     expect(store.usersQuery).toBeDefined();
   });
   it('withUserQuery can be inserted  within a signalStore', async () => {
-    const { withUserQuery } = cachedQueryFactory({
+    const { withUserQuery } = globalQueries({
       queries: {
         user: {
           query: (source: SignalProxy<{ id: string | undefined }>) =>
@@ -170,7 +169,7 @@ describe('Cached Query Factory', () => {
       }
     }
 
-    const data = cachedQueryFactory({
+    const data = globalQueries({
       queries: {
         user: {
           query: (
@@ -244,7 +243,7 @@ describe('Cached Query Factory', () => {
     }
 
     const source = signal({ id: 5 });
-    const data = cachedQueryFactory({
+    const data = globalQueries({
       queries: {
         user: {
           query: (api = inject(ApiService)) =>
@@ -301,7 +300,7 @@ describe('Cached Query Factory', () => {
   });
 
   it('should create a cached queryById that can be plug and return a withFeatureQueryById that can be used in signalStore', async () => {
-    const data = cachedQueryFactory({
+    const data = globalQueries({
       queriesById: {
         user: {
           queryById: (source: SignalProxy<{ id: string | undefined }>) =>
@@ -359,7 +358,7 @@ describe('Cached Query Factory', () => {
   });
 
   it('should create a cached queryById that is not pluggable and return a withFeatureQuery that can be used in signalStore', async () => {
-    const data = cachedQueryFactory({
+    const data = globalQueries({
       queriesById: {
         user: {
           queryById: () =>

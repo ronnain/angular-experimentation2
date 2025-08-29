@@ -12,6 +12,7 @@ Ajout des tests manquants en même temps
 
 ## Feature
 
+- ajouter inject dans cachedQueries
 - ajouter test queryById localstorage
 - checker de voir si on a encore besoin du runOnInjectionContext & injector
 - Faire un withRxMutation basé sur les observables

@@ -32,7 +32,7 @@ import { rxQuery } from './rx-query';
 import { rxMutation } from './rx-mutation';
 import { ServerStateStore } from './server-state-store';
 import { SignalProxy } from './signal-proxy';
-import { cachedQueryKeysFactory } from './cached-query/cached-query-factory';
+import { cachedQueryKeysFactory } from './global-query/global-queries';
 import { query } from './query';
 
 const { injectPluggableUserServerState, PluggableUserServerStateStore } =

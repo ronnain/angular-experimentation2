@@ -14,7 +14,7 @@ import {
   QueriesPersister,
 } from './persister.type';
 import { nestedEffect } from '../types/util';
-import { isEqual } from '../cached-query/util';
+import { isEqual } from '../global-query/util';
 
 export function localStoragePersister(prefix: string): QueriesPersister {
   const _injector = inject(Injector);
