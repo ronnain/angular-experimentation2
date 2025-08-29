@@ -87,6 +87,76 @@ type WithQueryByIdOutputStoreConfig<
   methods: {};
 };
 
+export type QueryByIdOptions<
+  StoreInput extends Prettify<
+    StateSignals<Input['state']> &
+      Input['props'] &
+      Input['methods'] &
+      WritableStateSource<Prettify<Input['state']>>
+  >,
+  Input extends SignalStoreFeatureResult,
+  ResourceState extends object | undefined,
+  ResourceParams,
+  GroupIdentifier extends string | number,
+  ResourceArgsParams,
+  OtherProperties extends Record<string, unknown> = {}
+> = (store: StoreInput) => {
+  // Exclude path from the MergeObject, it will enable the const type inference, otherwise it will be inferred as string
+  /**
+   * Will update the state at the given path with the resource data (if the data id resolved or set 'local').
+   * If the type of targeted state does not match the type of the resource,
+   * a function is required.
+   * - If the function is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
+   */
+  state?: BooleanOrMapperFnByPathById<
+    NoInfer<Input>['state'],
+    NoInfer<ResourceState>,
+    NoInfer<ResourceParams>,
+    NoInfer<GroupIdentifier>
+  > extends infer BooleanOrMapperFnByPath
+    ? {
+        [Path in keyof BooleanOrMapperFnByPath]?: BooleanOrMapperFnByPath[Path];
+      }
+    : never;
+  on?: Input['props'] extends {
+    __mutation: infer Mutations;
+  }
+    ? {
+        [key in keyof Mutations as `${key &
+          string}${'isGroupedResource' extends keyof Mutations[key]
+          ? Mutations[key]['isGroupedResource'] extends true
+            ? 'MutationById'
+            : ''
+          : never}`]?: Mutations[key] extends InternalType<
+          infer MutationState,
+          infer MutationParams,
+          infer MutationArgsParams,
+          infer MutationIsByGroup,
+          infer MutationGroupIdentifier
+        >
+          ? QueryDeclarativeEffect<{
+              query: InternalType<
+                ResourceState,
+                ResourceParams,
+                ResourceArgsParams,
+                true,
+                GroupIdentifier
+              >;
+              mutation: InternalType<
+                MutationState,
+                MutationParams,
+                MutationArgsParams,
+                MutationIsByGroup,
+                MutationGroupIdentifier
+              >;
+            }>
+          : never;
+      }
+    : never;
+} & {
+  [key in keyof OtherProperties]: OtherProperties[key];
+};
+
 /**
  *
  * @param resourceName
@@ -122,7 +192,10 @@ export function withQueryById<
   >
 >(
   resourceName: ResourceName,
-  queryFactory: (store: StoreInput) => (
+  queryFactory: (
+    store: StoreInput,
+    injector: Injector
+  ) => (
     store: StoreInput,
     context: Input
   ) => {
@@ -136,64 +209,18 @@ export function withQueryById<
       ResourceState,
       ResourceParams,
       ResourceArgsParams,
-      false,
+      true,
       GroupIdentifier
     >;
   },
-  optionsFactory?: (store: StoreInput) => {
-    // Exclude path from the MergeObject, it will enable the const type inference, otherwise it will be inferred as string
-    /**
-     * Will update the state at the given path with the resource data (if the data id resolved or set 'local').
-     * If the type of targeted state does not match the type of the resource,
-     * a function is required.
-     * - If the function is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
-     */
-    state?: BooleanOrMapperFnByPathById<
-      NoInfer<Input>['state'],
-      NoInfer<ResourceState>,
-      NoInfer<ResourceParams>,
-      NoInfer<GroupIdentifier>
-    > extends infer BooleanOrMapperFnByPath
-      ? {
-          [Path in keyof BooleanOrMapperFnByPath]?: BooleanOrMapperFnByPath[Path];
-        }
-      : never;
-    on?: Input['props'] extends {
-      __mutation: infer Mutations;
-    }
-      ? {
-          [key in keyof Mutations as `${key &
-            string}${'isGroupedResource' extends keyof Mutations[key]
-            ? Mutations[key]['isGroupedResource'] extends true
-              ? 'MutationById'
-              : ''
-            : never}`]?: Mutations[key] extends InternalType<
-            infer MutationState,
-            infer MutationParams,
-            infer MutationArgsParams,
-            infer MutationIsByGroup,
-            infer MutationGroupIdentifier
-          >
-            ? QueryDeclarativeEffect<{
-                query: InternalType<
-                  ResourceState,
-                  ResourceParams,
-                  ResourceArgsParams,
-                  true,
-                  GroupIdentifier
-                >;
-                mutation: InternalType<
-                  MutationState,
-                  MutationParams,
-                  MutationArgsParams,
-                  MutationIsByGroup,
-                  MutationGroupIdentifier
-                >;
-              }>
-            : never;
-        }
-      : never;
-  }
+  optionsFactory?: QueryByIdOptions<
+    StoreInput,
+    Input,
+    ResourceState,
+    ResourceParams,
+    GroupIdentifier,
+    ResourceArgsParams
+  >
 ): SignalStoreFeature<
   Input,
   WithQueryByIdOutputStoreConfig<
@@ -209,10 +236,10 @@ export function withQueryById<
       withProps((store) => {
         const _injector = inject(Injector);
 
-        const queryConfigData = queryFactory(store as unknown as StoreInput)(
+        const queryConfigData = queryFactory(
           store as unknown as StoreInput,
-          context as unknown as Input
-        );
+          _injector
+        )(store as unknown as StoreInput, context as unknown as Input);
 
         const resourceParamsSrc =
           queryConfigData.queryByIdRef.resourceParamsSrc;

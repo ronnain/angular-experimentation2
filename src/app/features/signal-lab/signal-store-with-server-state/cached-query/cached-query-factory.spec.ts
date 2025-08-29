@@ -9,6 +9,8 @@ import { withMutation } from '../with-mutation';
 import { rxMutation } from '../rx-mutation';
 import { SignalProxy } from '../signal-proxy';
 import { vi } from 'vitest';
+import { rxQueryById } from '../rx-query-by-id';
+import { ResourceByIdRef } from '../resource-by-id-signal-store';
 
 // todo queryById
 describe('Cached Query Factory', () => {
@@ -261,7 +263,7 @@ describe('Cached Query Factory', () => {
       Equal<'withUserQuery' extends keyof typeof data ? true : false, true>
     >;
 
-    const { withUserQuery, testUserQuery } = data;
+    const { withUserQuery } = data;
 
     expect(typeof withUserQuery).toEqual('function');
 
@@ -305,30 +307,32 @@ describe('Cached Query Factory', () => {
     vi.restoreAllMocks();
   });
 
-  it('should create a cached query and return a withFeatureQuery that can be used in signalStore', async () => {
+  it('should create a cached queryById and return a withFeatureQuery that can be used in signalStore', async () => {
     // should export the withUserQuery and userQueryMutation
 
     const data = cachedQueryFactory({
       queryById: {
         user: {
-          query: () =>
-            rxQuery({
-              params: () => ({
-                id: '1',
-              }),
+          queryById: (source: SignalProxy<{ id: string | undefined }>) =>
+            rxQueryById({
+              params: source.id,
               stream: () => of({ id: '1', name: 'User 1' }),
+              identifier: (params) => params,
             }),
         },
       },
     });
 
     type ExpectQueryKeysToBeLiterals = Expect<
-      Equal<'withUserQuery' extends keyof typeof data ? true : false, true>
+      Equal<'withUserQueryById' extends keyof typeof data ? true : false, true>
     >;
 
-    const { withUserQuery, testUserQuery } = data;
+    const { withUserQueryById } = data;
 
-    expect(typeof withUserQuery).toEqual('function');
+    const r = withUserQueryById;
+    //    ^?
+
+    expect(typeof withUserQueryById).toEqual('function');
 
     const testSignalStore = signalStore(
       { providedIn: 'root' },
@@ -339,24 +343,29 @@ describe('Cached Query Factory', () => {
           stream: ({ params }) => of({ id: '4', name: params }),
         })
       ),
-      withUserQuery((store) => ({
-        on: {
-          nameMutation: {},
-        },
+      withUserQueryById((store) => ({
+        setQuerySource: (source) => ({
+          id: store.selected,
+        }),
       }))
     );
     const store = TestBed.inject(testSignalStore);
 
-    type ExpectQueryKeysToBeAssociatedWithTheCachedConfig = Expect<
+    type ExpectUserQueryToBeTyped = Expect<
       Equal<
-        typeof store.userQuery,
-        ResourceRef<{
-          id: string;
-          name: string;
-        }>
+        typeof store.userQueryById,
+        ResourceByIdRef<
+          string,
+          NoInfer<{
+            id: string;
+            name: string;
+          }>
+        >
       >
     >;
 
-    expect(store.userQuery).toBeDefined();
+    expect(store.userQueryById).toBeDefined();
   });
+
+  // todo sans data to plug
 });

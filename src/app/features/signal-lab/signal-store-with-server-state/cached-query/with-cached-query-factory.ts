@@ -9,6 +9,11 @@ import { QueryRef, QueryOptions, withQuery } from '../with-query';
 import { SignalProxy, SignalWrapperParams } from '../signal-proxy';
 import { Injector } from '@angular/core';
 import { Merge } from '../../../../util/types/merge';
+import {
+  QueryByIdOptions,
+  QueryByIdRef,
+  withQueryById,
+} from '../with-query-by-id';
 
 /**
  * It is mainly used to help typing
@@ -88,6 +93,71 @@ export function withCachedQueryToPlugFactory<
           querySourceProxy.$set(source);
         }
         return () => queryRef(injector);
+      },
+      options
+    );
+  };
+}
+
+export function withCachedQueryByIdToPlugFactory<
+  const QueryName extends string,
+  QueryState extends object | undefined,
+  QueryParams,
+  PlugData extends object,
+  GroupIdentifier extends string | number
+>(
+  name: QueryName,
+  querySourceProxy: SignalProxy<PlugData, true>,
+  queryByIdRef: (injector: Injector) => {
+    queryByIdRef: QueryByIdRef<GroupIdentifier, QueryState, QueryParams>;
+    __types: InternalType<
+      QueryState,
+      QueryParams,
+      unknown,
+      true,
+      GroupIdentifier
+    >;
+  }
+) {
+  return <
+    Input extends SignalStoreFeatureResult,
+    const StoreInput extends Prettify<
+      StateSignals<Input['state']> &
+        Input['props'] &
+        Input['methods'] &
+        WritableStateSource<Prettify<Input['state']>>
+    >
+  >(
+    options?: QueryByIdOptions<
+      StoreInput,
+      Input,
+      QueryState,
+      QueryParams,
+      GroupIdentifier,
+      unknown,
+      Merge<
+        {
+          setQuerySource?: (
+            source: SignalProxy<NoInfer<PlugData>>
+          ) => SignalWrapperParams<NoInfer<PlugData>>;
+        },
+        {
+          test1?: NoInfer<PlugData>;
+        }
+      >
+    >
+  ) => {
+    return withQueryById(
+      name,
+      (store, injector) => {
+        const setQuerySource = options?.(store)?.setQuerySource;
+        if (setQuerySource) {
+          const source = options?.(store)?.setQuerySource?.(
+            querySourceProxy as unknown as SignalProxy<PlugData>
+          ) as SignalWrapperParams<PlugData>;
+          querySourceProxy.$set(source);
+        }
+        return () => queryByIdRef(injector);
       },
       options
     );

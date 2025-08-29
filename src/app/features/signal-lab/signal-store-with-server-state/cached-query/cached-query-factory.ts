@@ -12,6 +12,7 @@ import {
 import { InternalType, MergeObjects } from '../types/util.type';
 import { QueryRef } from '../with-query';
 import {
+  withCachedQueryByIdToPlugFactory,
   withCachedQueryFactory,
   withCachedQueryToPlugFactory,
 } from './with-cached-query-factory';
@@ -83,28 +84,34 @@ type WithQueryOutputMapperTyped<
               Params
             >
           >
-      : 'never2'
-    : 'never2'
+      : 'never2Test'
+    : `Error: Please use rxQuery or query. Eg: { ${k &
+        string}: { query: () => rxQuery(...) }}`
   : 'never1';
 
 type WithQueryByIdOutputMapperTyped<
-  QueryKeys extends keyof QueryRecord,
-  QueryRecord extends {
-    [key in QueryKeys]: { query: unknown };
+  QueryByIdKeys extends keyof QueryByIdRecord,
+  QueryByIdRecord extends {
+    [key in QueryByIdKeys]: { queryById: unknown };
   },
-  k extends keyof QueryRecord
-> = QueryRecord[k]['query'] extends infer All
+  k extends keyof QueryByIdRecord
+> = QueryByIdRecord[k]['queryById'] extends infer All
   ? All extends (data: infer Data) => (store: any, context: any) => infer R
     ? R extends {
-        queryRef: QueryRef<infer State, infer Params>;
+        queryByIdRef: QueryByIdRef<
+          infer GroupIdentifier,
+          infer State,
+          infer Params
+        >;
       }
       ? Data extends SignalWrapperParams<infer PluggableParams>
         ? ReturnType<
-            typeof withCachedQueryToPlugFactory<
+            typeof withCachedQueryByIdToPlugFactory<
               k & string,
               State extends object | undefined ? State : never,
               Params,
-              PluggableParams
+              PluggableParams,
+              GroupIdentifier
             >
           >
         : ReturnType<
@@ -115,7 +122,8 @@ type WithQueryByIdOutputMapperTyped<
             >
           >
       : 'never2'
-    : 'never2'
+    : `Error: Please use rxQueryById or queryById. Eg: { ${k &
+        string}: { queryById: () => rxQueryById(...) }}`
   : 'never1';
 
 type CachedQueryFactoryOutput<
@@ -138,22 +146,15 @@ type CachedQueryFactoryOutput<
           >}Query`]: WithQueryOutputMapperTyped<QueryKeys, QueryRecord, k>;
         }
       : {},
-    {
-      [k in keyof QueryRecord as `test${Capitalize<
-        string & k
-      >}Query`]: QueryRecord[k] extends (store: any, context: any) => infer R
-        ? R extends { queryRef: QueryRef<infer State, infer Params> }
-          ? State
-          : never
-        : never;
-    },
     QueryByIdKeys extends string
       ? {
-          [k in keyof QueryByIdRecord]: {
-            cacheTime: QueryByIdRecord[k]['cacheTime'] extends number
-              ? QueryByIdRecord[k]['cacheTime']
-              : CacheTime;
-          };
+          [k in keyof QueryByIdRecord as `with${Capitalize<
+            string & k
+          >}QueryById`]: WithQueryByIdOutputMapperTyped<
+            QueryByIdKeys,
+            QueryByIdRecord,
+            k
+          >;
         }
       : {}
   ]

@@ -12,6 +12,7 @@ Ajout des tests manquants en même temps
 
 ## Feature
 
+- checker de voir si on a encore besoin du runOnInjectionContext & injector
 - gérer les queryById quand le cache
 - Faire un withRxMutation basé sur les observables
 - Dans les cachesPersister rajouter une map clé/date d'expiration, comme ça à l'initialisation ça peut clean tout ce qui est outdated
