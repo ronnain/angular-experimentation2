@@ -9,6 +9,7 @@ import {
   Injector,
   InjectionToken,
   linkedSignal,
+  WritableSignal,
 } from '@angular/core';
 import { preservedResource } from './preserved-resource';
 
@@ -19,7 +20,9 @@ type Prettify<T> = {
 export type ResourceByIdRef<
   GroupIdentifier extends string | number,
   State
-> = Signal<Prettify<Partial<Record<GroupIdentifier, ResourceRef<State>>>>>;
+> = WritableSignal<
+  Prettify<Partial<Record<GroupIdentifier, ResourceRef<State>>>>
+>;
 
 export function resourceById<T, R, GroupIdentifier extends string | number>({
   identifier,
@@ -82,7 +85,7 @@ export function resourceById<T, R, GroupIdentifier extends string | number>({
     }));
   });
 
-  return resourceByGroup.asReadonly();
+  return resourceByGroup;
 }
 
 const RESOURCE_INSTANCE_TOKEN = new InjectionToken<ResourceRef<unknown>>(

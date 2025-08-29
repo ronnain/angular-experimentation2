@@ -8,7 +8,11 @@ import {
   Signal,
   untracked,
 } from '@angular/core';
-import { PersistedQuery, QueriesPersister } from './persister.type';
+import {
+  PersistedQuery,
+  PersistedQueryById,
+  QueriesPersister,
+} from './persister.type';
 import { nestedEffect } from '../types/util';
 import { isEqual } from '../cached-query/util';
 
@@ -16,6 +20,13 @@ export function localStoragePersister(prefix: string): QueriesPersister {
   const _injector = inject(Injector);
   const queriesMap = signal(
     new Map<string, PersistedQuery & { storageKey: string }>(),
+    {
+      equal: () => false,
+    }
+  );
+
+  const queriesByIdMap = signal(
+    new Map<string, PersistedQueryById & { storageKey: string }>(),
     {
       equal: () => false,
     }
@@ -166,10 +177,59 @@ export function localStoragePersister(prefix: string): QueriesPersister {
       });
     },
 
+    addQueryByIdToPersist(data: PersistedQueryById): void {
+      const {
+        key,
+        queryByIdResource,
+        queryResourceParamsSrc,
+        waitForParamsSrcToBeEqualToPreviousValue,
+        cacheTime,
+      } = data;
+
+      const storageKey = `${prefix}${key}`;
+      const storedValue = localStorage.getItem(storageKey);
+      if (storedValue && !waitForParamsSrcToBeEqualToPreviousValue) {
+        try {
+          const { queryValue, timestamp } = JSON.parse(storedValue);
+          if (
+            timestamp &&
+            cacheTime > 0 &&
+            isValueExpired(timestamp, cacheTime)
+          ) {
+            localStorage.removeItem(storageKey);
+          } else {
+            queryByIdResource.set(queryValue);
+          }
+        } catch (e) {
+          console.error('Error parsing stored value from localStorage', e);
+          localStorage.removeItem(storageKey);
+        }
+      }
+      queriesByIdMap.update((map) => {
+        map.set(key, {
+          queryByIdResource,
+          queryResourceParamsSrc,
+          storageKey,
+          waitForParamsSrcToBeEqualToPreviousValue,
+          cacheTime,
+          key,
+        });
+        return map;
+      });
+    },
+
     clearQuery(queryKey: string): void {
       queriesMap.update((map) => {
         map.delete(queryKey);
         localStorage.removeItem(`${prefix}${queryKey}`);
+        return map;
+      });
+    },
+
+    clearQueryBy(queryByIdKey: string): void {
+      queriesByIdMap.update((map) => {
+        map.delete(queryByIdKey);
+        localStorage.removeItem(`${prefix}${queryByIdKey}`);
         return map;
       });
     },
@@ -182,6 +242,20 @@ export function localStoragePersister(prefix: string): QueriesPersister {
         map.clear();
         return map;
       });
+    },
+
+    clearAllQueriesById(): void {
+      queriesByIdMap().forEach((_, key) => {
+        localStorage.removeItem(`${prefix}${key}`);
+      });
+      queriesByIdMap.update((map) => {
+        map.clear();
+        return map;
+      });
+    },
+    clearAllCache(): void {
+      this.clearAllQueriesById();
+      this.clearAllQueries();
     },
   };
 }

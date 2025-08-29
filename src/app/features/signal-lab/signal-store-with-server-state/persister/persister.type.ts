@@ -22,5 +22,8 @@ export interface QueriesPersister {
   addQueryByIdToPersist(data: PersistedQueryById): void;
 
   clearQuery(queryKey: string): void;
+  clearQueryBy(queryKey: string): void;
   clearAllQueries(): void;
+  clearAllQueriesById(): void;
+  clearAllCache(): void;
 }

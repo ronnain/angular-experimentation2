@@ -445,4 +445,5 @@ describe('localStoragePersister', () => {
       expect(localStorage.removeItem).not.toHaveBeenCalledWith('query-user');
     });
   });
+  // todo add test for queriesById
 });
