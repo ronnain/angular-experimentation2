@@ -111,14 +111,18 @@ type WithQueryByIdOutputMapperTyped<
               State extends object | undefined ? State : never,
               Params,
               PluggableParams,
-              GroupIdentifier
+              GroupIdentifier,
+              true
             >
           >
         : ReturnType<
-            typeof withCachedQueryFactory<
+            typeof withCachedQueryByIdToPlugFactory<
               k & string,
               State extends object | undefined ? State : never,
-              Params
+              Params,
+              {},
+              GroupIdentifier,
+              false
             >
           >
       : 'never2'

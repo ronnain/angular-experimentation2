@@ -307,9 +307,7 @@ describe('Cached Query Factory', () => {
     vi.restoreAllMocks();
   });
 
-  it('should create a cached queryById and return a withFeatureQuery that can be used in signalStore', async () => {
-    // should export the withUserQuery and userQueryMutation
-
+  it('should create a cached queryById that can be plug and return a withFeatureQueryById that can be used in signalStore', async () => {
     const data = cachedQueryFactory({
       queryById: {
         user: {
@@ -367,5 +365,57 @@ describe('Cached Query Factory', () => {
     expect(store.userQueryById).toBeDefined();
   });
 
-  // todo sans data to plug
+  it('should create a cached queryById that is not pluggable and return a withFeatureQuery that can be used in signalStore', async () => {
+    const data = cachedQueryFactory({
+      queryById: {
+        user: {
+          queryById: () =>
+            rxQueryById({
+              params: () => '1',
+              stream: ({ params: id }) => of({ id, name: 'User ' + id }),
+              identifier: (params) => params,
+            }),
+        },
+      },
+    });
+
+    type ExpectQueryKeysToBeLiterals = Expect<
+      Equal<'withUserQueryById' extends keyof typeof data ? true : false, true>
+    >;
+
+    const { withUserQueryById } = data;
+
+    const r = withUserQueryById;
+    //    ^?
+
+    expect(typeof withUserQueryById).toEqual('function');
+
+    const testSignalStore = signalStore(
+      { providedIn: 'root' },
+      withState({ selected: '1' }),
+      withMutation('name', () =>
+        rxMutation({
+          method: (name: string) => name,
+          stream: ({ params }) => of({ id: '4', name: params }),
+        })
+      ),
+      withUserQueryById()
+    );
+    const store = TestBed.inject(testSignalStore);
+
+    type ExpectUserQueryToBeTyped = Expect<
+      Equal<
+        typeof store.userQueryById,
+        ResourceByIdRef<
+          string,
+          NoInfer<{
+            id: string;
+            name: string;
+          }>
+        >
+      >
+    >;
+
+    expect(store.userQueryById).toBeDefined();
+  });
 });

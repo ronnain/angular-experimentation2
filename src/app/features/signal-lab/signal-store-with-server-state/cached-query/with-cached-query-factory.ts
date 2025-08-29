@@ -104,7 +104,8 @@ export function withCachedQueryByIdToPlugFactory<
   QueryState extends object | undefined,
   QueryParams,
   PlugData extends object,
-  GroupIdentifier extends string | number
+  GroupIdentifier extends string | number,
+  isPluggableQuery
 >(
   name: QueryName,
   querySourceProxy: SignalProxy<PlugData, true>,
@@ -135,16 +136,13 @@ export function withCachedQueryByIdToPlugFactory<
       QueryParams,
       GroupIdentifier,
       unknown,
-      Merge<
-        {
-          setQuerySource?: (
-            source: SignalProxy<NoInfer<PlugData>>
-          ) => SignalWrapperParams<NoInfer<PlugData>>;
-        },
-        {
-          test1?: NoInfer<PlugData>;
-        }
-      >
+      {
+        setQuerySource?: isPluggableQuery extends true
+          ? (
+              source: SignalProxy<NoInfer<PlugData>>
+            ) => SignalWrapperParams<NoInfer<PlugData>>
+          : never;
+      }
     >
   ) => {
     return withQueryById(
