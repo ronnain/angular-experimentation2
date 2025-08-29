@@ -40,7 +40,7 @@ describe('rxResourceById', () => {
               id: string;
             },
             unknown,
-            false,
+            true,
             string
           >
         >
@@ -72,7 +72,7 @@ describe('rxResourceById', () => {
               id: string;
             },
             unknown,
-            false,
+            true,
             string
           >
         >

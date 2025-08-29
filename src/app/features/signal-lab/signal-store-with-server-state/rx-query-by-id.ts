@@ -50,7 +50,7 @@ export function rxQueryById<
     NoInfer<QueryState>,
     NoInfer<QueryParams>,
     NoInfer<QueryArgsParams>,
-    false,
+    true,
     NoInfer<QueryGroupIdentifier>
   >;
   [__INTERNAL_QueryBrand]: true;
@@ -82,7 +82,7 @@ export function rxQueryById<
       NoInfer<QueryState>,
       NoInfer<QueryParams>,
       NoInfer<QueryArgsParams>,
-      false,
+      true,
       NoInfer<QueryGroupIdentifier>
     >,
     [__INTERNAL_QueryBrand]: true,

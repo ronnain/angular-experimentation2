@@ -68,7 +68,7 @@ describe('queryById', () => {
             }>;
             params: string;
             args: unknown;
-            isGroupedResource: false;
+            isGroupedResource: true;
             groupIdentifier: string;
           }
         >
@@ -106,14 +106,7 @@ describe('withQueryById', () => {
     expect(store.userQueryById()['5']?.value()).toBe(returnedUser);
 
     type ExpectUserQueryToBeAnObjectWithResourceByIdentifier = Expect<
-      Equal<
-        typeof store.userQueryById,
-        (() => {
-          [x: string]: ResourceRef<User> | undefined;
-        }) & {
-          [SIGNAL]: unknown;
-        }
-      >
+      Equal<typeof store.userQueryById, ResourceByIdRef<string, NoInfer<User>>>
     >;
   });
 
