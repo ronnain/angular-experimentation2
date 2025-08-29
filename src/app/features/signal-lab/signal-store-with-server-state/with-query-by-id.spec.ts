@@ -68,7 +68,7 @@ describe('queryById', () => {
             }>;
             params: string;
             args: unknown;
-            isGroupedResource: false;
+            isGroupedResource: true;
             groupIdentifier: string;
           }
         >
