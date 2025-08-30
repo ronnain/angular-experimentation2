@@ -1,4 +1,10 @@
-import { inject, Injector, runInInjectionContext, signal } from '@angular/core';
+import {
+  inject,
+  Injector,
+  ResourceRef,
+  runInInjectionContext,
+  signal,
+} from '@angular/core';
 import {
   createSignalProxy,
   SignalProxy,
@@ -52,6 +58,12 @@ type WithQueryOutputMapper<
       true
     >
   >;
+} & {
+  [k in keyof QueryRecord as `inject${Capitalize<string & k>}Query`]: (
+    pluggableData: (
+      source: SignalProxy<NoInfer<{}>>
+    ) => SignalWrapperParams<NoInfer<{}>>
+  ) => ResourceRef<CachedQuery['query']['queryRef']['resource'] | undefined>;
 };
 
 type WithQueryByIdOutputMapper<
@@ -169,6 +181,10 @@ type CachedQueryFactoryOutput<
           [k in keyof QueryRecord as `with${Capitalize<
             string & k
           >}Query`]: WithQueryOutputMapperTyped<QueryKeys, QueryRecord, k>;
+        } & {
+          [k in keyof QueryRecord as `inject${Capitalize<
+            string & k
+          >}Query`]: WithQueryOutputMapperTyped<QueryKeys, QueryRecord, k>;
         }
       : {},
     QueryByIdKeys extends string
@@ -243,6 +259,7 @@ export function globalQueries<
           const capitalizedKey = (key.charAt(0).toUpperCase() +
             key.slice(1)) as Capitalize<QueryKeys & string>;
           const withQueryName = `with${capitalizedKey}Query` as const;
+          const injectQueryName = `inject${capitalizedKey}Query` as const;
 
           const queryData = (injector: Injector) => {
             return runInInjectionContext(injector, () => {
@@ -278,6 +295,12 @@ export function globalQueries<
           );
           //@ts-ignore
           acc[withQueryName] = queryEntity;
+          //@ts-ignore
+          acc[injectQueryName] = (pluggableData) => {
+            const _injector = inject(Injector);
+            signalProxy.$set(pluggableData(signalProxy));
+            return queryData(_injector).queryRef.resource;
+          };
 
           return acc;
         },

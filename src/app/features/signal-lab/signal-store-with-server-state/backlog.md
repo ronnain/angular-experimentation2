@@ -13,6 +13,8 @@ Ajout des tests manquants en même temps
 ## Feature
 
 - ajouter inject dans cachedQueries
+- todo inject global queries directly & tester une seule instance shared
+- permettre au non l'ajout d'un persister (option)
 - ajouter test queryById localstorage
 - checker de voir si on a encore besoin du runOnInjectionContext & injector
 - Faire un withRxMutation basé sur les observables

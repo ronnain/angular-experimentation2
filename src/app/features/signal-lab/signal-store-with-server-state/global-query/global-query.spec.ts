@@ -410,4 +410,53 @@ describe('Global Queries', () => {
 
     expect(store.userQueryById).toBeDefined();
   });
+
+  it('should export an injectQuery function that can be used in a component', async () => {
+    const data = globalQueries({
+      queries: {
+        user: {
+          query: () =>
+            rxQuery({
+              params: () => '1',
+              stream: ({ params: id }) => of({ id, name: 'User ' + id }),
+            }),
+        },
+      },
+    });
+
+    const { injectUserQuery } = data;
+
+    const r = injectUserQuery((source) => ({ on }));
+    //    ^?
+
+    expect(typeof injectUserQuery).toEqual('function');
+
+    const testSignalStore = signalStore(
+      { providedIn: 'root' },
+      withState({ selected: '1' }),
+      withMutation('name', () =>
+        rxMutation({
+          method: (name: string) => name,
+          stream: ({ params }) => of({ id: '4', name: params }),
+        })
+      ),
+      withUserQueryById()
+    );
+    const store = TestBed.inject(testSignalStore);
+
+    type ExpectUserQueryToBeTyped = Expect<
+      Equal<
+        typeof store.userQueryById,
+        ResourceByIdRef<
+          string,
+          NoInfer<{
+            id: string;
+            name: string;
+          }>
+        >
+      >
+    >;
+
+    expect(store.userQueryById).toBeDefined();
+  });
 });
