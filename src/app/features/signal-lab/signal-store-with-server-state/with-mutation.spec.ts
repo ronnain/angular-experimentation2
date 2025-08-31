@@ -119,6 +119,7 @@ describe('withMutation', () => {
     });
   }));
   it('#3 When the mutation loader is triggered it should reload the associated query when the mutation is resolved', async () => {
+    vi.useFakeTimers();
     const MutationStore = signalStore(
       withState({
         userSelected: { id: 'init' } as { id: string } | undefined,
@@ -132,7 +133,7 @@ describe('withMutation', () => {
                 id: params?.id,
                 name: 'John Doe',
                 email: 'john.doe@example.com',
-              } satisfies User).pipe(delay(1000))
+              } satisfies User).pipe(delay(5000))
             );
           },
         })
@@ -145,7 +146,7 @@ describe('withMutation', () => {
             loader: ({ params: user }) => {
               return lastValueFrom(
                 of(user satisfies User).pipe(
-                  delay(10),
+                  delay(10000),
                   tap((data) => console.log('mutation resolved', data))
                 )
               );
@@ -166,7 +167,7 @@ describe('withMutation', () => {
       providers: [MutationStore],
     });
     const store = TestBed.inject(MutationStore);
-    await new Promise((resolve) => setTimeout(resolve, 1020));
+    await vi.runAllTimersAsync();
 
     expect(store.userQuery.status()).toEqual('resolved');
 
@@ -177,18 +178,19 @@ describe('withMutation', () => {
     });
 
     // Wait for the query to resolve
-    await new Promise((resolve) => setTimeout(resolve, 3));
+    await vi.advanceTimersByTimeAsync(3000);
 
     expect(store.updateUserMutation.status()).toEqual('loading');
 
-    await new Promise((resolve) => setTimeout(resolve, 15));
+    await vi.advanceTimersByTimeAsync(8000);
 
     expect(store.updateUserMutation.status()).toEqual('resolved');
 
     expect(store.userQuery.status()).toEqual('reloading');
 
-    await new Promise((resolve) => setTimeout(resolve, 1050));
+    await vi.runAllTimersAsync();
     expect(store.userQuery.status()).toEqual('resolved');
+    vi.restoreAllMocks();
   });
 
   it('#4 Should optimistic update the targeted queryById', async () => {
