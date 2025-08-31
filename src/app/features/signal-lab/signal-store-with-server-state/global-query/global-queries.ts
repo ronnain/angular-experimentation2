@@ -19,6 +19,7 @@ import {
 } from './with-cached-query-factory';
 import { QueriesPersister } from '../persister/persister.type';
 import { QueryByIdRef } from '../with-query-by-id';
+import { ResourceByIdRef } from '../resource-by-id-signal-store';
 
 // todo expose enable to cache inmemory by default or use a persister or a persister to a specific query
 
@@ -77,6 +78,14 @@ type WithQueryByIdOutputMapper<
       boolean
     >
   >;
+} & {
+  [k in keyof QueryRecord as `inject${Capitalize<string & k>}QueryById`]: (
+    pluggableData: (
+      source: SignalProxy<NoInfer<{}>>
+    ) => SignalWrapperParams<NoInfer<{}>>
+  ) => ResourceRef<
+    CachedQueryById['query']['queryByIdRef']['resourceById'] | undefined
+  >;
 };
 
 type QueryCacheCustomConfig = {
@@ -116,6 +125,56 @@ type WithQueryOutputMapperTyped<
       : 'never2Test'
     : `Error: Please use rxQuery or query. Eg: { ${k &
         string}: { query: () => rxQuery(...) }}`
+  : 'never1';
+
+type WithInjectQueryOutputMapperTyped<
+  QueryKeys extends keyof QueryRecord,
+  QueryRecord extends {
+    [key in QueryKeys]: { query: unknown };
+  },
+  k extends keyof QueryRecord
+> = QueryRecord[k]['query'] extends infer All
+  ? All extends (data: infer Data) => (store: any, context: any) => infer R
+    ? R extends {
+        queryRef: QueryRef<infer State, infer Params>;
+      }
+      ? Data extends SignalWrapperParams<infer PluggableParams>
+        ? (
+            pluggable?: (
+              source: SignalProxy<NoInfer<PluggableParams>>
+            ) => SignalWrapperParams<NoInfer<PluggableParams>>
+          ) => ResourceRef<State>
+        : () => ResourceRef<State>
+      : 'never2Test'
+    : `Error: Please use rxQuery or query. Eg: { ${k &
+        string}: { query: () => rxQuery(...) }}`
+  : 'never1';
+
+type WithInjectQueryByIdOutputMapperTyped<
+  QueryByIdKeys extends keyof QueryByIdRecord,
+  QueryByIdRecord extends {
+    [key in QueryByIdKeys]: { queryById: unknown };
+  },
+  k extends keyof QueryByIdRecord
+> = QueryByIdRecord[k]['queryById'] extends infer All
+  ? All extends (data: infer Data) => (store: any, context: any) => infer R
+    ? R extends {
+        queryByIdRef: QueryByIdRef<
+          infer GroupIdentifier,
+          infer State,
+          infer Params
+        >;
+      }
+      ? Data extends SignalWrapperParams<infer PluggableParams>
+        ? (
+            pluggable?: (
+              source: SignalProxy<NoInfer<PluggableParams>>
+            ) => SignalWrapperParams<NoInfer<PluggableParams>>
+          ) => ResourceByIdRef<GroupIdentifier, State>
+        : () => ResourceByIdRef<GroupIdentifier, State>
+      : 'never2'
+    : `Error: Please use rxQueryById or queryById. Eg: { ${k &
+        string}: { queryById: () => rxQueryById(...) }}`
   : 'never1';
 
 type WithQueryByIdOutputMapperTyped<
@@ -180,24 +239,11 @@ type CachedQueryFactoryOutput<
         } & {
           [k in keyof QueryRecord as `inject${Capitalize<
             string & k
-          >}Query`]: QueryRecord[k]['query'] extends infer All
-            ? All extends (
-                data: infer Data
-              ) => (store: any, context: any) => infer R
-              ? R extends {
-                  queryRef: QueryRef<infer State, infer Params>;
-                }
-                ? Data extends SignalWrapperParams<infer PluggableParams>
-                  ? (
-                      pluggable?: (
-                        source: SignalProxy<NoInfer<PluggableParams>>
-                      ) => SignalWrapperParams<NoInfer<PluggableParams>>
-                    ) => ResourceRef<State>
-                  : () => ResourceRef<State>
-                : 'never2Test'
-              : `Error: Please use rxQuery or query. Eg: { ${k &
-                  string}: { query: () => rxQuery(...) }}`
-            : 'never1';
+          >}Query`]: WithInjectQueryOutputMapperTyped<
+            QueryKeys,
+            QueryRecord,
+            k
+          >;
         }
       : {},
     QueryByIdKeys extends string
@@ -205,6 +251,14 @@ type CachedQueryFactoryOutput<
           [k in keyof QueryByIdRecord as `with${Capitalize<
             string & k
           >}QueryById`]: WithQueryByIdOutputMapperTyped<
+            QueryByIdKeys,
+            QueryByIdRecord,
+            k
+          >;
+        } & {
+          [k in keyof QueryByIdRecord as `inject${Capitalize<
+            string & k
+          >}QueryById`]: WithInjectQueryByIdOutputMapperTyped<
             QueryByIdKeys,
             QueryByIdRecord,
             k
@@ -266,6 +320,7 @@ export function globalQueries<
   PluggableParams
 > {
   const queriesMap = new Map<string, QueryRefType>();
+  const queriesByIdMap = new Map<string, QueryByIdRefType>();
   return {
     ...(queries && {
       ...Object.entries<QueryConfiguration<PluggableParams>>(queries).reduce(
@@ -336,8 +391,10 @@ export function globalQueries<
         const withQueryName = `with${capitalizedKey}QueryById` as const;
 
         const queryData = (injector: Injector) => {
+          if (queriesByIdMap.has(key)) {
+            return queriesByIdMap.get(key);
+          }
           return runInInjectionContext(injector, () => {
-            // todo check if the first arg is a service injected
             const isPluggableQuery = value.queryById.length > 0;
             console.log('isPluggableQuery', key, isPluggableQuery);
             const queryData = (
@@ -358,6 +415,7 @@ export function globalQueries<
                 (cacheGlobalConfig?.cacheTime as number | undefined) ??
                 300000,
             });
+            queriesByIdMap.set(key, queryData);
             return queryData;
           });
         };
@@ -370,6 +428,16 @@ export function globalQueries<
         );
         //@ts-ignore
         acc[withQueryName] = queryEntity;
+        const injectQueryName = `inject${capitalizedKey}QueryById` as const;
+        //@ts-ignore
+        acc[injectQueryName] = (pluggableData) => {
+          const _injector = inject(Injector);
+          signalProxy.$set(pluggableData?.(signalProxy));
+          if (queriesByIdMap.has(key)) {
+            return queriesByIdMap.get(key)?.queryByIdRef.resourceById;
+          }
+          return queryData(_injector)?.queryByIdRef.resourceById;
+        };
 
         return acc;
       }, {} as WithQueryByIdOutputMapper<Record<string, QueryByIdConfiguration<{}>>>),

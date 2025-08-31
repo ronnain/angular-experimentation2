@@ -538,4 +538,71 @@ describe('Global Queries', () => {
     });
     vi.restoreAllMocks();
   });
+
+  it('Should export an injectUserQueryById function that can be used in a component', async () => {
+    const { injectUserQueryById } = globalQueries({
+      queriesById: {
+        user: {
+          queryById: () =>
+            rxQueryById({
+              params: () => '1',
+              stream: ({ params: id }) => of({ id, name: 'User ' + id }),
+              identifier: (params) => params,
+            }),
+        },
+      },
+    });
+    TestBed.runInInjectionContext(() => {
+      const injectedQueryById = injectUserQueryById();
+      expect(injectedQueryById()).toBeDefined();
+    });
+  });
+
+  it('Should share an unique instance injectUserQueryById and withUserQueryById', async () => {
+    vi.useFakeTimers();
+    const { injectUserQueryById, withUserQueryById } = globalQueries({
+      queriesById: {
+        user: {
+          queryById: () =>
+            rxQueryById({
+              params: () => '1',
+              stream: ({ params: id }) => of({ id, name: 'User ' + id }),
+              identifier: (params) => params,
+            }),
+        },
+      },
+    });
+    const testSignalStore = signalStore(
+      { providedIn: 'root' },
+      withState({ selected: '1' }),
+      withMutation('name', () =>
+        rxMutation({
+          method: (name: string) => name,
+          stream: ({ params }) => of({ id: '4', name: params }),
+        })
+      ),
+      withUserQueryById()
+    );
+    const testSignalStore2 = signalStore(
+      { providedIn: 'root' },
+      withState({ selected: '1' }),
+      withMutation('name', () =>
+        rxMutation({
+          method: (name: string) => name,
+          stream: ({ params }) => of({ id: '4', name: params }),
+        })
+      ),
+      withUserQueryById()
+    );
+    TestBed.runInInjectionContext(() => {
+      const injectedQueryById = injectUserQueryById();
+      const store = TestBed.inject(testSignalStore);
+      const store2 = TestBed.inject(testSignalStore2);
+
+      // same ref
+      expect(injectedQueryById === store.userQueryById).toEqual(true);
+      expect(injectedQueryById === store2.userQueryById).toEqual(true);
+    });
+    vi.restoreAllMocks();
+  });
 });
