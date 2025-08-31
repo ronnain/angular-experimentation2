@@ -27,7 +27,7 @@ export type ResourceByIdRef<
 export function resourceById<T, R, GroupIdentifier extends string | number>({
   identifier,
   params,
-  loader, // todo rename to stream ?
+  loader,
 }: Omit<ResourceOptions<T, R>, 'params'> & {
   params: () => R; // must be a mandatory field
   identifier: (request: NonNullable<NoInfer<R>>) => GroupIdentifier;
