@@ -265,6 +265,7 @@ export function globalQueries<
   QueryByIdRecord,
   PluggableParams
 > {
+  const queriesMap = new Map<string, QueryRefType>();
   return {
     ...(queries && {
       ...Object.entries<QueryConfiguration<PluggableParams>>(queries).reduce(
@@ -275,9 +276,11 @@ export function globalQueries<
           const injectQueryName = `inject${capitalizedKey}Query` as const;
 
           const queryData = (injector: Injector) => {
+            if (queriesMap.has(key)) {
+              return queriesMap.get(key) as QueryRefType;
+            }
             return runInInjectionContext(injector, () => {
               const isPluggableQuery = value.query.length > 0;
-              console.log('isPluggableQuery', key, isPluggableQuery);
               const queryData = (
                 isPluggableQuery
                   ? ((value.query as any)(signalProxy) as any)({}, {})
@@ -296,6 +299,7 @@ export function globalQueries<
                   (cacheGlobalConfig?.cacheTime as number | undefined) ??
                   300000,
               });
+              queriesMap.set(key, queryData);
               return queryData;
             });
           };
@@ -311,7 +315,10 @@ export function globalQueries<
           //@ts-ignore
           acc[injectQueryName] = (pluggableData) => {
             const _injector = inject(Injector);
-            signalProxy.$set(pluggableData(signalProxy));
+            signalProxy.$set(pluggableData?.(signalProxy));
+            if (queriesMap.has(key)) {
+              return queriesMap.get(key)?.queryRef.resource;
+            }
             return queryData(_injector).queryRef.resource;
           };
 

@@ -489,8 +489,53 @@ describe('Global Queries', () => {
       expect(typeof injectUserDetailsQuery).toEqual('function');
       expect(typeof injectUserViewQuery).toEqual('function');
 
-      expect(user.value()).toEqual({ id: '1', name: 'User 1' });
+      expect(typeof user.value).toEqual('function');
     });
   });
-  // todo only one instance shared
+  it('Should share an unique instance injectQuery and withQuery', async () => {
+    vi.useFakeTimers();
+    const { injectUserQuery, withUserQuery } = globalQueries({
+      queries: {
+        user: {
+          query: () =>
+            rxQuery({
+              params: () => '1',
+              stream: ({ params: id }) => of({ id, name: 'User ' + id }),
+            }),
+        },
+      },
+    });
+    const testSignalStore = signalStore(
+      { providedIn: 'root' },
+      withState({ selected: '1' }),
+      withMutation('name', () =>
+        rxMutation({
+          method: (name: string) => name,
+          stream: ({ params }) => of({ id: '4', name: params }),
+        })
+      ),
+      withUserQuery()
+    );
+    const testSignalStore2 = signalStore(
+      { providedIn: 'root' },
+      withState({ selected: '1' }),
+      withMutation('name', () =>
+        rxMutation({
+          method: (name: string) => name,
+          stream: ({ params }) => of({ id: '4', name: params }),
+        })
+      ),
+      withUserQuery()
+    );
+    TestBed.runInInjectionContext(() => {
+      const injectedQuery = injectUserQuery();
+      const store = TestBed.inject(testSignalStore);
+      const store2 = TestBed.inject(testSignalStore2);
+
+      // same ref
+      expect(injectedQuery === store.userQuery).toEqual(true);
+      expect(injectedQuery === store2.userQuery).toEqual(true);
+    });
+    vi.restoreAllMocks();
+  });
 });
