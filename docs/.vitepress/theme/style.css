@@ -152,8 +152,10 @@
     --vp-home-hero-image-filter: blur(68px);
   }
 }
-.VPFeatures article h2 {
+.VPFeatures article h2,
+.VPSidebarItem .VPLink .text {
   width: fit-content;
+  max-width: fit-content;
 }
 
 /**
