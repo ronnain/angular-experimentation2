@@ -412,6 +412,13 @@ describe('Global Queries', () => {
   });
 
   it('should export an injectQuery function that can be used in a component', async () => {
+    @Injectable({ providedIn: 'root' })
+    class ApiService {
+      getUserDetails() {
+        return of({ id: '1', name: 'User 1' });
+      }
+    }
+
     const data = globalQueries({
       queries: {
         user: {
@@ -421,42 +428,69 @@ describe('Global Queries', () => {
               stream: ({ params: id }) => of({ id, name: 'User ' + id }),
             }),
         },
+        users: {
+          query: (source: SignalProxy<{ id: string | undefined }>) =>
+            rxQuery({
+              params: source.id,
+              stream: ({ params: id }) => of([{ id, name: 'User ' + id }]),
+            }),
+        },
+        userDetails: {
+          query: (
+            source: SignalProxy<{ id: string | undefined }>,
+            api = inject(ApiService)
+          ) =>
+            rxQuery({
+              params: source.id,
+              stream: ({ params: id }) => api.getUserDetails(),
+            }),
+        },
+        userView: {
+          query: (api = inject(ApiService)) =>
+            rxQuery({
+              params: () => '1',
+              stream: ({ params: id }) => api.getUserDetails(),
+            }),
+        },
       },
     });
 
-    const { injectUserQuery } = data;
+    TestBed.runInInjectionContext(() => {
+      const {
+        injectUserQuery,
+        injectUsersQuery,
+        injectUserDetailsQuery,
+        injectUserViewQuery,
+      } = data;
 
-    const r = injectUserQuery((source) => ({ on }));
-    //    ^?
+      //@ts-expect-error their is no pluggable data for user query
+      const user = injectUserQuery((source) => true);
+      const users = injectUsersQuery((source) => {
+        type ExpectSourceToBeTyped = Expect<
+          Equal<typeof source, SignalProxy<{ id: string | undefined }>>
+        >;
+        return {
+          id: signal('1'),
+        };
+      });
+      const userDetail = injectUserDetailsQuery((source) => {
+        type ExpectSourceToBeTyped = Expect<
+          Equal<typeof source, SignalProxy<{ id: string | undefined }>>
+        >;
+        return {
+          id: signal('1'),
+        };
+      });
+      //@ts-expect-error their is no pluggable data for userView query
+      const userView = injectUserViewQuery((source) => true);
 
-    expect(typeof injectUserQuery).toEqual('function');
+      expect(typeof injectUserQuery).toEqual('function');
+      expect(typeof injectUsersQuery).toEqual('function');
+      expect(typeof injectUserDetailsQuery).toEqual('function');
+      expect(typeof injectUserViewQuery).toEqual('function');
 
-    const testSignalStore = signalStore(
-      { providedIn: 'root' },
-      withState({ selected: '1' }),
-      withMutation('name', () =>
-        rxMutation({
-          method: (name: string) => name,
-          stream: ({ params }) => of({ id: '4', name: params }),
-        })
-      ),
-      withUserQueryById()
-    );
-    const store = TestBed.inject(testSignalStore);
-
-    type ExpectUserQueryToBeTyped = Expect<
-      Equal<
-        typeof store.userQueryById,
-        ResourceByIdRef<
-          string,
-          NoInfer<{
-            id: string;
-            name: string;
-          }>
-        >
-      >
-    >;
-
-    expect(store.userQueryById).toBeDefined();
+      expect(user.value()).toEqual({ id: '1', name: 'User 1' });
+    });
   });
+  // todo only one instance shared
 });

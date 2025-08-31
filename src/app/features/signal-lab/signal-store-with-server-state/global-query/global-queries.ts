@@ -10,11 +10,7 @@ import {
   SignalProxy,
   SignalWrapperParams,
 } from '../signal-proxy';
-import {
-  __INTERNAL_QueryBrand,
-  HasQueryBrand,
-  isBrandQueryFn,
-} from '../types/brand';
+import { __INTERNAL_QueryBrand } from '../types/brand';
 import { InternalType, MergeObjects } from '../types/util.type';
 import { QueryRef } from '../with-query';
 import {
@@ -74,7 +70,7 @@ type WithQueryByIdOutputMapper<
   >}QueryById`]: ReturnType<
     typeof withCachedQueryByIdToPlugFactory<
       k & string,
-      CachedQuery['query']['queryRef']['resource'],
+      CachedQueryById['query']['queryByIdRef']['resourceById'],
       string,
       {},
       string | number,
@@ -184,7 +180,24 @@ type CachedQueryFactoryOutput<
         } & {
           [k in keyof QueryRecord as `inject${Capitalize<
             string & k
-          >}Query`]: WithQueryOutputMapperTyped<QueryKeys, QueryRecord, k>;
+          >}Query`]: QueryRecord[k]['query'] extends infer All
+            ? All extends (
+                data: infer Data
+              ) => (store: any, context: any) => infer R
+              ? R extends {
+                  queryRef: QueryRef<infer State, infer Params>;
+                }
+                ? Data extends SignalWrapperParams<infer PluggableParams>
+                  ? (
+                      pluggable?: (
+                        source: SignalProxy<NoInfer<PluggableParams>>
+                      ) => SignalWrapperParams<NoInfer<PluggableParams>>
+                    ) => ResourceRef<State>
+                  : () => ResourceRef<State>
+                : 'never2Test'
+              : `Error: Please use rxQuery or query. Eg: { ${k &
+                  string}: { query: () => rxQuery(...) }}`
+            : 'never1';
         }
       : {},
     QueryByIdKeys extends string
