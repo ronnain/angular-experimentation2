@@ -7,7 +7,10 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "test:ui": "npx vitest --ui"
+    "test:ui": "npx vitest --ui",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "private": true,
   "dependencies": {
@@ -45,6 +48,7 @@
     "typescript": "~5.8.3",
     "vite": "^6.0.0",
     "vite-tsconfig-paths": "^4.2.0",
+    "vitepress": "^2.0.0-alpha.12",
     "vitest": "^3.0.0"
   }
 }
