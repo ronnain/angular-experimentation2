@@ -4,22 +4,21 @@ layout: home
 
 hero:
   name: "ng-query"
-  text: "ng-query server state management tool Doc"
-  tagline: My great project tagline
+  text: "Server state management tool with Angular DX first"
+  tagline: Effortless Angular server state with NgRx Signal, autocompletion, and blazing-fast developer experience
   actions:
     - theme: brand
-      text: Markdown Examples
+      text: Get started
       link: /markdown-examples
     - theme: alt
       text: API Examples
       link: /api-examples
 
 features:
-  - title: Feature A
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature B
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature C
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
+  - title: Query
+    details: Effortlessly manage server data with smart caching, request status tracking, and global queries for a seamless user experience.
+  - title: Mutation
+    details: Update your data with powerful mutation tools, including optimistic updates and automatic state synchronization for instant feedback.
+  - title: Designed for Signal Store
+    details: Fully compatible and easily integrated with NgRx SignalStore, providing type safety, autocompletion, and high performance.
 ---
-

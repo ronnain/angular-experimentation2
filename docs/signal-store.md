@@ -1,43 +1,78 @@
-# Signal Store
+# Signal Store - Quick Start
 
-## Query
+If the Angular `resource` are not enough for you, you may appreciate this tool that provide utilities function to handle server state management in declarative and reactive way.
 
-Description and usage of queries in Signal Store.
+:::info
+Why you may needs this tool ?
+If you want to easily perform optimistic update, reload your query when a mutation failed...
+:::
 
-## Mutation
+By adding a server state management tool directly inside the `signalStore` provide a no brainer way to deal with query and mutation. For more complex case, you can easily associate a state with a query state, that allow you to profit of the power of the signalStore to handle client state.
 
-How to perform mutations in Signal Store.
+Quick start overview : Handle server state management inside the `signalStore`
 
-## Optimistic update & other effects
+```typescript
+import { signalStore, withQuery } from "@ngrx/signals";
+import { query } from "./query";
 
-Techniques for optimistic updates and handling side effects.
+const Store = signalStore(
+  withState({
+    user: undefined as User | undefined,
+    userSelected: undefined as { id: string } | undefined,
+  }),
+  withMutation(
+    "userEmail",
+    // 👇 access to the store if needed
+    (store) =>
+      mutation({
+        // 👇 expose a method: store.mutateUserEmail({ id: '5', email:  'mutated@test.com', });
+        method: ({ id, email }: { id: string; email: string }) => ({
+          id,
+          email,
+        }),
+        loader: ({ params }) => store._api.updateEmail(params),
+      })
+  ),
+  withQuery(
+    "user",
+    // 👇 access to the store
+    (store) =>
+      query({
+        params: store.userSelected,
+        loader: ({ params: { id } }) => store._api.getUser(id),
+      }),
+    // 👇 access to the store if needed
+    (store) => ({
+      associatedClientState: {
+        user: true, // will update the state.user to with the fetchUser data
+      },
+      on: {
+        userEmailMutation: {
+          // 👇 Perform optimistic update each time the mutation is loading
+          optimisticUpdate: ({ queryResource, mutationParams }) => {
+            return {
+              ...queryResource.value(),
+              email: mutationParams.email,
+            };
+          },
+          // 👇 Perform optimistic patch each time the mutation is loading
+          optimisticPatch: {
+            email: ({ mutationParams }) => mutationParams?.email,
+          },
+          reload: {
+            onMutationError: true, //👈 Reload the query if the mutation failed
+          },
+        },
+      },
+    })
+  )
+);
 
-## Global Query
-
-### Using global query
-
-How to use global queries in Signal Store.
-
-### Persister
-
-Explanation of persister functionality for global queries.
-
-### Mutate global query
-
-How to mutate global queries.
-
-### Feature prefix
-
-Using feature prefixes with global queries.
-
-## Parallel Queries & Mutations
-
-Managing parallel queries and mutations in Signal Store.
-
-## Paginated Query
-
-Implementing paginated queries in Signal Store.
-
-## Server State Store
-
-Overview and usage of Server State Store in Signal Store.
+// Inject the store and use the query resource
+const store = inject(Store);
+// store.userQuery (expose the `ResourceRef API`)
+const user = store.userQuery.value(); // Access the fetched user
+const status = store.userQuery.status(); // 'idle', 'loading', 'resolved', 'error'
+// trigger a mutation
+store.mutateUserEmail({ id: "5", email: "mutated@test.com" });
+```
