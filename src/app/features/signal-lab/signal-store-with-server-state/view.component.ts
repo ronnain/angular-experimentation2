@@ -32,8 +32,8 @@ import { rxQuery } from './rx-query';
 import { rxMutation } from './rx-mutation';
 import { ServerStateStore } from './server-state-store';
 import { SignalProxy } from './signal-proxy';
-import { cachedQueryKeysFactory } from './global-query/global-queries';
 import { query } from './query';
+import { globalQueries } from './global-query/global-queries';
 
 const { injectPluggableUserServerState, PluggableUserServerStateStore } =
   ServerStateStore(
@@ -170,7 +170,7 @@ const testQueryById = signalStore(
     })
   )
 );
-const { withUserQuery } = cachedQueryKeysFactory({
+const { withUserQuery } = globalQueries({
   queries: {
     user: {
       query: ({ id }: SignalProxy<{ id: string | undefined }>) =>
