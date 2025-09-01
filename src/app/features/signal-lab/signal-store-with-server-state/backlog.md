@@ -12,6 +12,7 @@ Ajout des tests manquants en même temps
 
 ## Feature
 
+- gérer les mutations qui se lancent mais on n'a pas le résultat (car on a refresh la page avant)
 - returned source should be an object, it will be easier for improvments
 - ajouter inject dans cachedQueries
 - todo inject global queries directly & tester une seule instance shared

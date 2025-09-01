@@ -110,7 +110,10 @@ In a component, you can use the pluggable API:
 
 ```typescript
 @Component(...) class UserComponent {
-    readonly userId = input<string>(); // It may be linked to a parameter in the url
+    // The Angular router will automatically bind userId
+    // as `withComponentInputBinding` is added to `provideRouter`.
+    // See https://angular.dev/api/router/withComponentInputBinding
+    readonly userId = input<string>();
     readonly userQueryResource = injectUserQuery((source) => ({ id: this.userId }));
 }
 

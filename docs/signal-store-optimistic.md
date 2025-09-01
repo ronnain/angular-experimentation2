@@ -72,3 +72,13 @@ withQuery(
 - `optimisticPatch`: Patch specific fields in the query value.
 - `reload`: Reload the query when the mutation is loading or resolved.
 - `filter`: Target specific queries by identifier. (Mandatory when working with a `queryById` or `mutationById`)
+
+## Data Flow Principle - Best Practices
+
+Query state represents the server state in your application. When a query state changes, any associated client state is automatically updated. For the most efficient workflow:
+
+1. Associate query results with dedicated client state
+2. When performing mutations, use optimistic updates on the query state
+3. Let the changes automatically flow to the client state
+
+This approach maintains a single source of truth and ensures consistency between server and client representations.

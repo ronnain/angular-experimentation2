@@ -57,11 +57,7 @@ describe('withMutationById', () => {
     type ExpectUserQueryToBeAnObjectWithResourceByIdentifier = Expect<
       Equal<
         typeof store.userMutationById,
-        (() => {
-          [x: string]: ResourceRef<User> | undefined;
-        }) & {
-          [SIGNAL]: unknown;
-        }
+        ResourceByIdRef<string, NoInfer<User>>
       >
     >;
   });
@@ -343,11 +339,7 @@ describe('withMutationById', () => {
     type ExpectUserQueryToBeAnObjectWithResourceByIdentifier = Expect<
       Equal<
         typeof store.userMutationById,
-        (() => {
-          [x: string]: ResourceRef<User> | undefined;
-        }) & {
-          [SIGNAL]: unknown;
-        }
+        ResourceByIdRef<string, NoInfer<User>>
       >
     >;
   });
@@ -374,7 +366,7 @@ describe('withMutationById', () => {
             identifier: (params) => params,
           }),
         (store) => ({
-          state: {
+          associatedClientState: {
             usersFetched: ({
               queryParams,
               queryResource,

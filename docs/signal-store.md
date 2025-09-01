@@ -1,18 +1,20 @@
-# Signal Store - Overview
+# ng-query in Signal Store - Overview
 
 If the Angular `resource` are not enough for you, you may appreciate this tool that provide utilities function to handle server state management in declarative and reactive way.
 
 :::info
+This tool evolves continuously based on community feedback and needs. The initial version required overcoming significant TypeScript challenges to integrate properly with `signalStore`. Having addressed these foundational typing complexities, this tool is now well-positioned for future enhancements and feature additions.
+:::
 
 ## Why You May Need This Tool
 
 Signal Store for Server State simplifies complex data operations with features like:
 
 - Declarative optimistic updates for responsive UIs
-- Automatic query reloading after failed mutations
+- Automatic query reloading
 - Seamless integration between client and server state
 - Centralized management of loading, error, and success states
-  :::
+- Easy to use with CRUD or BFF (backend for frontend)
 
 ## Why Signal Store for Server State?
 

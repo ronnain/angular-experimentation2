@@ -108,7 +108,7 @@ export type QueryByIdOptions<
    * a function is required.
    * - If the function is requested without the real needs, you may declare deliberately the store as a parameter of the option factory.
    */
-  state?: BooleanOrMapperFnByPathById<
+  associatedClientState?: BooleanOrMapperFnByPathById<
     NoInfer<Input>['state'],
     NoInfer<ResourceState>,
     NoInfer<ResourceParams>,
@@ -247,7 +247,7 @@ export function withQueryById<
         const queryOptions = optionsFactory?.(store as unknown as StoreInput);
 
         const associatedClientStates = Object.entries(
-          (queryOptions?.state ?? {}) as Record<
+          (queryOptions?.associatedClientState ?? {}) as Record<
             string,
             | boolean
             | AssociatedStateMapperFnById<

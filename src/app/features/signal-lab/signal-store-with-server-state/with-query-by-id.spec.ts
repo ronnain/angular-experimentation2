@@ -15,7 +15,6 @@ import {
   ResourceRef,
   runInInjectionContext,
 } from '@angular/core';
-import { SIGNAL } from '@angular/core/primitives/signals';
 import { ResourceByIdRef } from '../resource-by-id';
 import { queryById } from './query-by-id';
 import { withMutation } from './with-mutation';
@@ -132,7 +131,7 @@ describe('withQueryById', () => {
             identifier: (params) => params,
           }),
         (store) => ({
-          state: {
+          associatedClientState: {
             usersFetched: ({
               queryParams,
               queryResource,
@@ -668,7 +667,7 @@ describe('withQueryById', () => {
             identifier: (params) => params,
           }),
         (store) => ({
-          state: {
+          associatedClientState: {
             usersFetched: ({
               queryParams,
               queryResource,

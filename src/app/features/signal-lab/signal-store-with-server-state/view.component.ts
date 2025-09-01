@@ -142,7 +142,7 @@ const testQueryById = signalStore(
         identifier: (params) => params,
       }),
     (store) => ({
-      state: {
+      associatedClientState: {
         users: ({
           queryParams,
           queryResource,
