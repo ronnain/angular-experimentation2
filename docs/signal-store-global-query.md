@@ -61,6 +61,27 @@ Global queries provide a way to define, cache, and reuse query logic across mult
    private readonly userQueryResource = injectUserQuery();
    ```
 
+4. **React to mutation**
+   All the default options of the queries are usable with global queries. It is possible to react to a mutation, or a mutation to mutate a query state.
+
+```typescript{11-13}
+signalStore(
+      { providedIn: 'root' },
+      withState({ selected: '1' }),
+      withMutation('name', () =>
+        rxMutation({
+          method: (name: string) => name,
+          stream: ({ params }) => of({ id: '4', name: params }),
+        })
+      ),
+      withUserQuery((store) => ({
+        on: {
+          nameMutation: {...},
+        },
+      }))
+    );
+```
+
 ## Features
 
 ### Plugging data from component or signalStore
@@ -88,7 +109,11 @@ const store = signalStore(withUserQuery((store) => ({ setQuerySource: (source) =
 In a component, you can use the pluggable API:
 
 ```typescript
-const userQueryResource = injectUserQuery((source) => ({ id: componentSelectedId }));
+@Component(...) class UserComponent {
+    readonly userId = input<string>(); // It may be linked to a parameter in the url
+    readonly userQueryResource = injectUserQuery((source) => ({ id: this.userId }));
+}
+
 ```
 
 ### Injecting a service

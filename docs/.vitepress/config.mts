@@ -27,14 +27,6 @@ export default defineConfig({
             items: [
               { text: "Overview", link: "/signal-store-global-query" },
               { text: "Persister", link: "/signal-store-global-persister" },
-              {
-                text: "Mutate global query",
-                link: "/signal-store-global-mutate",
-              },
-              {
-                text: "Feature prefix",
-                link: "/signal-store-global-feature-prefix",
-              },
             ],
           },
           {
