@@ -3,9 +3,16 @@
 If the Angular `resource` are not enough for you, you may appreciate this tool that provide utilities function to handle server state management in declarative and reactive way.
 
 :::info
-Why you may needs this tool ?
-If you want to easily perform optimistic update, reload your query when a mutation failed...
-:::
+
+## Why You May Need This Tool
+
+Signal Store for Server State simplifies complex data operations with features like:
+
+- Declarative optimistic updates for responsive UIs
+- Automatic query reloading after failed mutations
+- Seamless integration between client and server state
+- Centralized management of loading, error, and success states
+  :::
 
 ## Why Signal Store for Server State?
 

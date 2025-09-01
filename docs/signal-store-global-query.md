@@ -1,4 +1,4 @@
-# Global Query
+# Global Queries
 
 Global queries provide a way to define, cache, and reuse query logic across multiple signal stores and components. The goal is to centralize query definitions, enable shared caching, and simplify integration of common data sources throughout your application.
 

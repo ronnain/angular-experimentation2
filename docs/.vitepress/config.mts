@@ -23,7 +23,7 @@ export default defineConfig({
             link: "/signal-store-optimistic",
           },
           {
-            text: "Global Query",
+            text: "Global Queries",
             items: [
               { text: "Overview", link: "/signal-store-global-query" },
               { text: "Persister", link: "/signal-store-global-persister" },
