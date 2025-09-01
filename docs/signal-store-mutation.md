@@ -1,12 +1,14 @@
 # Mutation
 
+// todo import link
+
 ## What is a Mutation?
 
 A mutation in Signal Store is mainly used to update a server state (with POST, PUT, DELETE requests). Mutations are declarative and reactive, type-safe, and can be linked to queries for automatic UI updates, optimistic updates, and error handling.
 
 ## How to Use a Mutation
 
-Define a mutation in your Signal Store using the `withMutation` feature. Specify the mutation name, a factory function that returns a mutation configuration, and optionally, options for linking the mutation to queries (optimistic updates, reloads, etc, check the next section for more info).
+Define a mutation in your Signal Store using the `withMutation` feature. Specify the mutation name, a function `mutation` or `rxMutation`, and optionally, options for linking the mutation to queries (optimistic updates, reloads, etc, check the next section for more info).
 
 ::: danger
 Both `mutation` and `rxMutation` relies on signal source, only the last value emitted in very short period of time is considered. (A possible evolution is creating a `withRxMutation` associated with `rxMutation`that relies on observables).

@@ -1,4 +1,4 @@
-# Signal Store - Quick Start
+# Signal Store - Overview
 
 If the Angular `resource` are not enough for you, you may appreciate this tool that provide utilities function to handle server state management in declarative and reactive way.
 
@@ -7,9 +7,17 @@ Why you may needs this tool ?
 If you want to easily perform optimistic update, reload your query when a mutation failed...
 :::
 
-By adding a server state management tool directly inside the `signalStore` provide a no brainer way to deal with query and mutation. For more complex case, you can easily associate a state with a query state, that allow you to profit of the power of the signalStore to handle client state.
+## Why Signal Store for Server State?
 
-Quick start overview : Handle server state management inside the `signalStore`
+Integrating server state management directly within `signalStore` provides a seamless approach to handling queries and mutations. This integration offers a declarative and reactive pattern that simplifies complex server interactions.
+
+For more advanced scenarios, you can associate client state with query state, leveraging the full power of Signal Store for a unified state management solution that handles both client and server concerns elegantly.
+
+## Current Implementation Details
+
+This implementation is built on Angular's `signals` using a state-driven approach. While this offers a fully synchronous solution with predictable behavior, it comes with certain limitations compared to Observable-based patterns (event driven approach). For more information about the differences between pull-based signals and push-based observables, see this [detailed article](https://dev.to/lcsga/les-signals-angular-ne-remplacent-pas-les-observables-push-vs-pull-4jk1).
+
+### Quick start overview : Handle server state management inside the `signalStore`
 
 ```typescript
 import { signalStore, withQuery } from "@ngrx/signals";
