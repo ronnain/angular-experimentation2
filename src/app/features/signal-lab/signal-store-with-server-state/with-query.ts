@@ -3,6 +3,7 @@ import {
   Injector,
   ResourceRef,
   Signal,
+  WritableSignal,
   effect,
   inject,
   linkedSignal,
@@ -19,22 +20,17 @@ import {
   WritableStateSource,
 } from '@ngrx/signals';
 import { InternalType } from './types/util.type';
-import { Merge } from '../../../util/types/merge';
-import {
-  createNestedStateUpdate,
-  getNestedStateValue,
-} from './core/update-state.util';
-import { OptimisticPatchQueryFn } from './types/shared.type';
+import { createNestedStateUpdate } from './core/update-state.util';
 import { __InternalSharedMutationConfig } from './with-mutation';
 import {
   AssociatedStateMapperFn,
   BooleanOrMapperFnByPath,
 } from './types/boolean-or-mapper-fn-by-path.type';
 import {
+  ExtendsFactory,
   QueryDeclarativeEffect,
   setOptimisticPatchFromMutationOnQueryValue,
   setOptimisticUpdateFromMutationOnQueryValue,
-  triggerQueryReloadFromMutationChange,
   triggerQueryReloadOnMutationStatusChange,
 } from './core/query.core';
 import { ResourceByIdRef } from '../resource-by-id';
@@ -50,26 +46,26 @@ type WithQueryOutputStoreConfig<
   ResourceState extends object | undefined,
   ResourceParams,
   ResourceArgsParams,
-  IsGroupedByGroup
+  IsGroupedByGroup,
+  ExtendedOutputs extends Record<string, unknown>
 > = {
   state: {};
-  props: Merge<
-    {
-      [key in `${ResourceName & string}Query`]: ResourceRef<ResourceState>;
-    },
-    {
-      __query: {
-        [key in ResourceName & string]: Prettify<
-          InternalType<
-            ResourceState,
-            ResourceParams,
-            ResourceArgsParams,
-            IsGroupedByGroup
-          >
-        >;
-      };
-    }
-  >;
+  props: {
+    [key in `${ResourceName & string}Query`]: ResourceRef<ResourceState> &
+      ExtendedOutputs;
+  } & {
+    __query: {
+      [key in ResourceName & string]: Prettify<
+        InternalType<
+          ResourceState,
+          ResourceParams,
+          ResourceArgsParams,
+          IsGroupedByGroup
+        >
+      >;
+    };
+  };
+
   methods: {};
 };
 
@@ -84,6 +80,7 @@ export type QueryOptions<
   ResourceState extends object | undefined,
   ResourceParams,
   ResourceArgsParams,
+  ExtendedOutputs extends Record<string, unknown>,
   OtherProperties extends Record<string, unknown> = {}
 > = (store: NoInfer<StoreInput>) => {
   /**
@@ -137,7 +134,7 @@ export type QueryOptions<
     : never;
 } & {
   [key in keyof OtherProperties]: OtherProperties[key];
-};
+} & ExtendsFactory<Input, ResourceState, ResourceParams, ExtendedOutputs>;
 
 /**
  *
@@ -156,7 +153,8 @@ export function withQuery<
       Input['props'] &
       Input['methods'] &
       WritableStateSource<Prettify<Input['state']>>
-  >
+  >,
+  ExtendedOutputs extends Record<string, unknown> = {}
 >(
   resourceName: ResourceName,
   queryFactory: (
@@ -181,7 +179,8 @@ export function withQuery<
     Input,
     ResourceState,
     ResourceParams,
-    ResourceArgsParams
+    ResourceArgsParams,
+    ExtendedOutputs
   >
 ): SignalStoreFeature<
   Input,
@@ -190,7 +189,8 @@ export function withQuery<
     ResourceState,
     ResourceParams,
     ResourceArgsParams,
-    false
+    false,
+    ExtendedOutputs
   >
 > {
   return ((context: SignalStoreFeatureResult) => {
@@ -422,7 +422,8 @@ export function withQuery<
       ResourceState,
       ResourceParams,
       ResourceArgsParams,
-      false
+      false,
+      ExtendedOutputs
     >
   >;
 }

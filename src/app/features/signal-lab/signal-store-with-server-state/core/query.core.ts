@@ -1,4 +1,9 @@
-import { ResourceRef, ResourceStatus, Signal } from '@angular/core';
+import {
+  ResourceRef,
+  ResourceStatus,
+  Signal,
+  WritableSignal,
+} from '@angular/core';
 import {
   CustomReloadOnSpecificMutationStatus,
   FilterQueryById,
@@ -13,6 +18,7 @@ import {
   createNestedStateUpdate,
 } from './update-state.util';
 import { MergeObjects } from '../types/util.type';
+import { SignalStoreFeatureResult } from '@ngrx/signals';
 
 export type QueryDeclarativeEffect<
   QueryAndMutationRecord extends QueryAndMutationRecordConstraints
@@ -438,3 +444,16 @@ export function setOptimisticUpdateFromMutationOnQueryValue<
       queryResource.set(updatedValue);
     });
 }
+
+export type ExtendsFactory<
+  StoreInput extends SignalStoreFeatureResult,
+  ResourceState extends object | undefined,
+  ResourceParams,
+  ExtendedOutputs extends Record<string, unknown>
+> = {
+  extends?: (context: {
+    input: StoreInput;
+    resource: ResourceRef<ResourceState>;
+    resourceParams: WritableSignal<ResourceParams>;
+  }) => ExtendedOutputs;
+};
