@@ -88,6 +88,43 @@ describe('withQuery using rxQuery', () => {
 
     expect(store.userQuery).toBeDefined();
   });
+
+  describe('rxQuery extended output', () => {
+    it('should accept an extended output, that appear in the store', () => {
+      const Store = signalStore(
+        {
+          providedIn: 'root',
+        },
+        signalStoreFeature(
+          withState({}),
+          withQuery('user', () =>
+            rxQuery(
+              {
+                params: () => '5',
+                stream: ({ params }) => {
+                  return of({
+                    id: params,
+                    name: 'John Doe',
+                    email: 'test@a.com',
+                  });
+                },
+              },
+              () => ({
+                pagination: {
+                  page: 1,
+                },
+              })
+            )
+          )
+        )
+      );
+      TestBed.runInInjectionContext(() => {
+        const store = TestBed.inject(Store);
+        expect(store.userQuery.pagination).toEqual({ page: 1 });
+        expect(store.userQuery.pagination).toBeDefined();
+      });
+    });
+  });
 });
 
 describe('Declarative server state, withQuery using rxQuery and withMutation', () => {

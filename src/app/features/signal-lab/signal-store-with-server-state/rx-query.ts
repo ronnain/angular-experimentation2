@@ -21,17 +21,24 @@ export function rxQuery<
       Input['props'] &
       Input['methods'] &
       WritableStateSource<Prettify<Input['state']>>
-  >
+  >,
+  ExtendedOutput
 >(
   queryConfig: Omit<
     RxResourceWithParamsOrParamsFn<QueryState, QueryParams, QueryArgsParams>,
     'method'
-  >
+  >,
+  extended?: (args: {
+    input: Input;
+    store: StoreInput;
+    resource: any;
+    resourceParams: any;
+  }) => ExtendedOutput
 ): ((
   store: StoreInput,
   context: Input
 ) => {
-  queryRef: QueryRef<NoInfer<QueryState>, NoInfer<QueryParams>>;
+  queryRef: QueryRef<NoInfer<QueryState>, NoInfer<QueryParams>, ExtendedOutput>;
   /**
    * Only used to help type inference, not used in the actual implementation.
    */
@@ -60,6 +67,13 @@ export function rxQuery<
     queryRef: {
       resource: queryResource,
       resourceParamsSrc: resourceParamsSrc as Signal<QueryParams | undefined>,
+      extendedOutputs:
+        extended?.({
+          input: context,
+          store: store,
+          resource: queryResource,
+          resourceParams: resourceParamsSrc,
+        }) ?? ({} as ExtendedOutput),
     },
     __types: {} as InternalType<
       NoInfer<QueryState>,
