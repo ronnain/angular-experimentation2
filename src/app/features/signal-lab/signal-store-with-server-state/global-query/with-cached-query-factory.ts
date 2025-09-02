@@ -13,13 +13,15 @@ import {
   QueryByIdRef,
   withQueryById,
 } from '../with-query-by-id';
+import { unknown } from 'arktype/internal/keywords/ts.ts';
 
 export function withCachedQueryToPlugFactory<
   const QueryName extends string,
   QueryState extends object | undefined,
   QueryParams,
   PlugData extends object,
-  IsPluggableQuery
+  IsPluggableQuery,
+  ExtendedOutputs extends Record<string, unknown> = {}
 >(
   name: QueryName,
   querySourceProxy: SignalProxy<PlugData, true>,
@@ -43,6 +45,7 @@ export function withCachedQueryToPlugFactory<
       QueryState,
       QueryParams,
       unknown,
+      ExtendedOutputs,
       {
         setQuerySource?: IsPluggableQuery extends true
           ? (
@@ -75,7 +78,8 @@ export function withCachedQueryByIdToPlugFactory<
   QueryParams,
   PlugData extends object,
   GroupIdentifier extends string | number,
-  IsPluggableQuery
+  IsPluggableQuery,
+  ExtendedOutputs extends Record<string, unknown> = {}
 >(
   name: QueryName,
   querySourceProxy: SignalProxy<PlugData, true>,
@@ -106,6 +110,7 @@ export function withCachedQueryByIdToPlugFactory<
       QueryParams,
       GroupIdentifier,
       unknown,
+      ExtendedOutputs,
       {
         setQuerySource?: IsPluggableQuery extends true
           ? (
@@ -118,6 +123,7 @@ export function withCachedQueryByIdToPlugFactory<
     return withQueryById(
       name,
       (store, injector) => {
+        const opt = options?.(store);
         const setQuerySource = options?.(store)?.setQuerySource;
         if (setQuerySource) {
           const source = options?.(store)?.setQuerySource?.(
