@@ -26,6 +26,8 @@ For more advanced scenarios, you can associate client state with query state, le
 
 This implementation is built on Angular's `signals` using a state-driven approach. While this offers a fully synchronous solution with predictable behavior, it comes with certain limitations compared to Observable-based patterns (event driven approach). For more information about the differences between pull-based signals and push-based observables, see this [detailed article](https://dev.to/lcsga/les-signals-angular-ne-remplacent-pas-les-observables-push-vs-pull-4jk1).
 
+> RxJs is optional, but may be required for handling more advanced case (for retry strategy, interval...)
+
 ### Quick start overview : Handle server state management inside the `signalStore`
 
 ```typescript
