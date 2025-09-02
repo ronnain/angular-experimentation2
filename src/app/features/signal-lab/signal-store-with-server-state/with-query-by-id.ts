@@ -93,7 +93,6 @@ export type QueryByIdOptions<
   ResourceParams,
   GroupIdentifier extends string | number,
   ResourceArgsParams,
-  ExtendedOutputs extends Record<string, unknown>,
   OtherProperties extends Record<string, unknown> = {}
 > = (store: StoreInput) => {
   // Exclude path from the MergeObject, it will enable the const type inference, otherwise it will be inferred as string
@@ -150,7 +149,7 @@ export type QueryByIdOptions<
     : never;
 } & {
   [key in keyof OtherProperties]: OtherProperties[key];
-} & ExtendsFactory<Input, ResourceState, ResourceParams, ExtendedOutputs>;
+};
 
 /**
  *

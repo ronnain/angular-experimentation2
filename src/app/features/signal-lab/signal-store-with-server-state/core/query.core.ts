@@ -446,14 +446,14 @@ export function setOptimisticUpdateFromMutationOnQueryValue<
 }
 
 export type ExtendsFactory<
-  StoreInput extends SignalStoreFeatureResult,
+  Input extends SignalStoreFeatureResult,
+  StoreInput,
   ResourceState extends object | undefined,
   ResourceParams,
-  ExtendedOutputs extends Record<string, unknown>
-> = {
-  extends?: (context: {
-    input: StoreInput;
-    resource: ResourceRef<ResourceState>;
-    resourceParams: WritableSignal<ResourceParams>;
-  }) => ExtendedOutputs;
-};
+  ExtendedOutputs
+> = (context: {
+  input: Input;
+  store: StoreInput;
+  resource: ResourceRef<ResourceState>;
+  resourceParams: WritableSignal<ResourceParams>;
+}) => ExtendedOutputs;

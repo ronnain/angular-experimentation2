@@ -7,8 +7,16 @@ import {
 import { ResourceWithParamsOrParamsFn } from './types/resource-with-params-or-params-fn.type';
 import { InternalType } from './types/util.type';
 import { QueryRef } from './with-query';
-import { resource, ResourceOptions, Signal, signal } from '@angular/core';
+import {
+  resource,
+  ResourceOptions,
+  ResourceRef,
+  Signal,
+  signal,
+  WritableSignal,
+} from '@angular/core';
 import { __INTERNAL_QueryBrand } from './types/brand';
+import { ExtendsFactory } from './core/query.core';
 
 export function query<
   QueryState extends object | undefined,
@@ -20,17 +28,25 @@ export function query<
       Input['props'] &
       Input['methods'] &
       WritableStateSource<Prettify<Input['state']>>
-  >
+  >,
+  ExtendedOutput
 >(
   queryConfig: Omit<
     ResourceWithParamsOrParamsFn<QueryState, QueryParams, QueryArgsParams>,
     'method'
+  >,
+  extended?: ExtendsFactory<
+    NoInfer<Input>,
+    NoInfer<StoreInput>,
+    NoInfer<QueryState>,
+    NoInfer<QueryParams>,
+    ExtendedOutput
   >
 ): (
   store: StoreInput,
   context: Input
 ) => {
-  queryRef: QueryRef<NoInfer<QueryState>, NoInfer<QueryParams>>;
+  queryRef: QueryRef<NoInfer<QueryState>, NoInfer<QueryParams>, ExtendedOutput>;
   /**
    * Only used to help type inference, not used in the actual implementation.
    */
@@ -57,6 +73,13 @@ export function query<
     queryRef: {
       resource: queryResource,
       resourceParamsSrc: resourceParamsSrc as Signal<QueryParams | undefined>,
+      extendedOutputs:
+        extended?.({
+          input: context,
+          store: store,
+          resource: queryResource as ResourceRef<NoInfer<QueryState>>,
+          resourceParams: resourceParamsSrc as WritableSignal<QueryParams>,
+        }) ?? ({} as ExtendedOutput),
     },
     __types: {} as InternalType<
       NoInfer<QueryState>,

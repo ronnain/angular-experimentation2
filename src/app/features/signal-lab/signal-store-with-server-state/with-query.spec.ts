@@ -9,6 +9,7 @@ import {
 import { withQuery } from './with-query';
 import {
   ApplicationRef,
+  inject,
   ResourceRef,
   ResourceStreamItem,
   signal,
@@ -19,7 +20,7 @@ import { query } from './query';
 import { mutation } from './mutation';
 import { withMutationById } from './with-mutation-by-id';
 import { rxMutationById } from './rx-mutation-by-id';
-import { vi } from 'vitest';
+import { expectTypeOf, vi } from 'vitest';
 
 type User = {
   id: string;
@@ -612,6 +613,45 @@ describe('Declarative server state, withQuery and withMutation', () => {
     await vi.runAllTimersAsync();
     expect(userQuery5ReloadSpy.mock.calls.length).toBe(2);
     vi.restoreAllMocks();
+  });
+
+  it('should accept an extended output, that appear in the store', () => {
+    const Store = signalStore(
+      {
+        providedIn: 'root',
+      },
+      withQuery('user', () =>
+        query(
+          {
+            params: () => '5',
+            loader: ({ params }) => {
+              return lastValueFrom(
+                of({
+                  id: params,
+                  name: 'John Doe',
+                  email: 'test@a.com',
+                } satisfies User)
+              );
+            },
+          },
+          (data) => {
+            console.log('data', data);
+            return {
+              pagination: {
+                page: 1,
+              },
+            };
+          }
+        )
+      )
+    );
+    TestBed.runInInjectionContext(() => {
+      const store = inject(Store);
+      expectTypeOf(store.userQuery.pagination).toEqualTypeOf<{
+        page: number;
+      }>();
+      expect(store.userQuery.pagination).toBeDefined();
+    });
   });
 });
 
