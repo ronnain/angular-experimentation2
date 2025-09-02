@@ -6,6 +6,7 @@ export default defineConfig({
   description: "ng-query is a server state management tool",
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
+    logo: "/assets/favicon.png",
     nav: [
       { text: "Home", link: "/" },
       { text: "Docs", link: "/markdown-examples" },
@@ -50,4 +51,5 @@ export default defineConfig({
       { icon: "github", link: "https://github.com/vuejs/vitepress" },
     ],
   },
+  head: [["link", { rel: "icon", href: "/assets/favicon.png" }]],
 });

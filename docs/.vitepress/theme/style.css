@@ -106,7 +106,8 @@
 
 .gradient-hover:hover,
 .vp-doc a:hover,
-.VPLink:hover .title {
+.VPLink:hover .title,
+.VPNavBarTitle:hover span {
   background-image: var(--vp-c-brand-gradient-hover);
   -webkit-background-clip: text;
   background-clip: text;
@@ -156,6 +157,9 @@
 .VPSidebarItem .VPLink .text {
   width: fit-content;
   max-width: fit-content;
+}
+.VPHomeHero .image-bg {
+  opacity: 25%;
 }
 
 /**
