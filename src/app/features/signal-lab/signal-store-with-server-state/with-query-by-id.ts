@@ -5,7 +5,6 @@ import {
   Injector,
   linkedSignal,
   ResourceRef,
-  ResourceStatus,
   Signal,
   untracked,
 } from '@angular/core';
@@ -19,16 +18,8 @@ import {
   withProps,
   WritableStateSource,
 } from '@ngrx/signals';
-import { InternalType, MergeObjects } from './types/util.type';
+import { InternalType } from './types/util.type';
 import { Merge } from '../../../util/types/merge';
-import {
-  OptimisticPathMutationQuery,
-  ReloadQueriesConfig,
-  QueryAndMutationRecordConstraints,
-  FilterQueryById,
-  OptimisticPatchQueryFn,
-  CustomReloadOnSpecificMutationStatus,
-} from './types/shared.type';
 import { __InternalSharedMutationConfig } from './with-mutation';
 import { ResourceByIdRef } from '../resource-by-id';
 import {
@@ -38,6 +29,7 @@ import {
 import { nestedEffect } from './types/util';
 import { createNestedStateUpdate } from './core/update-state.util';
 import {
+  ExtendsFactory,
   QueryDeclarativeEffect,
   setOptimisticPatchFromMutationOnQueryValue,
   setOptimisticUpdateFromMutationOnQueryValue,
@@ -60,7 +52,8 @@ type WithQueryByIdOutputStoreConfig<
   ResourceState extends object | undefined,
   ResourceParams,
   ResourceArgsParams,
-  GroupIdentifier extends string | number
+  GroupIdentifier extends string | number,
+  ExtendedOutputs extends Record<string, unknown>
 > = {
   state: {};
   props: Merge<
@@ -68,7 +61,8 @@ type WithQueryByIdOutputStoreConfig<
       [key in `${ResourceName & string}QueryById`]: ResourceByIdRef<
         GroupIdentifier,
         ResourceState
-      >;
+      > &
+        ExtendedOutputs;
     },
     {
       __query: {
@@ -99,6 +93,7 @@ export type QueryByIdOptions<
   ResourceParams,
   GroupIdentifier extends string | number,
   ResourceArgsParams,
+  ExtendedOutputs extends Record<string, unknown>,
   OtherProperties extends Record<string, unknown> = {}
 > = (store: StoreInput) => {
   // Exclude path from the MergeObject, it will enable the const type inference, otherwise it will be inferred as string
@@ -155,7 +150,7 @@ export type QueryByIdOptions<
     : never;
 } & {
   [key in keyof OtherProperties]: OtherProperties[key];
-};
+} & ExtendsFactory<Input, ResourceState, ResourceParams, ExtendedOutputs>;
 
 /**
  *
@@ -189,7 +184,8 @@ export function withQueryById<
       Input['props'] &
       Input['methods'] &
       WritableStateSource<Prettify<Input['state']>>
-  >
+  >,
+  ExtendedOutputs extends Record<string, unknown> = {}
 >(
   resourceName: ResourceName,
   queryFactory: (
@@ -219,7 +215,8 @@ export function withQueryById<
     ResourceState,
     ResourceParams,
     GroupIdentifier,
-    ResourceArgsParams
+    ResourceArgsParams,
+    ExtendedOutputs
   >
 ): SignalStoreFeature<
   Input,
@@ -228,7 +225,8 @@ export function withQueryById<
     ResourceState,
     ResourceParams,
     ResourceArgsParams,
-    GroupIdentifier
+    GroupIdentifier,
+    ExtendedOutputs
   >
 > {
   return ((context: SignalStoreFeatureResult) => {
@@ -513,7 +511,8 @@ export function withQueryById<
       ResourceState,
       ResourceParams,
       ResourceArgsParams,
-      GroupIdentifier
+      GroupIdentifier,
+      ExtendedOutputs
     >
   >;
 }
